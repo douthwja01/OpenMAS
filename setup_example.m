@@ -21,37 +21,41 @@ addpath('scenarios');
 fprintf('|| Assigning agent definitions:\n');
 agentNumber = 5;                                                           % The number of instances of the given test objects
 for index = 1:agentNumber
-%     agentIndex{index} = agent_test();
-%     agentIndex{index} = agent_example();
-    agentIndex{index} = agent_VO();
+%     agentIndex{index} = agent();
+%     agentIndex{index} = agent_2D();
+
+    agentIndex{index} = agent_example();
+    
+%     agentIndex{index} = agent_VO();
 %     agentIndex{index} = agent_RVO();
 %     agentIndex{index} = agent_HRVO();                                    % Try out some of the working instances
 %     agentIndex{index} = agent_vectorSharing();                           % Define a cell array of test objects (full list available in /objects)
 end
 
 %% 2. GET A PRE-DEFINED CONCENTRIC SCENARIO
-objectIndex = getScenario_concentric('agents',agentIndex,...               % The list of agent objects (agent_example,agent_example)
-                                     'radius',50,...                       % The radius of the agent distribution
-                                     'velocities',5,...                    % Define the initial forward velocity of the agents
-                                     'plot',0);                            % Request the scenario be plotted
+objectIndex = getScenario_concentricRing('agents',agentIndex,...               % The list of agent objects (agent_example,agent_example)
+                                         'radius',50,...                       % The radius of the agent distribution
+                                         'velocities',5,...                    % Define the initial forward velocity of the agents
+                                         'plot',0);                            % Request the scenario be plotted
 
 % BUILD GLOBAL OBJECT SET
 clearvars -except objectIndex                                              % Clean up
 
 %% 3. DEFINE THE SIMULATION PARAMETERS
 % A full list of the available figures can be found in:
-% /environment/simulation_figureIndex.m
+% /environment/OMAS_figureIndex.m
 % figureSet = {'all'};
-figureSet = {'eventoverview','isometric'}; 
+figureSet = {'events','fig','avi'}; 
 
 %%\\\\\\ INITIALISE THE SIMULATION WITH THE OBJECT INDEX \\\\\\\\\\\\\\\\\\
 % A full list of the available simulation options can be found in:
 % \environment\simulation_initialise.m within 'validateSimulationInputs()'
 
-[DATA,META] = simulation_initialise('objects',objectIndex,...              % Pass the list of initialised object/agents
-                                    'simTime',30,...                       % Pass the max simulation time
-                                         'dt',0.05,...                     % Pass the simulation step size
-                                    'figures',figureSet);                  % Pass the requested figure list
+[DATA,META] = OMAS_initialise('objects',objectIndex,...              % Pass the list of initialised object/agents
+                              'duration',10,...                      % Pass the max simulation time
+                                   'dt',0.2,...                      % Pass the simulation step size
+                            'verbosity',1,...                        % Indicate how much detail is shown
+                              'figures',figureSet);                  % Pass the requested figure list
 
 % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 % clearvars -except DATA META

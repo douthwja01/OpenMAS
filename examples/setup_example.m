@@ -42,7 +42,7 @@ clearvars -except objectIndex                                              % Cle
 % A full list of the available figures can be found in:
 % /environment/simulation_figureIndex.m
 % figureSet = {'all'};
-figureSet = {'eventoverview','isometric'}; 
+figureSet = {'eventoverview','fig'}; 
 
 %%\\\\\\ INITIALISE THE SIMULATION WITH THE OBJECT INDEX \\\\\\\\\\\\\\\\\\
 % A full list of the available simulation options can be found in:

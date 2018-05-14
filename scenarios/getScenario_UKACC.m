@@ -11,12 +11,15 @@ fprintf('[SCENARIO]\tGetting UKACC cocentric evaluation scenario.\n');
 % DEFAULT INPUT CONDITIONS
 defaultConfig = struct('file','scenario.mat',...
                        'agents',[],...
-                       'agentOrbit',15,...
-                       'agentRadius',1,...
+                       'agentOrbit',15,...      
+                       'agentVelocity',0,...
+                       'offsetAngle',0,...
+                       'agentRadius',0.5,...    % Width of 1m
                        'waypoints',[],...
-                       'waypointOrbit',10,...
-                       'waypointRadius',0.5,...
-                       'velocities',0,...
+                       'waypointOrbit',15,...
+                       'waypointOffsetAngle',[],...
+                       'waypointRadius',0.5,... % Diameter of 1m
+                       'noiseFactor',0,...
                        'plot',0);
                    
 % PARSE THE USER OVERRIDES USING THE SCENARIO BUILDER
@@ -27,38 +30,39 @@ agentNumber = numel(agentIndex);                                           % Dec
 
 %% /////////////////// BUILD THE AGENTS GLOBAL STATES /////////////////////
 agentScenario = scenarioBuilder(agentNumber);
-[agentConfig] = agentScenario.planarRing('velocities',inputConfig.velocities,...
+[agentConfig] = agentScenario.planarRing('velocities',inputConfig.agentVelocity,...
                                              'radius',inputConfig.agentOrbit);   
 
 %% REBUILD THE AGENT INDEX UNDER THIS CONFIGURATION
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
-fprintf('[SCENARIO]\tAssigning agent definitions...\n'); 
+fprintf('[SCENARIO]\tAssigning agent global parameters...\n'); 
 for index = 1:agentNumber
     % MODIFY AGENT SIZE
-    agentIndex{index}.VIRTUAL.size = inputConfig.agentRadius;
+    agentIndex{index}.VIRTUAL.radius = inputConfig.agentRadius;
     % APPLY GLOBAL STATE VARIABLES
-    agentIndex{index}.globalPosition = agentConfig.position(:,index);
-    agentIndex{index}.globalVelocity = agentConfig.velocity(:,index);
-    agentIndex{index}.quaternion = agentConfig.quaternion(:,index);
+    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index);
+    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocity(:,index);
+    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternion(:,index);
 end
 
 %% //////////////// BUILD THE WAYPOINT GLOBAL STATES //////////////////////
 % DEFINE THE WAYPOINT CONFIGURATIONS
 waypointPlanarRotation = pi;
-[ waypointConfig] = agentScenario.planarRing('radius',inputConfig.waypointOrbit,...
-                                         'velocities',0,...
-                                          'zeroAngle',waypointPlanarRotation);
+[ waypointConfig] = agentScenario.planarRing('velocities',0,...
+                                                 'radius',inputConfig.waypointOrbit,...
+                                              'zeroAngle',waypointPlanarRotation);
                                         
 % MOVE THROUGH THE WAYPOINTS AND INITIALISE WITH GLOBAL PROPERTIES
-fprintf('[SCENARIO]\tAssigning waypoint definitions:\n'); 
+fprintf('[SCENARIO]\tAssigning waypoints to agents.\n'); 
 waypointIndex = cell(size(agentIndex));
 for index = 1:agentNumber
-    nameString = sprintf('WP:%s',agentIndex{index}.name);
+    nameString = sprintf('WP-%s',agentIndex{index}.name);
     waypointIndex{index} = waypoint('radius',inputConfig.waypointRadius,'priority',1,'name',nameString);
     % APPLY GLOBAL STATE VARIABLES
-    waypointIndex{index}.globalPosition = waypointConfig.position(:,index);
-    waypointIndex{index}.globalVelocity = waypointConfig.velocity(:,index);
-    waypointIndex{index}.quaternion = waypointConfig.quaternion(:,index);
+%     waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.position(:,index) + inputConfig.noiseFactor*randn(3,1);
+    waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.position(:,index) + inputConfig.noiseFactor*randn(3,1);
+    waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocity(:,index);
+    waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternion(:,index);
     waypointIndex{index} = waypointIndex{index}.createAgentAssociation(agentIndex{index});  % Create waypoint with association to agent
 end
 
@@ -73,4 +77,6 @@ if inputConfig.plot
 end
 % CLEAR THE REMAINING VARIABLES
 clearvars -except objectIndex
+% 
+fprintf('[SCENARIO]\tDone.\n'); 
 end

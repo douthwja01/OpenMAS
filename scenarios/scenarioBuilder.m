@@ -149,7 +149,7 @@ classdef scenarioBuilder
             % UPDATE SCENARIO
             obj.name = sprintf('Planar offset angle of %srad.',num2str(offsetAngle));
             
-            %% GENERATE THE NODE(OBJECT) CARTAESIAN POSITIONS      
+            % GENERATE THE NODE(OBJECT) CARTAESIAN POSITIONS      
             % GET THE AXIS VECTOR PROPERTIES
             localXAxis = pointB - pointA;
             unit_axisVector = localXAxis/sqrt(sum(localXAxis.^2));
@@ -165,7 +165,6 @@ classdef scenarioBuilder
             
             % GET THE NODE POINT SET
             nodalAngle = zeroAngle + pi;
-%             nodalAngle = zeroAngle;
             for node = 1:obj.objects
                 % ROTATE THE RADIAL VECTOR TO DEFINE NODAL POSITIONS
                 radialVector = obj.rotateVectorAboutAxis(perpVector,unit_axisVector,nodalAngle);
@@ -185,7 +184,7 @@ classdef scenarioBuilder
                 localTriad(:,3) = obj.unit(unit_axisVector);          % UNIT RING AXIS
                 localTriad(:,2) = obj.unit(cross(localTriad(:,1),localTriad(:,3)));
                 
-                %% STORE THE OBJECTS IN SCENARIO DEFINITION 
+                % STORE THE OBJECTS IN SCENARIO DEFINITION 
                 obj.position(:,node) = globalPosition;
                 obj.velocity(:,node) = velocityMultiplier*unitVelocity;                
                 obj.quaternion(:,node) = transpose(obj.getAnalyticalTriadRotation(obj.globalTriad,localTriad)); % GET THE GLOBAL-BODY QUATERNION
@@ -250,8 +249,8 @@ classdef scenarioBuilder
             XYZ = XYZ';
               
             planarIndices = any(XYZ == 0);
-            nodalPositions = XYZ(:,planarIndices)
-            nodalPositions = nodalPositions(:,1:obj.objects)
+            nodalPositions = XYZ(:,planarIndices);
+            nodalPositions = nodalPositions(:,1:obj.objects);
             
             % ALLOCATE RANDOM SET TO OBJECT GLOBAL POSITIONS
             for index = 1:obj.objects               
@@ -291,6 +290,27 @@ classdef scenarioBuilder
                                     'quaternion',obj.quaternion);            
 
             obj.name = 'Equally spaced spherical distribution.';   
+        end
+        % COCENTRIC HELICAL STATES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [ obj,scenarioConfig ] = helix(obj,varargin)
+            
+            % DEFAULT CONFIGURATION
+            defaultConfig = struct('file','scenario.mat',...
+                                   'radius',10,...
+                                   'waypointRadius',2,...
+                                   'velocities',0,...
+                                   'plot',0);
+            % PARSE CONFIGURATIONS
+            [config] = scenarioBuilder.configurationParser(defaultConfig,varargin)
+            
+            
+            % SAVE THE RESULTING SCENARIO
+            obj.name = 'Cocentric helix.';
+            scenarioConfig = struct('objects',obj.objects,...
+                                    'name',obj.name,...
+                                    'position',obj.position,...
+                                    'velocity',obj.velocity,...
+                                    'quaternion',obj.quaternion);   
         end
         
         % RANDOM SPHERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -371,13 +391,12 @@ classdef scenarioBuilder
             end
             
             % SAVE THE RESULTING SCENARIO
+            obj.name = 'Random cocentric sphere';
             scenarioConfig = struct('objects',obj.objects,...
                                     'name',obj.name,...
                                     'position',obj.position,...
                                     'velocity',obj.velocity,...
                                     'quaternion',obj.quaternion);            
-
-            obj.name = 'Random cocentric sphere';
         end  
         % DEFAULT RANDOM STATE GENERATOR - NORMAL %%%%%%%%%%%%%%%%%%%%%%%%%
         function [ obj,scenarioConfig ] = random(obj)
@@ -447,7 +466,7 @@ classdef scenarioBuilder
                                     'position',obj.position,...
                                     'velocity',obj.velocity,...
                                     'quaternion',obj.quaternion);
-%             save('scenario.mat','scenarioConfig');
+            save('scenario.mat','scenarioConfig');
         end
         % RANDOM (UNIFORM DISTRIBUTION) SCENARIO %%%%%%%%%%%%%%%%%%%%%%%%%%
         function [ obj,scenarioConfig ] = randomUniform(obj)
@@ -676,11 +695,11 @@ classdef scenarioBuilder
             for index = 1:numel(objectIndex)
                 % GET THE OBSTACLES GLOBAL PARAMETERS
                 objectName       = objectIndex{index}.name;
-                objectSize       = objectIndex{index}.VIRTUAL.size;
+                objectRadius     = objectIndex{index}.VIRTUAL.radius;
                 objectType       = objectIndex{index}.VIRTUAL.type;
-                globalPosition   = objectIndex{index}.globalPosition;
-                globalVelocity   = objectIndex{index}.globalVelocity;
-                globalQuaternion = objectIndex{index}.quaternion;
+                globalPosition   = objectIndex{index}.VIRTUAL.globalPosition;
+                globalVelocity   = objectIndex{index}.VIRTUAL.globalVelocity;
+                globalQuaternion = objectIndex{index}.VIRTUAL.quaternion;
                 % GET THE ROTATION MATRIX GOING FROM BODY-GLOBAL
                 [R_q,~] = OMAS_axisTools.quaternionToRotationMatrix(globalQuaternion);
                 % PLOT THE OBJECT ORIENTATION TRIAD
@@ -704,17 +723,17 @@ classdef scenarioBuilder
                 switch objectType
                     case OMAS_objectType.agent
                         % IS AGENT
-                        [X,Y,Z] = scenarioBuilder.drawSphere(globalPosition,objectSize);
+                        [X,Y,Z] = scenarioBuilder.drawSphere(globalPosition,objectRadius);
                         objectColour = 'b';
                         agents = agents + 1;
                     case OMAS_objectType.obstacle
                         % IS OBSTACLE
-                        [X,Y,Z] = scenarioBuilder.drawSphere(globalPosition,objectSize);
+                        [X,Y,Z] = scenarioBuilder.drawSphere(globalPosition,objectRadius);
                         objectColour = 'r';
                         obstacles = obstacles + 1;
                     case OMAS_objectType.waypoint
                         % IS WAYPOINT
-                        [X,Y,Z] = scenarioBuilder.drawSphere(globalPosition,objectSize);
+                        [X,Y,Z] = scenarioBuilder.drawSphere(globalPosition,objectRadius);
                         objectColour = 'g';
                         waypoints = waypoints + 1;
                     otherwise
@@ -728,7 +747,7 @@ classdef scenarioBuilder
              
                 % ADD ANNOTATION
                 annotationText = sprintf('    %s [ID:%s]',objectName,num2str(objectIndex{index}.objectID));
-                text(globalPosition(1),globalPosition(2),globalPosition(3),annotationText);
+                text(globalPosition(1),globalPosition(2),globalPosition(3),char(annotationText));
             end
             % ADD TITLE
             titleStr = sprintf('Test scenario: %s agents, %s obstacles and %s waypoints.',num2str(agents),num2str(obstacles),num2str(waypoints));

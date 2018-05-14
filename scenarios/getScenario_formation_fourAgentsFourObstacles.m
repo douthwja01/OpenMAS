@@ -59,18 +59,18 @@ for index = 1:agentNumber
     end
 end
 % ASSIGN AGENT GLOBAL PROPERTIES, ONE SIDE OF THE RINGS TO THE OTHER
-agentIndex{1}.globalPosition = agentConfigB.position(:,1);
-agentIndex{1}.globalVelocity = agentConfigB.velocity(:,1);
-agentIndex{1}.quaternion = agentConfigB.quaternion(:,1);                   % Append properties from the sphereical scenario
-agentIndex{2}.globalPosition = agentConfigA.position(:,1);
-agentIndex{2}.globalVelocity = agentConfigA.velocity(:,1);
-agentIndex{2}.quaternion = agentConfigA.quaternion(:,1);                   % Append properties from the sphereical scenario
-agentIndex{3}.globalPosition = agentConfigA.position(:,2);
-agentIndex{3}.globalVelocity = agentConfigA.velocity(:,2);
-agentIndex{3}.quaternion = agentConfigA.quaternion(:,2); 
-agentIndex{4}.globalPosition = agentConfigB.position(:,2);
-agentIndex{4}.globalVelocity = agentConfigB.velocity(:,2);
-agentIndex{4}.quaternion = agentConfigB.quaternion(:,2);                                                 
+agentIndex{1}.VIRTUAL.globalPosition = agentConfigB.position(:,1);
+agentIndex{1}.VIRTUAL.globalVelocity = agentConfigB.velocity(:,1);
+agentIndex{1}.VIRTUAL.quaternion = agentConfigB.quaternion(:,1);                   % Append properties from the sphereical scenario
+agentIndex{2}.VIRTUAL.globalPosition = agentConfigA.position(:,1);
+agentIndex{2}.VIRTUAL.globalVelocity = agentConfigA.velocity(:,1);
+agentIndex{2}.VIRTUAL.quaternion = agentConfigA.quaternion(:,1);                   % Append properties from the sphereical scenario
+agentIndex{3}.VIRTUAL.globalPosition = agentConfigA.position(:,2);
+agentIndex{3}.VIRTUAL.globalVelocity = agentConfigA.velocity(:,2);
+agentIndex{3}.VIRTUAL.quaternion = agentConfigA.quaternion(:,2); 
+agentIndex{4}.VIRTUAL.globalPosition = agentConfigB.position(:,2);
+agentIndex{4}.VIRTUAL.globalVelocity = agentConfigB.velocity(:,2);
+agentIndex{4}.VIRTUAL.quaternion = agentConfigB.quaternion(:,2);                                                 
 
 %% //////////////// BUILD THE OBSTACLES GLOBAL STATES /////////////////////
 % The four obstacles are positioned in a ring around the center
@@ -87,9 +87,9 @@ for index = 1:obstacleNumber
     obstacleIndex{index}.name = sprintf('OB:%s',inputConfig.obstacles{index}.name);
     obstacleIndex{index}.VIRTUAL.size = inputConfig.obstacleRadius;
     % APPLY GLOBAL STATE VARIABLES
-    obstacleIndex{index}.globalPosition = obstacleConfig.position(:,index);
-    obstacleIndex{index}.globalVelocity = obstacleConfig.velocity(:,index);
-    obstacleIndex{index}.quaternion = obstacleConfig.quaternion(:,index);  % Append properties from the sphereical scenario
+    obstacleIndex{index}.VIRTUAL.globalPosition = obstacleConfig.position(:,index);
+    obstacleIndex{index}.VIRTUAL.globalVelocity = obstacleConfig.velocity(:,index);
+    obstacleIndex{index}.VIRTUAL.quaternion = obstacleConfig.quaternion(:,index);  % Append properties from the sphereical scenario
 end
 
 %% /////////////// CLEAN UP ///////////////////////////////////////////////

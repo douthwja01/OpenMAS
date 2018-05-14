@@ -14,7 +14,7 @@ classdef obstacle < objectDefinition
     end
 %%  CLASS METHODS
     methods 
-%       CONSTRUCTION METHOD
+        % CONSTRUCTION METHOD
         function obj = obstacle(varargin)
             % This function is to construct the obstacle object using the
             % object defintions held in the 'objectDefinition' base class.
@@ -28,21 +28,13 @@ classdef obstacle < objectDefinition
             obj = obj@objectDefinition(varargin); % Call the super class
             
             % ALLOCATE DEFAULT OBJECT-SPECIFIC CONSTANTS 
-            obj.VIRTUAL.type = simulation_objectType.obstacle;
+            obj.VIRTUAL.type = OMAS_objectType.obstacle;
             obj.VIRTUAL.symbol = 'o';
-            obj.VIRTUAL.size = 1;
+            obj.VIRTUAL.radius = 1;
             
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(varargin);
-        end   
-              
-    end
-    methods (Access = public)
-        function obj = set_size(obj,newsize)
-            assert(isnumeric(newsize) == 1,'Obstacle size must be numeric.');
-            % ASSIGN NEW SIZE
-            obj.VIRTUAL.size = newsize;
-        end
+        end      
     end
 end
 %%% STATE VECTOR IS DEFINED AS [x;y;z;psi;the;phi;v;u;w;p;q;r] %%%%%%%%%%%%

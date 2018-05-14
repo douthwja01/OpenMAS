@@ -42,11 +42,10 @@ classdef agent_example < agent
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Create the super class 'agent'            
             % AGENT SPECIFIC PARAMETERS
-            obj.sensorRange = 50;                                          % Define a specific virtual sensor range (m) (defaults to inf)
             % VIRTUAL DEFINITION
-            obj.VIRTUAL.detectionRange = obj.sensorRange;                  % Update the range attribute to the SIM VIRTUAL property            
+            obj.VIRTUAL.detectionRange = 50;                               % Update the range attribute to the SIM VIRTUAL property            
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(varargin);
+            [obj] = obj.configurationParser(obj,varargin);
         end
         %% AGENT MAIN CYCLE 
         function [obj] = processTimeCycle(obj,TIME,varargin)
@@ -77,23 +76,23 @@ classdef agent_example < agent
                 return
             else
                 % UPDATE THE AGENT WITH THE NEW INFORMATION
-                [obj,obstacleSet,agentSet,waypointSet] = obj.getAgentUpdate(observationSet);
+                [obj,~,~] = obj.getAgentUpdate(observationSet);
             end
             
             %% \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
             % INSERT ALGORITHM/DECISION MAKING PROCESS HERE
             
             % DO NOTHING
-            desiredLinearAcceleration = [0;0;0];
-            desiredAngularAcceleration = [0;0;0];
+            linearRates = [0.5;0;0];
+            headingRates = [0;0;0.1];
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             
             % USE OUTPUT TO DEFINE NEW AGENT STATE
-            newState = obj.stateDynamics_accelerations(dt,desiredLinearAcceleration,desiredAngularAcceleration);
+            state_k_plus = stateDynamics_singleIntegrator(obj,dt,linearRates,headingRates);
             
             % UPDATE THE 'agent_example' PROPERTIES WITH ITS NEW STATE
-            obj = obj.updateGlobalProperties(dt,newState);
+            obj = obj.updateGlobalProperties(dt,state_k_plus);
         end
     end
 end

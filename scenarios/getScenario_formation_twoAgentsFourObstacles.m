@@ -48,9 +48,9 @@ agentIndex = cell(agentNumber,1);
 for index = 1:agentNumber
     agentIndex{index} = inputConfig.agents{index};                      % Get the agents from the input structure
     % APPLY GLOBAL STATE VARIABLES
-    agentIndex{index}.globalPosition = agentConfig.position(:,index);
-    agentIndex{index}.globalVelocity = agentConfig.velocity(:,index);
-    agentIndex{index}.quaternion = agentConfig.quaternion(:,index);        % Append properties from the sphereical scenario
+    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index);
+    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocity(:,index);
+    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternion(:,index);        % Append properties from the sphereical scenario
     % APPEND THE FORMATION CONTROL ADJACENCY MATRIX
     if isprop(inputConfig.agents{index},'adjacencyMatrix')
         agentIndex{index}.adjacencyMatrix = inputConfig.adjacencyMatrix;
@@ -79,22 +79,19 @@ for index = 1:obstacleNumber
     obstacleIndex{index}.VIRTUAL.size = inputConfig.obstacleRadius;        % Size the obstacles 
 end                                                   
 % ASSIGN AGENT GLOBAL PROPERTIES, ONE SIDE OF THE RINGS TO THE OTHER
-obstacleIndex{1}.globalPosition = obstacleConfigB.position(:,1);
-obstacleIndex{1}.globalVelocity = obstacleConfigB.velocity(:,1);
-obstacleIndex{1}.quaternion = obstacleConfigB.quaternion(:,1);             % Append properties from the sphereical scenario
-obstacleIndex{2}.globalPosition = obstacleConfigA.position(:,1);
-obstacleIndex{2}.globalVelocity = obstacleConfigA.velocity(:,1);
-obstacleIndex{2}.quaternion = obstacleConfigA.quaternion(:,1);             % Append properties from the sphereical scenario
-obstacleIndex{3}.globalPosition = obstacleConfigA.position(:,2);
-obstacleIndex{3}.globalVelocity = obstacleConfigA.velocity(:,2);
-obstacleIndex{3}.quaternion = obstacleConfigA.quaternion(:,2); 
-obstacleIndex{4}.globalPosition = obstacleConfigB.position(:,2);
-obstacleIndex{4}.globalVelocity = obstacleConfigB.velocity(:,2);
-obstacleIndex{4}.quaternion = obstacleConfigB.quaternion(:,2);                                                  
-% RELABEL OBSTACLES                                               
-% for index = 1:obstacleNumber
-% 
-% end
+obstacleIndex{1}.VIRTUAL.globalPosition = obstacleConfigB.position(:,1);
+obstacleIndex{1}.VIRTUAL.globalVelocity = obstacleConfigB.velocity(:,1);
+obstacleIndex{1}.VIRTUAL.quaternion = obstacleConfigB.quaternion(:,1);             % Append properties from the sphereical scenario
+obstacleIndex{2}.VIRTUAL.globalPosition = obstacleConfigA.position(:,1);
+obstacleIndex{2}.VIRTUAL.globalVelocity = obstacleConfigA.velocity(:,1);
+obstacleIndex{2}.VIRTUAL.quaternion = obstacleConfigA.quaternion(:,1);             % Append properties from the sphereical scenario
+obstacleIndex{3}.VIRTUAL.globalPosition = obstacleConfigA.position(:,2);
+obstacleIndex{3}.VIRTUAL.globalVelocity = obstacleConfigA.velocity(:,2);
+obstacleIndex{3}.VIRTUAL.quaternion = obstacleConfigA.quaternion(:,2); 
+obstacleIndex{4}.VIRTUAL.globalPosition = obstacleConfigB.position(:,2);
+obstacleIndex{4}.VIRTUAL.globalVelocity = obstacleConfigB.velocity(:,2);
+obstacleIndex{4}.VIRTUAL.quaternion = obstacleConfigB.quaternion(:,2);                                                  
+
 % COLLECT ALL INITIALISED OBSTACLES
 objectIndex = vertcat(agentIndex,obstacleIndex);
 

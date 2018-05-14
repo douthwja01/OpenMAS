@@ -27,7 +27,8 @@ classdef warningEvent < interactionEvent
             obj = obj@interactionEvent(time,'WARNING',objectA,objectB,summaryInfo);
             
             % ASSIGN AN EVENT NUMERATION         
-            if ~exist('enum','var') || ~isa(enum,'uint8')    	
+%             if ~exist('enum','var') || ~isa(enum,'uint8')  
+            if nargin < 5 %~isa(enum,'uint8')
                 obj.type = eventType.warning;
             else
                 obj.type = enum;

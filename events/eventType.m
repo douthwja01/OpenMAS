@@ -33,5 +33,5 @@ classdef eventType < uint8
 %         [m,s] = enumeration(eventType)
 %         enumList = m;
 %     end
-end
+    end
 end

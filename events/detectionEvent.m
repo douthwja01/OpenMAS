@@ -27,7 +27,8 @@ classdef detectionEvent < interactionEvent
             obj = obj@interactionEvent(time,'DETECTION',objectA,objectB,summaryInfo);
             
             % ASSIGN AN EVENT NUMERATION          
-            if ~exist('enum','var') || ~isa(enum,'uint8')    	
+%             if ~exist('enum','var') || ~isa(enum,'uint8')    	
+            if nargin < 5 || ~isa(enum,'uint8') 
                 obj.type = eventType.detection;
             else
                 obj.type = enum;

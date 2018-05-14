@@ -106,14 +106,28 @@ allChildren = get(figHandle,'Children');
 
 %isolate type "uimenu"
 %determine types of children
-types = get(allChildren,'Type');
-types = confirm_cell(types);
-uiMenuIndxsBool = cregexp(types,'uimenu');
 
-%add all children except those of type "uimenu"
-validChildren = allChildren(~uiMenuIndxsBool);
+try
+    types = get(allChildren,'Type');
+    types = confirm_cell(types);
+    uiMenuIndxsBool = cregexp(types,'uimenu');
+    
+    %add all children except those of type "uimenu"
+    validChildren = allChildren(~uiMenuIndxsBool);
+catch
+    validChildren = allChildren;
+end
 set(figHandle,'Units','Pixels');
 set(validChildren,'Units','Pixels');
+
+% types = get(allChildren,'Type');
+% types = confirm_cell(types);
+% uiMenuIndxsBool = cregexp(types,'uimenu');
+% 
+% %add all children except those of type "uimenu"
+% validChildren = allChildren(~uiMenuIndxsBool);
+% set(figHandle,'Units','Pixels');
+% set(validChildren,'Units','Pixels');
 
 % get the handles of the standalone figure
 handles = guidata(figHandle);
@@ -135,7 +149,7 @@ thisTabH = uitab(tabGroupH, ...
     'DeleteFcn',get(figHandle,'DeleteFcn'));%make the original tabbedFig's DeleteFcn this tab's DeleteFcn
 
 % collect handles and tab info to tabbed gui's appdata 
-guiAndTabInfo =  getappdata(gcf,'guiAndTabInfo');
+guiAndTabInfo = getappdata(gcf,'guiAndTabInfo');
 guiAndTabInfo(tabNum).handles = handles;
 guiAndTabInfo(tabNum).tabHandles = thisTabH;
 %remember the size of the original GUI and resize the tabbed GUI to this
@@ -146,11 +160,13 @@ guiAndTabInfo(tabNum).position =  get(figHandle,'Position');
 setappdata(tabbedFig,'guiAndTabInfo', guiAndTabInfo);
 
 % move objects from standalone figure to tab
-% validChildren
-% 
-% thisTabH
 
-set(validChildren,'Parent',thisTabH);
+% THERE APPEARS TO BE SOME PROBLEM PLOTTING LEGENDS (PARENT ASSOCIATION)
+% Instead we get the vector of 'axes' types, as the highest level parents.
+% set(validChildren(end),'Parent',thisTabH);
+% set(validChildren,'Parent',thisTabH);
+axesSubSet = findobj(validChildren,'Type','Axes');
+set(axesSubSet,'Parent',thisTabH);                  
 
 % close standalone figure since it has been "gutted" and placed onto a tab
 delete(figHandle);

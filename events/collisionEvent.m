@@ -27,7 +27,8 @@ classdef collisionEvent < interactionEvent
             obj = obj@interactionEvent(time,'COLLISION',objectA,objectB,summaryInfo);
  
             % ASSIGN AN EVENT NUMERATION         
-            if ~exist('enum','var') || ~isa(enum,'uint8')    	
+%             if ~exist('enum','var') || ~isa(enum,'uint8')  
+            if nargin < 5 || ~isa(enum,'uint8') 
                 obj.type = eventType.collision;
             else
                 obj.type = enum;

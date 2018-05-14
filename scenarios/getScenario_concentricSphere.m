@@ -13,7 +13,7 @@ fprintf('[SCENARIO]\tGetting typical cocentric sphere scenario.\n');
 % DEFAULT CONFIGURATION
 defaultConfig = struct('file','scenario.mat',...
                        'agents',[],...
-                       'radius',10,...
+                       'agentOrbit',10,...
                        'velocities',0,...
                        'plot',0);
                    
@@ -26,7 +26,7 @@ testScenario = scenarioBuilder(objectNumber);
 errorFlag = 1;
 while errorFlag ~= 0        %% <-- Temporary error fix
     try  
-        [agentConfig] = testScenario.randomSphere('radius',scenarioConfig.radius,'velocity',scenarioConfig.velocities);
+        [agentConfig] = testScenario.randomSphere('radius',scenarioConfig.agentOrbit,'velocity',scenarioConfig.velocities);
         errorFlag = 0;
     catch
     end
@@ -39,9 +39,9 @@ agentIndex = cell(objectNumber,1);
 for index = 1:objectNumber
     agentIndex{index} = scenarioConfig.agents{index};
     % APPLY GLOBAL STATE VARIABLES
-    agentIndex{index}.globalPosition = agentConfig.position(:,index);
-    agentIndex{index}.globalVelocity = agentConfig.velocity(:,index);
-    agentIndex{index}.quaternion = agentConfig.quaternion(:,index);
+    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index);
+    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocity(:,index);
+    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternion(:,index);
 end
 
 %% DEFINE WAYPOINTS AND ASSIGN GLOBAL PARAMETERS
@@ -55,9 +55,9 @@ end
 %     nameString = sprintf('WP:%s',agentIndex{index}.name);
 %     waypointIndex{index} = waypoint('radius',scenarioConfig.waypointRadius,'name',nameString);
 %     % APPLY GLOBAL STATE VARIABLES
-%     waypointIndex{index}.globalPosition = waypointConfig.position(index,:)';
-%     waypointIndex{index}.globalVelocity = waypointConfig.velocity(index,:)';
-%     waypointIndex{index}.quaternion = waypointConfig.quaternion(index,:)';
+%     waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.position(index,:)';
+%     waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocity(index,:)';
+%     waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternion(index,:)';
 %     waypointIndex{index} = waypointIndex{index}.createAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
 % end
 % 

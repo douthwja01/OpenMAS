@@ -11,7 +11,7 @@ classdef eventDefinition
         % EVENT PARAMETERS
         eventID;           
         name;
-        type = eventType.event;     % Assign default enumeration of 'event'
+        type;
         time;
         info;
     end
@@ -27,30 +27,33 @@ classdef eventDefinition
             % summaryInfo - Assigned description string
             % OUTPUTS:
             % obj     - The generated object
-
-           %% INPUT HANDLING
-           % CONFIRM EVENT TIME
-            if ~exist('time','var') || ~isnumeric(time)                    % Default time setting
+            
+            % INPUT HANDLING
+            % CONFIRM EVENT TIME
+            if ~isnumeric(time)                    % Default time setting
+                %             if ~exist('time','var') || ~isnumeric(time)                    % Default time setting
                 obj.time = 0;
-                warning('An event time must be defined.');
+                %warning('An event time must be defined.');
                 return
             else
                 obj.time = time;
             end
             % CONFIRM NAME STRING
-            if ~exist('name','var') || isnumeric(name) || isempty(name)    % Default name setting
+            %             if ~exist('name','var') || isnumeric(name) || isempty(name)    % Default name setting
+            if isnumeric(name) || isempty(name)    % Default name setting
                 obj.name = 'EVENT';
             else
                 obj.name = name;
             end
             % CONFIRM DEFAULT SUMMARY INFORMATION
-            if ~exist('summaryInfo','var') || isempty(summaryInfo)
-                obj.info = 'None.';                                        % Default information setting 
+            %             if ~exist('summaryInfo','var') || isempty(summaryInfo)
+            if isempty(summaryInfo)
+                obj.info = 'None.';                                        % Default information setting
             else
                 obj.info = summaryInfo;
             end
             
-%          	ALLOCATE AUTOINCREMENTING ID NUMBER
+            % ALLOCATE AUTOINCREMENTING ID NUMBER
             persistent eventcount;
             if isempty(eventcount)
                 eventcount = 1;
@@ -58,14 +61,17 @@ classdef eventDefinition
                 eventcount = eventcount + 1;
             end
             obj.eventID = eventcount;   % Assign the number as an ID tag
-           
-%           PREPARE SUMMARY INFORMATION
-%             fprintf('[%s]\tevent created (ID:%s @%ss):\t%s\n',obj.name,num2str(eventcount),num2str(obj.time),obj.info);
+            
+            % ASSIGN THE DEFAULT TYP
+            obj.type = eventType.event;     % Assign default enumeration of 'event'
        end
     end
     % PRIVATE METHODS (CLASS SPECIFIC TOOLS)
-    methods (Access= private)
-        
+    methods (Access = private)
+        % PRINT THE OBJECT SUMMARY
+        function displaySummary(obj)
+            fprintf('[%s]\tevent created (ID:%d @%.2fs):\t%s\n',obj.name,obj.eventID,obj.time,obj.info);
+        end
     end
 end
 

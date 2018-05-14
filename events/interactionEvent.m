@@ -28,10 +28,10 @@ classdef interactionEvent < eventDefinition
             % OUTPUTS:
             % obj - The near-miss object
             
-            % INPUT HANDLING            
-            if ~exist('objectA','var') || ~exist('objectB','var')          % Object specification
-                warning('The two interacting entity objects were not specified correctly');
-            end
+%             % INPUT HANDLING            
+%             if ~exist('objectA','var') || ~exist('objectB','var')          % Object specification
+%                 warning('The two interacting entity objects were not specified correctly');
+%             end
                        
             % INITIALISE THE GENERIC EVENT SUPERCLASS
             obj = obj@eventDefinition(time,name,summaryInfo);       

@@ -34,14 +34,29 @@ end
 EVENTstatistics.totalEvents = numel(EVENTS);                               % The length of the EVENTS output structure
 
 % //////////////////// SPECIFIC EVENT DATA ////////////////////////////////
-% GET COLLISION STATISTICS
-[EVENTstatistics.collisions,EVENTstatistics.collisionPercentage] = getEventSummary(SIM,parsedEVENTS.collision);
-% GET WAYPOINT STATISTICS
-[EVENTstatistics.waypointsAchieved,EVENTstatistics.waypointPercentage] = getEventSummary(SIM,parsedEVENTS.waypoint);
+% >>>>>>> GET COLLISION STATISTICS
+[~,uniqueCollisions] = getEventSummary(SIM,parsedEVENTS.collision);
+% WE ARE INTERESTED IN THE COLLISIONS RELATING ONLY TO THE AGENTS
+if isempty(uniqueCollisions)
+    collisionIDs = [];
+else
+    collisionIDs = unique([uniqueCollisions(:).objectID_A,uniqueCollisions(:).objectID_B]); % The unique IDs involved in collisions
+end
+agentSet = SIM.OBJECTS([SIM.OBJECTS.type] == OMAS_objectType.agent);   % The complete agent set
+% THE AGENTS THAT COLLIDED/WHERE COLLIDED WITH
+collidedAgents = SIM.OBJECTS(ismember([agentSet.objectID],collisionIDs));
+% SUMMARISE COLLISIONS
+EVENTstatistics.collisions = numel(collidedAgents);
+EVENTstatistics.collisionPercentage = 100*(EVENTstatistics.collisions/SIM.totalAgents);
+
+% >>>>>>> GET WAYPOINT STATISTICS
+[EVENTstatistics.waypointsAchieved,~] = getEventSummary(SIM,parsedEVENTS.waypoint);
+EVENTstatistics.waypointPercentage = 100*(EVENTstatistics.waypointsAchieved/SIM.totalWaypoints);
 % APPEND THE PARSED EVENT STRUCTURE FOR EXTERNAL MANIPULATION
 EVENTstatistics.events = parsedEVENTS;
-
-fprintf('[%s]\t... EVENT statistics collected.\n',SIM.phase);
+% PRINT THE SUMMARY
+fprintf('[%s]\n',SIM.phase);
+fprintf('[%s]\tEVENT statistics collected.\n',SIM.phase);
 fprintf('[%s]\n',SIM.phase);
 
 % CLEAR UNUSED VARIABLES
@@ -50,59 +65,80 @@ end
 
 % //////////////////////// EVENTS UTILITIES ///////////////////////////////
 % GET STATISTICS OF A GIVEN EVENT TYPE
-function [occurances,occurancePercentage] = getEventSummary(SIM,specificEventData)
+function [uniqueOccurances,uniqueEvents] = getEventSummary(SIM,specificEventData)
 % This function defines some of the additional collision/performance based
 % statistics of the simulation based on the events that have occurred.
 % INPUTS:
 % SIM                 - The META structure
 % EVENTS              - The simulation EVENT history
 % OUTPUTS:
-% occurances          - The number of event occurances
-% occurancePercentage - The percentage of all agents for whom this event occurred 
+% uniqueOccurances    - The number of unique event occurances
+% uniqueEvents        - The unique event objects  
 
-%% PERCENTAGE SUCCESS DEFINITION
 % A problem exists that a trigger may not be processed when for one agent
 % if the event occurres exactly between timesteps. i.e temporal resolution
 % can cause events not to be triggered/missed when a collision is still
 % valid. We instead search for any reference to the ID in the collision
 % event history.
 
-occurances = 0;
-occurancePercentage = 0;
+uniqueOccurances = 0;
+uniqueEvents = [];
 
+% INPUT HANDLING
 if isempty(specificEventData)
     return
 end
+assert(numel(specificEventData) == sum([specificEventData.type] == specificEventData(1).type),...
+       'Provided event data is not all of the same type.');
+   
+% BEGIN PARSING EVENT STRUCTURES   
 fprintf('[%s]\n',SIM.phase); % Seperate the summaries
 fprintf('[%s]\tGetting %s event summary:\n',SIM.phase,specificEventData(1).name);
 
-% MOVE THROUGH THE SIMULATION OBJECT SET
-for ID = 1:length(SIM.OBJECTS)
-    % ONLY INTERESTED IN EVENTS INVOLVING AGENTS CURRENTLY.
-    if SIM.OBJECTS(ID).type == OMAS_objectType.agent
-        % FIND INSTANCES OF COLLISIONS FOR AGENT
-        logicalA = [specificEventData.objectID_A] == SIM.OBJECTS(ID).objectID; % The cause of an event
-        logicalB = [specificEventData.objectID_B] == SIM.OBJECTS(ID).objectID; % The recipient of an event      
-        % IF EITHER OCCUR
-        if any(logicalA) || any(logicalB)
-            occurances = occurances + 1;
-            occurancePercentage = occurancePercentage + 100*(1/SIM.totalAgents); % Escrew occurances & percentages
-            
-            % EXTRACT EVENT
-            if isempty(logicalA)
-                collisionEvents = specificEventData(logicalB);
-            else
-                collisionEvents = specificEventData(logicalA); 
-            end
-            % DISPLAY COLLISION OVERVIEW
-            for instance = 1:numel(collisionEvents)
-                fprintf('[%s]\t%s(t=%s): %s\twith %s\n',SIM.phase,...
-                        upper(collisionEvents(instance).name),num2str(collisionEvents(instance).time),...
-                        collisionEvents(instance).name_A,collisionEvents(instance).name_B); 
+% Situations may occur where an agent will collide and then continue
+% before repeating the collision. We wish to represent this as two
+% seperate collision events.
+
+% CONTAINERS
+illegalEvents = [];
+% PARSE EVENTS FOR UNIQUE OCCURANCES OF THE EVENT/INTERACTION TYPE
+for eventNum = 1:numel(specificEventData)
+    evaluationEvent = specificEventData(eventNum);
+    % GET THE EVENTS WITH THIS AGENT ID AS THE RECIPIENT
+    reflectedEvents = specificEventData([specificEventData.objectID_B] == evaluationEvent.objectID_A);
+    % GET THE EVENTS WITH THE REFLECTED PROPERTIES
+    reciprocalEvents = reflectedEvents([reflectedEvents.objectID_A] == evaluationEvent.objectID_B);
+    % DETERMINE IF THE INTERACTION IS ONE WAY 
+    if numel(reciprocalEvents) == 0 
+        % There is no reciprication, by definition is unique
+        uniqueEvents = [uniqueEvents,evaluationEvent];
+    else
+        for t = 1:numel(reciprocalEvents)
+            % OCCURS AT THE SAME TIME
+            temporalCondition = evaluationEvent.time == reciprocalEvents(t).time;
+            % IS NOT THE REFLECTION OF A PREVIOUS EVENT
+            illegalEventCondition = any(ismember(illegalEvents,reciprocalEvents(t).eventID));
+            % DETERMINE IF UNIQUE
+            if temporalCondition && ~illegalEventCondition
+                uniqueEvents = [uniqueEvents,evaluationEvent];
+                illegalEvents = [illegalEvents;evaluationEvent.eventID];
             end
         end
     end
 end
+
+% DISPLAY OVERVIEW
+for instance = 1:numel(uniqueEvents)
+    fprintf('[%s]\t%s(t=%.2fs): %s\twith %s\n',SIM.phase,...
+        upper(uniqueEvents(instance).name),...
+        uniqueEvents(instance).time,...
+        uniqueEvents(instance).name_A,...
+        uniqueEvents(instance).name_B);
+end
+% CALCULATE PRELIMINARY STATS
+uniqueOccurances = numel(uniqueEvents);
+% SHOW THE EVENT SUMMARY
+fprintf('[%s]\t ... %s unique %s occurances.\n',SIM.phase,num2str(uniqueOccurances),specificEventData(1).name);
 end
 % GET THE EVENT TIMESERIES DATA
 function [timeSeriesStructure] = getEventTimeSeries(TIME,parsedEVENTS)

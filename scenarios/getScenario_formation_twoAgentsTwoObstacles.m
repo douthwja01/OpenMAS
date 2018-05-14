@@ -51,9 +51,9 @@ agentIndex = cell(agentNumber,1);
 for index = 1:agentNumber
     agentIndex{index} = inputConfig.agents{index};                      % Get the agents from the input structure
     % APPLY GLOBAL STATE VARIABLES
-    agentIndex{index}.globalPosition = agentConfig.position(:,index);
-    agentIndex{index}.globalVelocity = agentConfig.velocity(:,index);
-    agentIndex{index}.quaternion = agentConfig.quaternion(:,index);        % Append properties from the sphereical scenario
+    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index);
+    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocity(:,index);
+    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternion(:,index);        % Append properties from the sphereical scenario
     % APPEND THE FORMATION CONTROL ADJACENCY MATRIX
     if isprop(inputConfig.agents{index},'adjacencyMatrix')
         agentIndex{index}.adjacencyMatrix = inputConfig.adjacencyMatrix;
@@ -72,11 +72,11 @@ obstacleIndex = cell(obstacleNumber,1);
 for index = 1:obstacleNumber
     obstacleIndex{index} = inputConfig.obstacles{index};              % Get the agents from the input structure
     obstacleIndex{index}.name = sprintf('OB:%s',inputConfig.obstacles{index}.name);
-    obstacleIndex{index}.VIRTUAL.size = inputConfig.obstacleRadius;
+    obstacleIndex{index}.VIRTUAL.radius = inputConfig.obstacleRadius;
     % APPLY GLOBAL STATE VARIABLES
-    obstacleIndex{index}.globalPosition = obstacleConfig.position(:,index);
-    obstacleIndex{index}.globalVelocity = obstacleConfig.velocity(:,index);
-    obstacleIndex{index}.quaternion = obstacleConfig.quaternion(:,index);  % Append properties from the sphereical scenario
+    obstacleIndex{index}.VIRTUAL.globalPosition = obstacleConfig.position(:,index);
+    obstacleIndex{index}.VIRTUAL.globalVelocity = obstacleConfig.velocity(:,index);
+    obstacleIndex{index}.VIRTUAL.quaternion = obstacleConfig.quaternion(:,index);  % Append properties from the sphereical scenario
 end
 
 %% /////////////// CLEAN UP ///////////////////////////////////////////////

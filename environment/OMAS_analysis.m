@@ -1,18 +1,18 @@
-%% OPENMAS ANALYSIS/POST SIMULATION PROCESSING (OMAS_analyis.m) %%%%%%%%%%%
-% This function is designed to prepare the collected simulation data, 
+%% OPENMAS ANALYSIS/POST METAULATION PROCESSING (OMAS_analyis.m) %%%%%%%%%%%
+% This function is designed to prepare the collected METAulation data, 
 % conduct some preliminary analysis and object statistics before being 
 % output for further analysis. 
 
 % Author: James A. Douthwaite 19/12/2017
 
-function [DATA] = OMAS_analysis(SIM,objectIndex,EVENTS,DATA)
+function [DATA] = OMAS_analysis(META,objectIndex,EVENTS,DATA)
 % INPUT:
-% SIM               - The meta data structure
+% META              - The meta data structure
 % objectIndex       - The entity vector
 % EVENTS            - The complete event history 
 % DATA              - The complete output data structure
 % .outputpath       - The path to the output location
-% .timevector       - The simulation time vector
+% .timevector       - The METAulation time vector
 % .globalTrajectories - The system timeseries data [(agents*states) by numsteps]
 
 % OUTPUT:
@@ -26,7 +26,7 @@ if ~exist('plotnum','var') || isempty(plotnum)
     plotnum = 1;    % Default to first plot
 end
 
-fprintf('[%s]\tAnalysing object/event data...\n',SIM.phase);
+fprintf('[%s]\tOMAS ANALYSIS TOOL...\n[%s]\n',META.phase,META.phase);
 
 % CONFIRM INPUT DATA STRUCTURE
 if ~exist('DATA','var') || ~isstruct(DATA)
@@ -38,11 +38,14 @@ elseif ~isfield(DATA,'timeVector')
     return
 end
 
+% SAVE RAW DATA TO DIRECTORY BEFORE PROCESSING
+sendOutputToFiles(META,EVENTS,DATA,objectIndex)
+
 %% GET EVENT HISTORY STATISTICS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-fprintf('[%s]\tMoving to event data parser...\n',SIM.phase);
+fprintf('[%s]\tMoving to event data parser...\n',META.phase);
 try
     % HAND THE EVENT SET TO THE EVENT STATISTICS FUNCTION
-    [eventStatistics] = OMAS_eventStatistics(SIM,EVENTS);            % Collect all events into a subheading
+    [eventStatistics] = OMAS_eventStatistics(META,EVENTS);            % Collect all events into a subheading
     % COPY EVENT DATA TO OUTPUT STRUCTURE
     if isstruct(eventStatistics)                                           % If event data is present 
         for name = fieldnames(eventStatistics)'                            % Move the event history data to the DATA structure
@@ -56,9 +59,9 @@ catch agentParseError
 end
 
 %% GET AGENT-SIDE STATISTICS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-fprintf('[%s]\tMoving to agent data parser...\n',SIM.phase);
+fprintf('[%s]\tMoving to agent data parser...\n',META.phase);
 try
-    [objectIndex,DATA.MEANS] = OMAS_agentStatistics(SIM,objectIndex);
+    [objectIndex,DATA.MEANS] = OMAS_agentStatistics(META,objectIndex);
     DATA.objectIndex = objectIndex;
 catch agentParseError
     warning('[ERROR] A problem occurred parsing the agent data.');
@@ -66,42 +69,34 @@ catch agentParseError
     fprintf('\n');
 end
 
-%% GENERATE OUTPUT FIGURES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-fprintf('[%s]\tMoving to figure generator...\n',SIM.phase);
+% //////////////// GENERATE THE DEFAULT FIGURE PARAMETERS /////////////////
+fprintf('\n[%s]\tOMAS FIGURE GENERATOR (OMAS_figureGenerator.m).\n[%s]\n',META.phase,META.phase);
+% IMPORT THE REQUESTED FIGURE SET FROM THE SESSION DIRECTORY
+load([META.outputPath,META.systemFile]); % Import the requested list
+
 % CHECK IF FIGURES HAVE BEEN REQUESTED
-try
-    deselectFlag = isempty(SIM.figures) || ~any(SIM.figures); 
-    if deselectFlag || strcmpi(SIM.figures,'NONE') 
-        fprintf('[%s]\tNo output figures requested.\n',SIM.phase);         % No figures requested by user
-        return
-    end
-catch
+if isempty(figureList)
+    fprintf('[%s]\tNo output figures requested.\n',META.phase);             % No figures requested by user
+    return
 end
 
-%% FIGURE GENERATION PROCEDURE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-fprintf('\n[%s]\tGENERATING OUTPUT FIGURES(OMAS_figureIndex.m).\n',SIM.phase);
-% GET GENERIC PREDEFINED AXIS PROPERTIES
-[figureProperties] = getGenericAxisProperties(SIM.OBJECTS);                % Get the prespecified axis properties
 % GET AXIS PROPERTIES RELATING TO THE TRAJECTORY DATA
 [minimumStateValues,maximumStateValues] = getTrajectoryAxisProperties(DATA);
-figureProperties.axisMinimums = minimumStateValues;
-figureProperties.axisMaximums = maximumStateValues;
-figureProperties.minPosition = min(figureProperties.axisMinimums(1:3));
-figureProperties.maxPosition = max(figureProperties.axisMaximums(1:3));
-
-% DEFINE THE LEGEND ENTRIES FROM THE EVENT TYPS
-[~,enumString] = enumeration('eventType');
-for label = 1:numel(enumString)
-    figureProperties.legendSet_events{label} = strrep(char(enumString{label}),'_',' ');           % Prepare the label strings from the enumerations
-end
-
+figureProperties = struct('axisMinimums',1.1*minimumStateValues,...
+                          'axisMaximums',1.1*maximumStateValues,...        % Add 10% for padding
+                          'minPosition',min(1.1*minimumStateValues(1:3)),...
+                          'maxPosition',max(1.1*maximumStateValues(1:3)));
 % ASSIGN THE FIGURE PROPERTIES STRUCTURE TO THE OUTPUT DATA
 DATA.figureProperties = figureProperties;
 
+% UPDATE RECORDS OF THE DATA STRUCTURES IN THE OUTPUT FILES
+sendOutputToFiles(META,EVENTS,DATA,objectIndex)
+
+% ///////////////////// FIGURE GENERATION PROCEDURE ///////////////////////
 % GENERATE OUTPUT FIGURES
-for figNum = 1:length(SIM.figures)
+for figNum = 1:length(figureList)
 %     try
-        [plotnum] = OMAS_figureGenerator(SIM,DATA,plotnum,SIM.figures(figNum));                              % Jump to the figure index
+        [plotnum] = OMAS_figureGenerator(META,DATA,plotnum,figureList(figNum)); % Jump to the figure index
 %     catch figureGenerationError
 %         warning('[ERROR] A problem occurred generating the output figures.');
 %         warning(figureGenerationError.message);
@@ -118,8 +113,8 @@ function [stateMinimums,stateMaximums] = getTrajectoryAxisProperties(DATA)
 % objects.
 
 % INPUTS:
-% DATA           - The simulation DATA structure
-% - totalObjects - The number of agents simulated
+% DATA           - The METAulation DATA structure
+% - totalObjects - The number of agents METAulated
 % OUTPUTS:
 % stateMinimums - Trajectory axis minimum limit vector
 % stateMaximums - Trajectory axis maximum limit vector
@@ -127,24 +122,24 @@ function [stateMinimums,stateMaximums] = getTrajectoryAxisProperties(DATA)
 % CREATE AXIS DATA CONTAINERS
 systemStates = size(DATA.globalTrajectories,1)/DATA.totalObjects;          % The number of states per agent
 stateMinimums = zeros(systemStates,1);                   
-stateMaximums = zeros(systemStates,1);                                % Define the trajectory axis limit containers
+stateMaximums = zeros(systemStates,1);                                     % Define the trajectory axis limit containers
 
 for ID1 = 1:DATA.totalObjects
     % GET THE AGENTS STATE-TIMESERIES DATA
-    [objectStateData] = OMAS_getTrajectoryData(DATA,ID1);            % Get state timeseries data
+    [objectStateData] = OMAS_getTrajectoryData(DATA,ID1);                  % Get state timeseries data
     
     % DETERMINE GREATEST MIN/MAX STATES FOR EACH AGENTS
     for x = 1:systemStates
-       stateMinimum(x) = min(objectStateData(x,:),[],2);                       % Get the minimum state value for this agent
-       stateMaximum(x) = max(objectStateData(x,:),[],2);                       % Get the max state value 
+       stateMinimum(x) = min(objectStateData(x,:),[],2);                   % Get the minimum state value for this agent
+       stateMaximum(x) = max(objectStateData(x,:),[],2);                   % Get the max state value 
        
        % AFFIRM MINIMUM STATE RECORD
        if stateMinimums(x) > stateMinimum(x)
-           stateMinimums(x) = stateMinimum(x);                            % Re-affirm the negative limits
+           stateMinimums(x) = stateMinimum(x);                             % Re-affirm the negative limits
        end
        % AFFIRM MAXIMUM STATE RECORD
        if stateMaximums(x) < stateMaximum(x)
-           stateMaximums(x) = stateMaximum(x);                            % Re-affirm the positive limits
+           stateMaximums(x) = stateMaximum(x);                             % Re-affirm the positive limits
        end
     end  
 end
@@ -153,43 +148,33 @@ end
 for x = 1:systemStates
     if stateMinimums(x) == stateMaximums(x)
         stateMinimums(x) = stateMinimums(x) - 1;
-        stateMaximums(x) = stateMaximums(x) + 1;                 % Modify the axis limits if they match
+        stateMaximums(x) = stateMaximums(x) + 1;                           % Modify the axis limits if they match
     end
 end
+
 clearvars ID1 k axismax axismin
 end
-% OUTPUT FIGURE (GENERIC) PROPERTIES
-function [figureProperties] = getGenericAxisProperties(metaObjectSet)
-% This function contains a set of predefined axis parameters for figure
-% generation. Prespecified values are used to ensure regularity across all
-% output figures.
-% INPUT:
-% metaObjectSet     - A vector containing the object meta properties
-% OUTPUT:
-% figureProperties  - An structure containing the figure parameters.
 
-%   GENERAL FIGURE SETUP
-figureProperties = struct('cells',2,...     % Horezontal cells
-                      'alignment',10,...    % Horezontal window alignment
-                         'margin',30,...    % Percentage signal margin of plots
-                        'spacing',40,...    % Spacing between figures
-                     'tailLength',2,...     % The tail length (in seconds) of comet-like figures
-                  'titleFontSize',18,...
-                   'axisFontSize',10,...
-                     'fontWeight','bold',...
-                     'MarkerSize',10,...
-                'MarkerEdgeColor','k',...
-                      'LineWidth',1.5,...     % Applies to both the marker and trails
-                      'LineStyle',':');                  
-% APPEND SCREEN-SPECFIC DATA
-set(0,'units','pixels')
-figureProperties.screensize = get(0,'ScreenSize');
-figureProperties.size = figureProperties.screensize(1,4)*(4/5);
-                  
-% PREPARE THE DEFAULT LEGEND SET
-figureProperties.legendEntries = cell(length(metaObjectSet),1);
-for entry = 1:length(metaObjectSet)
-    figureProperties.legendEntries{entry} = sprintf('%s[ID:%s]',metaObjectSet(entry).name,num2str(metaObjectSet(entry).objectID));
-end
+% SAVE DATA TO FILES
+function sendOutputToFiles(META,EVENTS,DATA,objectIndex)
+% This function is designed to handle the output data from the METAulation
+% and export the variables to background files
+% INPUTS:
+% META        - Local copy of the META variable
+% EVENTS      - The cell array of event history objects
+% DATA        - The output data structure
+% objectIndex - The object (non-META) object class cell array
 
+% DISPLAY ALL VARIABLES
+% whos;
+% SAVE META DATA
+save(strcat(META.outputPath,'META.mat'),'META');
+save(strcat(META.outputPath,'OBJECTS.mat'),'objectIndex');
+% SAVE EVENT HISTORY
+save(strcat(META.outputPath,'EVENTS.mat'),'EVENTS');
+% SAVE OUTPUT DATA
+save(strcat(META.outputPath,'DATA.mat'),'DATA');
+% DISPLAY NOTIFICATION
+% fprintf('[%s]\tData objects outputted to file:\n',META.phase);
+% fprintf('[%s]\tDirectory: %s\n',META.phase,META.outputPath);
 end

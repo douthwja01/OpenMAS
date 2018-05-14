@@ -48,9 +48,9 @@ agentIndex = cell(agentNumber,1);
 for index = 1:agentNumber
     agentIndex{index} = inputConfig.agents{index};                      % Get the agents from the input structure
     % APPLY GLOBAL STATE VARIABLES
-    agentIndex{index}.globalPosition = agentConfig.position(:,index);
-    agentIndex{index}.globalVelocity = agentConfig.velocity(:,index);
-    agentIndex{index}.quaternion = agentConfig.quaternion(:,index);        % Append properties from the sphereical scenario
+    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index);
+    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocity(:,index);
+    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternion(:,index);        % Append properties from the sphereical scenario
     % APPEND THE FORMATION CONTROL ADJACENCY MATRIX
     if isprop(inputConfig.agents{index},'adjacencyMatrix')
         agentIndex{index}.adjacencyMatrix = inputConfig.adjacencyMatrix;
@@ -73,9 +73,9 @@ for index = 1:obstacleNumber
     obstacleIndex{index}.name = nameString;
     obstacleIndex{index}.VIRTUAL.size = inputConfig.obstacleRadius;        % Size the obstacles 
     % ALLOCATE GLOBAL STATES
-    obstacleIndex{index}.globalPosition = obstacleConfigA.position(:,index);
-    obstacleIndex{index}.globalVelocity = obstacleConfigA.velocity(:,index);
-    obstacleIndex{index}.quaternion = obstacleConfigA.quaternion(:,index);    
+    obstacleIndex{index}.VIRTUAL.globalPosition = obstacleConfigA.position(:,index);
+    obstacleIndex{index}.VIRTUAL.globalVelocity = obstacleConfigA.velocity(:,index);
+    obstacleIndex{index}.VIRTUAL.quaternion = obstacleConfigA.quaternion(:,index);    
 end                                                                                             
                                            
 % COLLECT ALL INITIALISED OBSTACLES

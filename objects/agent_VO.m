@@ -5,19 +5,22 @@
 % Author: James A. Douthwaite
 
 classdef agent_VO < agent
-    
 %% INITIALISE THE AGENT SPECIFIC PARAMETERS
     properties
-        % PROPERTIES OF THE VELOCITY OBSTACLE METHOD
-        feasabliltyMatrix;                  % The stored achievable velocity matrix
-        pointDensity;                       % Must be odd to allow a zero value
-        obstacleSafetyFactor;               % Modify the apparent size of the obstacle
-        % gif toggle
-        giffOn = 0;
+        % AGENT PARMETERS
+        maxSpeed = 2;
+        nominalSpeed = 1;
+        radius = 0.5;
+        % AVOIDANCE PARAMETERS
+        epsilon = 1E-5;                     % Some reasonably small tolerance
+        neighbourDist = 15;                 % The horizon of avoidance consideration
+        maxNeighbours = 10;                 % The maximum number of considerable obstacles
+        feasabliltyMatrix;                  % The stored achievable velocity matrix     
+        pointDensity = 15;                  % Must be odd to allow a zero value
     end
 %%  CLASS METHODS
     methods 
-        %% CONSTRUCTOR
+        % CONSTRUCTION METHOD
         function obj = agent_VO(varargin)
             % INPUT HANDLING
             if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
@@ -25,28 +28,23 @@ classdef agent_VO < agent
             end 
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Get super class 'agent'
-            % CONTROL PARAMETERS
-            obj.priorError = zeros(4,1);
-            % PARAMETERISE KINEMATIC CONSTRAINTS
-            obj.linearVelocityLimits = [15;15;15];                         % Limits on the agents velocity 
-            obj.linearAccelerationLimits = [10;10;10];                     % Limits on the agents acceleration
-            obj.angularVelocityLimits = [inf;inf;inf];
-            obj.angularAccelerationLimits = [inf;inf;inf]; % rad/s^2
+         
+            % VELOCITY OBSTACLE PARAMETERS
+            obj.feasabliltyMatrix = obj.getFeasabilityGrid(-ones(3,1)*obj.maxSpeed,...
+                                                            ones(3,1)*obj.maxSpeed,...
+                                                            obj.pointDensity); 
+            % GET THE SENSOR
+            obj = obj.getSensorParameters();
+                                                        
+            % VIRTUAL DEFINITION (SIMULATOR PARAMETERS)
+            obj.VIRTUAL.radius = obj.radius; 
+            obj.VIRTUAL.detectionRange = inf;
             
-            % VELOCITY OBSTACLE PARAMETERS  
-            obj.obstacleSafetyFactor = 1.2;                                % Modify the apparent size of the obstacle       
-            obj.pointDensity = 11;                                          % Must be odd to allow a zero value
-            obj.feasabliltyMatrix = obj.getFeasabilityGrid(-obj.linearAccelerationLimits,...
-                                                            obj.linearAccelerationLimits,...
-                                                            obj.pointDensity);
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(varargin);
+            [obj] = obj.configurationParser(obj,varargin);
         end
-        
-        %% AGENT MAIN CYCLES
+        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
         function [obj] = processTimeCycle(obj,TIME,varargin)
-            % This function is designed to house a generic agent process
-            % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
@@ -65,134 +63,146 @@ classdef agent_VO < agent
             visualiseProblem = 0;
             visualiseAgent = 1;
             if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100+obj.objectID);
+                overHandle = figure(100 + obj.objectID);
                 hold on; grid on;
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
-            end
+            end 
+            
+            % DEFAULT BEHAVIOUR 
+            desiredSpeed = obj.nominalSpeed;
+            desiredHeadingVector = [1;0;0];
+            desiredVelocity = desiredHeadingVector*desiredSpeed;
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
-            observationSet = varargin{1};                                  % The detected objects
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(observationSet);
+            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
+%             [obj,obstacleSet,agentSet] = obj.getSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
+            
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
-            desiredSpeed = 2;
+            % Design the current desired trajectory from the waypoint.
             if ~isempty(obj.targetWaypoint)
-                % DEFAULT THE HEADING VECTOR TOWARDS THE WAYPOINT
-                waypointPosition = obj.targetWaypoint.state(1:3);
-                desiredVelocity  = (waypointPosition/norm(waypointPosition))*desiredSpeed;
-            else
-                desiredVelocity = [1;0;0]*desiredSpeed;
+                desiredHeadingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
+                desiredVelocity = desiredHeadingVector*desiredSpeed; % Desired relative velocity
             end
                         
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
+            % Modify the desired velocity with the augmented avoidance velocity.
             avoidanceSet = [obstacleSet,agentSet];
             algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;  
             if ~isempty(avoidanceSet) && avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredVelocity] = obj.getAvoidanceCorrection(dt,desiredVelocity,avoidanceSet,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
+                desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
-            algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
+            algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm      
+
+            % APPLY SPEED CONSTRAINT
+            if norm(desiredVelocity) > obj.maxSpeed
+                desiredVelocity = (desiredVelocity/norm(desiredVelocity))*obj.maxSpeed;
+            end  
             
-            % /////////////// PARSE CONTROLLER INPUTS /////////////////////
-            targetSpeed = norm(desiredVelocity);
-            targetHeading = desiredVelocity/targetSpeed;                   % Get the control inputs
-            
-            % ////////////////// AGENT CONTROLLER /////////////////////////
-            useController = 0;
-            if useController
-                [d_heading,d_speed,obj] = obj.trajectoryController(targetHeading,targetSpeed);  
-            else
-                [d_heading,d_speed,obj] = obj.simpleController(targetHeading,targetSpeed);
-            end
-            newSpeed = (norm(obj.localState(7:9)) + d_speed);              % Define the velocity vector from the new speed
-            newHeading = d_heading;                                        % Heading change relative to straight ahead
-            
-            % //////////////// APPLY KINEMATIC LIMITS /////////////////////
-            [newHeading,newSpeed] = obj.kinematicContraints(dt,newHeading,newSpeed);
-            newVelocity = [1;0;0]*newSpeed;                                % Convert to local velocity vector
-            
-            % ////////////////// UPDATE AGENT STATE ///////////////////////
-            [newState] = obj.stateDynamics_velocities(dt,newVelocity,newHeading);
-            % IF ALL WAYPOINTS ARE ACHEIVED; FREEZE THE AGENT
-            if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                newState = obj.freezeAgent();
-            end
-            
-            % /////////// UPDATE THE CLASS GLOBAL PROPERTIES //////////////
-            obj = obj.updateGlobalProperties(dt,newState);
-            
+            % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////
+            [newState] = obj.stateDynamics_simple(dt,desiredVelocity,[0;0;0]);
+            obj = obj.updateGlobalProperties_fixedFrame(dt,newState);  
+
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj.DATA.algorithm_indicator(TIME.currentStep) = algorithm_indicator; % Record when the algorithm is ran
-            obj.DATA.algorithm_dt(TIME.currentStep) = algorithm_dt;               % Record the computation time
-            obj.DATA.inputs(1:length(obj.priorError),TIME.currentStep) = [newSpeed;newState(4:6)];         % Record the control inputs 
-            obj.DATA.inputNames = {'Speed (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
+            obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
+            obj.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = [newState(7);newState(4:6)];         % Record the control inputs
+            
+%             if obj.objectID == visualiseAgent && visualiseProblem == 1
+%                 obj = obj.getAnimationFrame(overHandle,TIME,'test.gif');
+%                 close(overHandle);
+%             end
         end
+        
         % GET THE VO VELOCITY CORRECTION
-        function [avoidance_V] = getAvoidanceCorrection(obj,dt,desired_V,knownObstacles,visualiseProblem)
+        function [headingVector,speed] = getAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the collision avoidance heading and
             % velocity correction.
             
             % AGENT KNOWLEDGE
-            p_a = obj.localState(1:3,1);
-            v_a = obj.localState(7:9,1);
-            r_a = obj.VIRTUAL.size;
-            capable_V = v_a + obj.feasabliltyMatrix*dt;                    % Get all the feasible velocities this timestep 
-            
+            p_a = obj.localState(1:3,1);            % In relative frame centered at a
+            v_a = obj.localState(7:9,1);            % Body axis velocity
+            r_a = obj.VIRTUAL.radius;
+
             % BUILD THE VELOCITY OBSTACLE SET
             VO = [];
             for item = 1:length(knownObstacles)
+                % NEIGHBOUR CONDITIONS
+                neighbourConditionA = item < obj.maxNeighbours;                   % Maximum number of neighbours
+                neighbourConditionB = norm(knownObstacles(item).position) < obj.neighbourDist;      % [CONFIRMED] 
+                if ~neighbourConditionA || ~neighbourConditionB
+                    continue
+                end
                 % OBSTACLE KNOWLEDGE
-                p_b = knownObstacles(item).state(1:3) + p_a; 
-                v_b = knownObstacles(item).state(4:6) + v_a;               % Convert relative parameters to absolute
-                r_b = knownObstacles(item).size;
+                p_b = knownObstacles(item).position + p_a; 
+                v_b = knownObstacles(item).velocity + v_a;                 % Convert relative parameters to absolute
+                r_b = knownObstacles(item).radius;
+                tau_b = 0;
                 % DEFINE THE VELOCITY OBSTACLE PROPERTIES
-                [VOorigin,VOaxis,VOangle] = obj.defineVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem);
-                VO = vertcat(VO,struct('origin',VOorigin,'axis',VOaxis,'angle',VOangle));
+                [VO_i] = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
+                VO_i.objectID = knownObstacles(item).objectID;             % Add a unique identifier
+                VO = vertcat(VO,VO_i);
             end
-            
+
+            % GET THE CAPABLE VELOCITIES (GIVEN AS ABSOLUTE VELOCITIES                
+            capableVelocities = obj.feasabliltyMatrix;                     % Get all the feasible velocities this timestep 
+
             % SUBTRACT THE VELOCITY OBSTACLES FROM THE VELOCITY FIELDS
-            escape_V = obj.getEscapeVelocities(capable_V,VO);              % The viable velocities from the capable 
-            if isempty(escape_V)
-                warning('No viable escape velocities');
-                avoidance_V = [1;0;0]*norm(desired_V);
-                return
-            end
+            escapeVelocities = obj.getEscapeVelocities(capableVelocities,VO); % The viable velocities from the capable 
             
-            % SEARCH THE VIABLE ESCAPE VELOCITIES FOR THE VELOCITY WITH THE 
-            % SMALLEST DEVIATION FROM THE DESIRED VELOCITY          
-            searchMatrix = vertcat(escape_V,zeros(1,size(escape_V,2)));
-            for i = 1:size(searchMatrix,2)
-                searchMatrix(4,i) = norm(desired_V - searchMatrix(1:3,i)); % Add a dimension with the absolute vector value
+            % APPLY THE MINIMUM DIFFERENCE SEARCH STRATEGY
+            [avoidanceVelocity] = obj.strategy_minimumDifference(desiredVelocity,escapeVelocities);
+                
+            % SPECIAL CASE- VELOCITY MAGNITUDE IS ZERO
+            speed = norm(avoidanceVelocity);
+            headingVector = avoidanceVelocity/speed;
+            if isnan(headingVector)
+                headingVector = [1;0;0];  % Retain previous heading
             end
-            % FIND THE MINIMUM MAGNITUDE DEVIATION FROM THE DESIRED
-            [~,minIndex] = min(searchMatrix(4,:),[],2);                    % Return the index of the smallest vector
-            avoidance_V = searchMatrix(1:3,minIndex);
-            
-            % ERROR CATCHING
-            if isempty(avoidance_V)
-                warning('No avoidance velocities available for agent %s',obj.name);
-                avoidance_V = [1;0;0]*norm(desired_V);
-            end
-               
+
             % PLOT THE VECTOR CONSTRUCT
-            if visualiseProblem
-                hold on;
-                scatter3(capable_V(1,:),capable_V(2,:),capable_V(3,:),'r'); 
-                scatter3(escape_V(1,:),escape_V(2,:),escape_V(3,:),'g'); 
-                q = quiver3(0,0,0,current_V(1),current_V(2),current_V(3),'b');
+            if visualiseProblem && obj.objectID == visualiseProblem
+                % PLOT THE LEADING TANGENT VECTOR
+                OMAS_axisTools.drawTriad(p_a,eye(3));
+                
+                % CURRENT VELOCITY
+                q = quiver3(gca,p_a(1),p_a(2),p_a(3),v_a(1),v_a(2),v_a(3),'m');
                 q.AutoScaleFactor = 1;
-                q = quiver3(0,0,0,desired_V(1),desired_V(2),desired_V(3),'g');
-                q.AutoScaleFactor = 1;               
-                q = quiver3(0,0,0,avoidance_V(1),avoidance_V(2),avoidance_V(3),'r');
+                % DESIRED VELOCITY
+                q = quiver3(gca,p_a(1),p_a(2),p_a(3),desiredVelocity(1),desiredVelocity(2),desiredVelocity(3),'g');
+                q.AutoScaleFactor = 1;   
+                % AVOIDANCE VELOCITY
+                q = quiver3(gca,p_a(1),p_a(2),p_a(3),avoidanceVelocity(1),avoidanceVelocity(2),avoidanceVelocity(3),'b');
                 q.AutoScaleFactor = 1;
-                scatter3(avoidance_V(1,:),avoidance_V(2,:),avoidance_V(3,:),'b','filled'); 
+                
+                plotCapableVelocities = capableVelocities + p_a;
+                plotEscapeVelocities = escapeVelocities + p_a;
+                plotAvoidanceVelocities = avoidanceVelocity + p_a;
+                scatter3(gca,plotCapableVelocities(1,:),plotCapableVelocities(2,:),plotCapableVelocities(3,:),'r'); 
+                scatter3(gca,plotEscapeVelocities(1,:),plotEscapeVelocities(2,:),plotEscapeVelocities(3,:),'g');                 
+                scatter3(gca,plotAvoidanceVelocities(1),plotAvoidanceVelocities(2),plotAvoidanceVelocities(3),'b','filled'); 
             end
         end
-        
-        %% AVOIDANCE VELOCITY PARSING
+        % INITIALISE SENSORS (NOISY SENSOR PARAMETERS)
+        function [obj] = getSensorParameters(obj)
+            % This function is designed to populate the SENSOR field with
+            % representative sensor uncertainty.
+            % BUILD THE SENSOR DEFINITION
+            obj.SENSORS = struct('sensorHorizon',inf,...    % Assume the agent has perfect environmental knowledge (m)
+                                 'positionSigma',0.5,...    % Accurate to within 0.5m
+                                 'velocitySigma',0.1,...    % Accurate to within 0.1m/s
+                              'rangeFinderSigma',0.1,...    % Accurate to within 0.1m
+                                   'cameraSigma',5.21E-5,...% One pixel in a 1080p image
+                               'sampleFrequency',inf);      % Sensing has perfect precision
+        end
+    end
+    % //////////////////// VELOCITY OBSTACLE METHODS //////////////////////
+    methods
         % GET THE VIABLE ESCAPE VELOCITIES
         function [escapeVelocities] = getEscapeVelocities(obj,velocityMatrix,VOlist)
             % This function takes a matrix of potential velocities and
@@ -204,7 +214,8 @@ classdef agent_VO < agent
             % OUTPUTS:
             % escapeVelocities - The available escape velocity matrix
             
-            escapeVelocities = [];   % Prepare output container
+            escapeVelocities = velocityMatrix;  % Prepare output container
+            dim = size(escapeVelocities,1);
             
             % FOR EACH VIABLE VELOCITY, CHECK AGAINST CONES
             for i = 1:size(velocityMatrix,2)
@@ -212,117 +223,195 @@ classdef agent_VO < agent
                 candidatePoint = velocityMatrix(:,i); 
                 % Check points against the VO set
                 VOnumber = 1; flag = 0;
-                while flag ~= 1 && VOnumber <= length(VOlist)   
-                    % Calculate axis properties
-                    mod_coneAxis = norm(VOlist(VOnumber).axis);
-                    unit_coneAxis = VOlist(VOnumber).axis/mod_coneAxis;
+                while flag ~= 1 && VOnumber <= length(VOlist) 
+                    % COLLISION ANNOMOLY
+                    if VOlist(VOnumber).openAngle < 0.9*pi
+                        % DETERMINE WHETHER POINT IS WITHIN VO
+%                        [flag] = obj.isInsideVO(VOlist(VOnumber),candidatePoint);
+                        [flag] = obj.isInCone(VOlist(VOnumber),candidatePoint);
+                    end
                     
-                    % DETERMINE WHETHER POINT IS WITHIN VO
-                    [flag] = obj.isInCone(VOlist(VOnumber).origin,unit_coneAxis,...
-                                          mod_coneAxis,VOlist(VOnumber).angle,...
-                                          candidatePoint);
                     % Move to the next VO
                     VOnumber = VOnumber + 1;
                 end
-                % If the point lies outside all obstacles
-                if ~flag 
-                    escapeVelocities = horzcat(escapeVelocities,candidatePoint);
+                
+                % If the point lies outside all obstacles %f
+                % IF 'flag', point is inside matrix
+                if flag 
+                   escapeVelocities(:,i) = NaN(dim,1);
                 end
             end
+            % LOGICALLY REMOVE THE INVALID ELEMENTS
+            escapeVelocities = escapeVelocities(:,~isnan(escapeVelocities(1,:)));
         end
-        
-        %% VELOCITY OBSTACLE DESCRIPTION METHODS
-        % DRAW THE VELOCITY OBSTACLE PROBLEMS
-        function [VOorigin,VOaxis,VOgamma] = defineVelocityObstacle(obj,p_a,v_a,r_a,p_b,v_b,r_b,plotOn)
-            % This function assembles the geometric collision avoidance
+        % COMPARE POINT TO CONE GEOMETRY
+        function [flag] = isInCone(obj,VO,probePoint)      
+            % INPUTS:
+            % v_b
+            % mod_VOaxis
+            % unit_VOaxis
+            % coneOpenAngle - Cone open angle
+            % probePoint    - Test point 
+            
+            % Compare the angle made between the probeVector and the
+            % unitVO axis. Is less than alpha? else not in cone.
+                        
+            % FROM THE APEX TO THE PROBE POINT
+            probeVector = probePoint - VO.apex;                            % Define validation vector
+            [unit_probeVector] = probeVector/norm(probeVector);
+            
+            probeDot = dot(unit_probeVector,VO.axisUnit);
+            theta = real(acos(probeDot));                                  % The angle between cone axis and probe vector
+                        
+            % CHECK POINT RELATION TO CONE GEOMETRY
+            flag = 0;
+            conditionA = theta - VO.openAngle/2 < obj.epsilon;             % With an angle tolerance
+            conditionB = probeDot > 0;                                     % In the same direction as the axis vector
+            if conditionA && conditionB                                    % Half the cone's open angle
+                flag = 1;
+            end
+        end
+        % ASSEMBLE THE 3D VELOCITY OBSTACLE (VO)
+        function [VO] = define3DVelocityObstacle(obj,p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn)
+            % This function assembles the 3D geometric collision avoidance
             % problem from the relative information observed from the
             % virtual sensor systems.
 
             % OBSTACLE KNOWLEDGE
             lambda_ab = p_b - p_a;
-            c_b       = v_b - v_a;
-            r_c = r_a + obj.obstacleSafetyFactor*r_b;
+            r_c = r_a + r_b;        % Configuration radius with a small tolerance offset
             
             % ////////// PARAMETERS DEFINING THE PROBLEM PLANE ////////////
             mod_lambda_ab    = norm(lambda_ab);                            % Scalar relative seperation
-            unit_lambda_ab   = obj.unit(lambda_ab);                        % Unit relative position
-            unit_referenceAxis  = [0;0;1];                                 % Unit reference axis
-            % DEFINE THE ANGLE REFERENCE AXES                            
-            referenceVector = [1;0;0];                                     % The reference axis defaults to the agents direction
-            problemAxis = cross(referenceVector,unit_lambda_ab);
-            if problemAxis == 0
-               referenceVector = unit_referenceAxis;                       % Else form a comparison to the unit y axis
-               problemAxis = cross(referenceVector,unit_lambda_ab);           % Axes then align with the aerospace convention
+            unit_lambda_ab   = lambda_ab/mod_lambda_ab;                    % Unit relative position
+            % DEFINE THE ANGLE REFERENCE AXES   
+            referenceAxis = [1;0;0]; % To avoid [0;0;0]
+            problemAxis = cross(referenceAxis,unit_lambda_ab);             % The reference axis defaults to the agents direction
+            if sum(problemAxis) == 0
+               problemAxis = cross([0;0;1],unit_lambda_ab);                % Axes then align with the aerospace convention
             end     
-                 
-            % The projection is defined as the obstacle (in the
-            % configuration space) augmented by its relative velocity.
-            radiusVO = -r_c*unit_lambda_ab;                   % Unit radius of the obstacle (direction of lambdaAB)
-            VOgamma = asin(r_c/mod_lambda_ab);               % Get rotation angle for tangential vector          
-                                    
-            % DEFINE THE TANGENT VECTORS
-            angle = (pi/2) - VOgamma;                                                 % Define the leading tangent angle 
-            [leadingTangentialRadius] = obj.rotateVectorAboutAxis(radiusVO,problemAxis,angle); % The leading tangential radial vector         
-            leadingTangentVector = lambda_ab + leadingTangentialRadius;      % The vector to the tangent point
-            VOaxis = (dot(leadingTangentVector,lambda_ab)/mod_lambda_ab^2)*lambda_ab; % Define the tangent projection on AB
+            % CALCUATE THE OPEN ANGLE OF THE CONE
+            halfAlpha = asin(r_c/mod_lambda_ab);
+            halfAlpha = real(halfAlpha);
             
-            % VELOCITY OBSTACLE VECTOR DESCRIPTION
-            VOorigin = v_b;
-            VOlambda = VOorigin + lambda_ab;
-            VOtangentPoint = VOorigin + lambda_ab + leadingTangentialRadius;
+            % CALCULATE THE LEADING TANGENTS ((oldVector,axisVector,theta))
+            [leadingTangentVector] = obj.rotateVectorAboutAxis(lambda_ab,problemAxis,halfAlpha); % The leading tangential radial vector         
+
+            % CALCULATE THE AXIS PROJECTION
+            VOaxis = (dot(leadingTangentVector,lambda_ab)/mod_lambda_ab^2)*lambda_ab; % Define the tangent projection on AB
+            axisLength = norm(VOaxis);
+            axisUnit = VOaxis/axisLength;
+            
+            % DEFINE THE LEADING TANGENT VECTOR
+            [leadingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,problemAxis,halfAlpha); % The leading tangential radial vector         
+            unit_leadingTangent = leadingTangentVector/norm(leadingTangentVector);
+            
+            % DEFINE THE TRAILING VECTORS (TRAILING)
+            [trailingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,problemAxis,-halfAlpha); % The leading tangential radial vector         
+            unit_trailingTangent = trailingTangentVector/norm(trailingTangentVector);
+            
+            % ESTABLISH DIRECTION OF THE AGENT
+            leadingTest = unit_leadingTangent'*(v_a - v_b) > unit_trailingTangent'*(v_a - v_b);
+%           leadingTest = sign((Bx - Ax) * (Y - Ay) - (By - Ay) * (X - Ax))
+            % <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+            if leadingTest
+                isVaLeading = 1;
+            else
+                isVaLeading = 0;
+            end           
+            
+            % //////// DEFINE VELOCITY OBSTACLE PARAMETERS ////////////////
+            VO = struct('apex',v_b,...
+                'axisUnit',axisUnit,...
+                'axisLength',mod_lambda_ab,...
+                'openAngle',2*halfAlpha,...
+                'leadingEdgeUnit',unit_leadingTangent,...
+                'trailingEdgeUnit',unit_trailingTangent,...
+                'isVaLeading',isVaLeading,...
+                'isVaInsideCone',0,...
+                'truncationTau',tau,...
+                'truncationCircleCenter',(p_b - p_a)/tau + v_b,...
+                'truncationCircleRadius',(r_a + r_b)/tau);
+            % /////////////////////////////////////////////////////////////
+            % IS Va INSIDE THE VO
+            [VO.isVaInsideCone] = obj.isInCone(VO,v_a); 
             
             % PROBLEM VISUALISATION
-            if plotOn
-                % DRAW AGENT FORWARD VELOCITY
-                coneCenter = VOorigin + VOaxis;
-                % PLOT THE LEADING TANGENT VECTOR
-                q = quiver3(0,0,0,1,0,0,'r');
-                q.AutoScaleFactor = 1;
-                q = quiver3(0,0,0,0,-1,0,'g');
-                q.AutoScaleFactor = 1;
-                q = quiver3(0,0,0,0,0,-1,'b');
-                q.AutoScaleFactor = 1;
-                
-                % DRAW OBSTACLE REPRESENTATION
-                [Xb,Yb,Zb] = obj.getSphere(lambda_ab,r_b);                            
-                sphB = mesh(Xb,Yb,Zb);  % Obstacle
+            if plotOn && obj.objectID == 1               
+                % PLOT THE CONE CONSTRUCTION
+                coneApex = p_a + VO.apex;
+                coneCenter = coneApex + VO.axisUnit*VO.axisLength; 
+                % DRAW OBSTACLE AS INPUTTED
+                [Xb,Yb,Zb] = obj.getSphere(p_b,r_b);                            
+                sphB = mesh(gca,Xb,Yb,Zb);  % Obstacle
                 set(sphB,'facealpha',0.2,...
-                         'FaceColor','g',...
+                         'FaceColor','b',...
                          'LineWidth',0.1,...
                          'EdgeAlpha',0); 
-                % PLOT THE RELATIVE VELOCITY OF THE OBSTACLE
-                q = quiver3(lambda_ab(1),lambda_ab(2),lambda_ab(3),...
-                            v_b(1), v_b(2), v_b(3),'b','filled');          % Plot the obstacles velocity from its relative position
-                q.AutoScaleFactor = 1;                     
-                     
-                % \\\\\\  DRAW THE VELOCITY OBSTACLE PROJECTION \\\\\\\\\\\
-                % PLOT THE VO ORIGIN
-                q = quiver3(p_a(1),p_a(2),p_a(3),...
-                            VOorigin(1),VOorigin(2),VOorigin(3),'g');
-                q.AutoScaleFactor = 1;
-                % DRAW THE VELOCITY OBSTACLE PROJECTION        
-                [X_vo,Y_vo,Z_vo] = obj.getSphere(VOlambda,r_c);  
-                sphB = mesh(X_vo,Y_vo,Z_vo); 
+                % OBSTACLE VELOCITY (ABS)
+                q = quiver3(gca,p_b(1),p_b(2),p_b(3),...
+                                v_b(1),v_b(2),v_b(3),'b','filled');          % Plot the obstacles velocity from its relative position
+                q.AutoScaleFactor = 1;  
+                
+                % DRAW THE VELOCITY OBSTACLE PROJECTION
+                [X_vo,Y_vo,Z_vo] = obj.getSphere(coneCenter,(r_a + r_b));  
+                sphB = mesh(gca,X_vo,Y_vo,Z_vo); 
                 set(sphB,'facealpha',0.2,...
                          'FaceColor','g',...
                          'LineWidth',0.1,...
                          'EdgeAlpha',0);
-                % PLOT THE LEADING TANGENTIAL RADIUS OF THE VO
-                q = quiver3(VOlambda(1),VOlambda(2),VOlambda(3),...
-                            leadingTangentialRadius(1),leadingTangentialRadius(2),leadingTangentialRadius(3),'k');
+                
+                % //////////////// VO CONSTRUCTION ////////////////////////
+                % THE LEADING TANGENT                
+                leadingTangent = VO.leadingEdgeUnit*VO.axisLength;
+                q = quiver3(gca,coneApex(1),coneApex(2),coneApex(3),...
+                            leadingTangent(1),leadingTangent(2),leadingTangent(3),'k');                  
                 q.AutoScaleFactor = 1;
-                % PLOT THE LEADING TANGENT VECTOR
-                q = quiver3(VOorigin(1),VOorigin(2),VOorigin(3),...
-                            leadingTangentVector(1),leadingTangentVector(2),leadingTangentVector(3),'k');
+                
+                % THE TRAILING TANGENT                
+                trailingTangent = VO.trailingEdgeUnit*VO.axisLength;
+                q = quiver3(gca,coneApex(1),coneApex(2),coneApex(3),...
+                            trailingTangent(1),trailingTangent(2),trailingTangent(3),'k');
                 q.AutoScaleFactor = 1;
+                
                 % ASSEMBLE VELOCITY OBSTACLE CONES
-                nodes = 11;
-                obj.vectorCone(VOorigin,coneCenter,VOtangentPoint,nodes,'g');
+                try
+                    tangentPoint = coneApex + leadingTangentVector;
+                    nodes = 11;
+                    obj.vectorCone(coneApex,coneCenter,tangentPoint,nodes,'g');
+                catch
+                end
             end
-        end               
+        end
     end
-    % STATIC VELOCITY OBSTACLE METHODS
+    % //////////////////// SOLUTION-SEARCH STRATEGIES /////////////////////
     methods (Static)
+        % SMALLEST DEVIATION FROM DESIRED 
+        function [optimalVelocity] = strategy_minimumDifference(desiredVelocity,escapeVelocities)
+            % This function searches a matrix of viable velocities by 
+            % applying the minimum difference from the desired trajectory 
+            % approach.  
+            
+            % ESTABLISH THE INPUT DIMENSIONS
+            inputDim = numel(desiredVelocity);        
+            
+            % CONSTRUCT THE SEARCH SPACE
+            searchMatrix = vertcat(escapeVelocities,zeros(1,size(escapeVelocities,2)));
+            
+            for i = 1:size(searchMatrix,2)
+                searchMatrix((inputDim+1),i) = norm(desiredVelocity - searchMatrix(1:inputDim,i)); % Add a dimension with the absolute vector value
+            end
+            % FIND THE MINIMUM MAGNITUDE DEVIATION FROM THE DESIRED
+            [~,minIndex] = min(searchMatrix((inputDim+1),:),[],2);                    % Return the index of the smallest vector
+            optimalVelocity = searchMatrix(1:inputDim,minIndex);
+            
+            % ERROR CATCHING
+            if isempty(optimalVelocity)
+                warning('No viable velocities found in search matrix.');
+                optimalVelocity = zeros(inputDim,1);
+            end            
+        end
         % BUILD A UNIT, CUBOID N-DIMENSIONAL POINT CLOUD
         function [cubePoints] = getFeasabilityGrid(minVector,maxVector,pointDensity)
             % This function generates an n-dimensional cube of points defined
@@ -358,39 +447,36 @@ classdef agent_VO < agent
                 cubePoints(dim,:) = repmat(insertVector,1,no_copies);
             end 
         end
-        % COMPARE POINT TO CONE GEOMETRY
-        function [flag] = isInCone(origin,unit_coneAxis,mod_coneAxis,coneAngle,point)      
+    end
+    % ///////////////////////////// UTILITIES /////////////////////////////
+    methods (Static)
+        % ROTATE VECTOR THROUGH AN ANGLE, AROUND A GIVEN AXIS
+        function [newVector] = rotateVectorAboutAxis(oldVector,axisVector,theta)
+            % This function is designed to calculate a vector
+            % following a rotation around a given axis vector, through a
+            % given angle.
             % INPUTS:
-            % VOorigin
-            % mod_VOaxis
-            % unit_VOaxis
-            % alpha      - Cone angle
-            % probePoint - Test point 
+            % oldVector  - The initial vector
+            % axisVector - The axis of rotation
+            % theta      - The angle of rotation
+            % OUTPUTS:
+            % newVector  - The rotated 3D vector
             
-            % Compare the angle made between the probeVector and the
-            % unitVO axis. Is less than alpha? else not in cone.
+            % NORMALISE THE AXIS VECTOR
+            axisVector = axisVector/norm(axisVector);  % Normalize rotation axis
+            % GET THE CROSS PRODUCT PROECTION BETWEEN THE AXIS AND VECTOR
+            crossVector = cross(axisVector,oldVector);
             
-            if numel(origin) ~= numel(point)
-                error('dimensionality problem');
-            end                
-            
-            probeVector = point - origin;           % Define validation vector
-            [unit_probeVector] = probeVector/sqrt(sum(probeVector.^2));
-            theta = acos(dot(unit_probeVector,unit_coneAxis));      % The angle between cone axis and probe vector
-            
-            % CHECK POINT RELATION TO CONE GEOMETRY
-            flag = 0;
-            if theta <= coneAngle
-                probeVOProjection = dot(probeVector,unit_coneAxis); %Calculate the projection of the probeVector onto VOaxis
-                if probeVOProjection <= mod_coneAxis
-                    % Is the projection of the point less than the cone length
-                    % YES, IN CONE
-                    flag = 1;
-                end
-            end
+            % DETERMINE THE MAPPING OF EACH VECTOR COMPONENTS
+            newVector = cos(theta)*oldVector ...
+                + (crossVector)*sin(theta)  ...
+                + axisVector*(dot(axisVector,oldVector))*(1 - cos(theta));
         end
+    end
+    % ///////////////////////// DRAWING FUNCTIONS /////////////////////////
+    methods (Static)
         % DRAW CONE
-        function [Cone] = vectorCone(pointA,pointB,radialPoint,nodes,coneColour)
+        function [Cone]  = vectorCone(pointA,pointB,radialPoint,nodes,coneColour)
             % This function is designed to construct a cone mesh between two 
             % 3D points Using a radial Point to specify the radial properties.
             % INPUTS:
@@ -448,7 +534,7 @@ classdef agent_VO < agent
             
             % GENERATE THE CONE 
             % Plot the cone from the origin along x-axis and scale to size 
-            Cone = mesh(real(xx1),real(xx2),real(xx3));
+            Cone = mesh(gca,real(xx1),real(xx2),real(xx3));
             
             % Get the planar rotation angle
             unit_Vx=[1 0 0];
@@ -510,28 +596,6 @@ classdef agent_VO < agent
             X = X.*radius + position(1);
             Y = Y.*radius + position(2);
             Z = Z.*radius + position(3);
-        end
-        % CONVERT VECTOR TO SKEW-SYMMETRIC MATRIX
-        function [outputMatrix] = skew(inputVector)
-            % This function generates a skew-symmetric for the computation
-            % of the vector cross-product.
-            % INPUTS:
-            % inputVector - The original 3D vector
-            % OUTPUT:
-            % outputMatrix - The equivalent skew-symmetric matrix
-            
-            if length(inputVector) ~= 3
-                warning('The input vector must be three dimensional.');
-                return
-            end
-            % Apply element mapping
-            outputMatrix = zeros(3,3);
-            outputMatrix(1,2) = -inputVector(3);
-            outputMatrix(1,3) =  inputVector(2);
-            outputMatrix(2,1) =  inputVector(3);
-            outputMatrix(2,3) = -inputVector(1);
-            outputMatrix(3,1) = -inputVector(2);
-            outputMatrix(3,2) =  inputVector(1); % Arrange the components
         end
     end
 end

@@ -10,9 +10,9 @@ function [ objectIndex ] = getScenario_SWIMSMART(varargin)
 fprintf('[SCENARIO]\tGetting SWIMSMART test scenario.\n');
 
 % DEFAULT AGENT/OBSTACLE CONFIGURATION IN THIS EXAMPLE
-defaultConfig = struct('file','scenario_SWIMSMART.mat',...
+defaultConfig = struct('file','scenario.mat',...
                        'agents',[],...
-                       'radius',200,...
+                       'agentOrbit',200,...
                        'velocities',18,...
                        'plot',0,...
                        'waypointRadius',5,...
@@ -25,24 +25,24 @@ agentNumber = numel(agentIndex);                    % Declare the number of agen
 % GET THE SCENARIO BUILDING TOOLS
 testScenario = scenarioBuilder(agentNumber);
 % DEFINE THE AGENT CONFIGURATIONS
-[ agentConfig ] = testScenario.planarRing('radius',scenarioConfig.radius,...
-                                          'velocities',scenarioConfig.velocities);
+[ agentConfig ] = testScenario.planarRing('radius',scenarioConfig.agentOrbit,...
+                                      'velocities',scenarioConfig.velocities);
 
 %% REBUILD THE AGENT INDEX UNDER THIS CONFIGURATION
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning agent definitions...\n'); 
 for index = 1:agentNumber
     % APPLY GLOBAL STATE VARIABLES
-    agentIndex{index}.globalPosition = agentConfig.position(index,:)';
-    agentIndex{index}.globalVelocity = agentConfig.velocity(index,:)';
-    agentIndex{index}.quaternion = agentConfig.quaternion(index,:)';
+    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index);
+    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocity(:,index);
+    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternion(:,index);
 end
 % PLOT THE AGENT CONFIGURATION
 % hand = agentConfig.plot();
 
 % DEFINE THE WAYPOINT CONFIGURATIONS
 waypointPlanarRotation = (18/16)*pi;
-[ waypointConfig] = testScenario.planarRing('radius',scenarioConfig.radius,...
+[ waypointConfig] = testScenario.planarRing('radius',scenarioConfig.agentOrbit,...
                                             'velocities',0,...
                                             'zeroAngle',waypointPlanarRotation);
                                         
@@ -52,16 +52,16 @@ for index = 1:agentNumber
     nameString = sprintf('WP:%s',agentIndex{index}.name);
     waypointIndex{index} = waypoint('radius',scenarioConfig.waypointRadius,'priority',1,'name',nameString);
     % APPLY GLOBAL STATE VARIABLES
-    waypointIndex{index}.globalPosition = waypointConfig.position(index,:)';
-    waypointIndex{index}.globalVelocity = waypointConfig.velocity(index,:)';
-    waypointIndex{index}.quaternion = waypointConfig.quaternion(index,:)';
+    waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.position(:,index);
+    waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocity(:,index);
+    waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternion(:,index);
     waypointIndex{index} = waypointIndex{index}.createAgentAssociation(agentIndex{index});  % Create waypoint with association to agent
 end
 % BUILD THE COLLECTIVE OBJECT INDEX
 objectIndex = horzcat(agentIndex,waypointIndex);
 % PLOT THE SCENE
 if scenarioConfig.plot
-    scenarioBuilder.plotObjectIndex(objectIndex);
+    testScenario.plotObjectIndex(objectIndex);
 end
 % SAVE THE FILE
 save(scenarioConfig.file,'objectIndex','agentIndex','waypointIndex');

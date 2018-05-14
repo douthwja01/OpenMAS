@@ -10,14 +10,15 @@ classdef waypoint < objectDefinition
     % This class contains the basic properties of a generic agent, neither
     % aerial or ground based.
     properties
+        
         % WAYPOINT PROPERTIES
         ownership = struct('objectID',NaN,...
                            'name','all',...
-                           'priority',0);       % Associated agent [objectID, name, priority]
+                           'priority',0); % Associated agent [objectID, name, priority]
     end
 %%  CLASS METHODS
     methods 
-%       CONSTRUCTION METHOD
+        % CONSTRUCTION METHOD
         function obj = waypoint(varargin)
             % This function is to construct the waypoint object using the
             % object defintions held in the 'objectDefinition' base class.
@@ -29,41 +30,31 @@ classdef waypoint < objectDefinition
                 varargin = varargin{:};
             end 
             
-            % DEFAULT WAYPOINT PARAMETERS
-            size = 1;
-            symbol = '*';
-            agentSet = [];
-            priority = 0;
+            % CALL THE SUPERCLASS CONSTRUCTOR
+            obj = obj@objectDefinition(varargin); % Call the super class
             
-            % WAYPOINT (ADDITIONAL) INPUT PARSING
-            tmp = strncmpi(varargin,'size',4)|strncmpi(varargin,'radius',6); 
-            if any(tmp)
-                size = varargin{find(tmp) + 1};
-            end            
-            tmp = strncmpi(varargin,'symbol',6);
-            if any(tmp)
-                symbol = varargin{find(tmp) + 1};
-            end
-            tmp = strncmpi(varargin,'agent',5);
+            % WAYPOINT VIRTUAL DEFINITION
+            obj.VIRTUAL.symbol = 'v';
+            obj.VIRTUAL.type = OMAS_objectType.waypoint;            
+            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin);  
+            
+            % IF SIMPLE CONSTRUCTION.. RETURN NOW
+            if length(varargin) < 1
+                return
+            end 
+            
+            % DEFAULT CONFIGURATION PARAMETERS
+            priority = 0;
+            agentSet = [];
+
+            tmp = strncmpi(varargin,'owner',5);
             if any(tmp)
                 agentSet = varargin{find(tmp) + 1};
             end 
             tmp = strncmpi(varargin,'priority',5);
             if any(tmp)
                 priority = varargin{find(tmp) + 1};
-            end 
-            % CALL THE SUPERCLASS CONSTRUCTOR
-            obj = obj@objectDefinition(varargin); % Call the super class
-            
-            % ALLOCATE WAYPOINT-SPECIFIC CONSTANTS
-            obj.VIRTUAL.type = OMAS_objectType.waypoint;
-            obj.VIRTUAL.symbol = symbol;
-            obj.VIRTUAL.size = size;
-            
-            % IF SIMPLE CONSTRUCTION.. RETURN NOW
-            if length(varargin) < 1
-                return
-            end
+            end                    
 
             % ALLOCATE ASSOCIATED AGENT PROPERTIES
             if ~isempty(agentSet)
@@ -76,11 +67,10 @@ classdef waypoint < objectDefinition
             end
             
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(varargin);
-        end   
-              
-%%% STATE VECTOR IS DEFINED AS [x;y;z;v;u;w;psi;the;phi;p;q;r] %%%%%%%%%%%%        
+            [obj] = obj.configurationParser(obj,varargin);
+        end           
     end
+    % /////////////////// WAYPOINT OWNERSHIP FUNCTIONS /////////////////////
     methods
         % CREATE ASSOCIATION BETWEEN AGENT AND WAYPOINT
         function [obj] = createAgentAssociation(obj,agentObject,priority)
@@ -168,9 +158,5 @@ classdef waypoint < objectDefinition
             end
         end
     end
-    % PRIVATE METHODS (CLASS SPECIFIC TOOLS)
-    methods (Access= private)
-        
-    end
-end
+end %%% STATE VECTOR IS DEFINED AS [x;y;z;v;u;w;psi;the;phi;p;q;r] %%%%%%%% 
 

@@ -6,14 +6,13 @@
 % Author: James A. Douthwaite
 
 classdef agent_HRVO < agent_RVO
-    
 %% INITIALISE THE AGENT SPECIFIC PARAMETERS
     properties
         % PROPERTIES UNIQUE TO THE HRVO METHOD
     end
 %%  CLASS METHODS
-    methods 
-        %% CONSTRUCTOR
+    methods
+        % CONSTRUCTOR
         function obj = agent_HRVO(varargin)
             % INPUT HANDLING
             if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
@@ -26,148 +25,83 @@ classdef agent_HRVO < agent_RVO
             [obj] = obj.configurationParser(varargin);
         end
         
-        %% AGENT MAIN CYCLE
-        function [obj] = processTimeCycle(obj,TIME,varargin)
-            % This function is designed to house a generic agent process
-            % cycle that results in an acceleration vector in the global axis.
-            % INPUTS:
-            % varargin - Cell array of inputs
-            % >dt      - The timestep
-            % >objects - The detectable objects cell array of structures
-            % OUTPUTS:
-            % obj      - The updated project
-            
-            % GET THE TIMESTEP
-            if isstruct(TIME)
-                dt = TIME.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
-            % PLOT AGENT FIGURE
-            visualiseProblem = 0;
-            visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100 + obj.objectID);
-                hold on; grid on;
-                axis vis3d;
-                xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
-            end 
-            
-            % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
-            observationSet = varargin{1};                                  % The detected objects
-            % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(observationSet);
-            
-            % /////////////////// WAYPOINT TRACKING ///////////////////////
-            desiredSpeed = 2;
-            if ~isempty(obj.targetWaypoint)
-                % DEFAULT THE HEADING VECTOR TOWARDS THE WAYPOINT
-                waypointPosition = obj.targetWaypoint.state(1:3);
-                desiredVelocity  = (waypointPosition/norm(waypointPosition))*desiredSpeed;
-            else
-                desiredVelocity = [1;0;0]*desiredSpeed; 
-            end
-                        
-            % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
-            avoidanceSet = [obstacleSet,agentSet];
-            algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;  
-            if ~isempty(avoidanceSet) && avoidanceEnabled
-                algorithm_indicator = 1;
-                % GET THE UPDATED DESIRED VELOCITY
-                [desiredVelocity] = obj.getAvoidanceCorrection(dt,desiredVelocity,avoidanceSet,visualiseProblem);
-            end
-            algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
-            
-            % /////////////// PARSE CONTROLLER INPUTS /////////////////////
-            targetSpeed = norm(desiredVelocity);
-            targetHeading = desiredVelocity/targetSpeed;                   % Get the control inputs
-            
-            % ////////////////// AGENT CONTROLLER /////////////////////////
-            useController = 0;
-            if useController
-                [d_heading,d_speed,obj] = obj.trajectoryController(targetHeading,targetSpeed);  
-            else
-                [d_heading,d_speed,obj] = obj.simpleController(targetHeading,targetSpeed);
-            end                     
-            newSpeed = (norm(obj.localState(7:9)) + d_speed);              % Define the velocity vector from the new speed
-            newHeading = d_heading;                                        % Heading change relative to straight ahead
-            
-            % //////////////// APPLY KINEMATIC LIMITS /////////////////////
-            [newHeading,newSpeed] = obj.kinematicContraints(dt,newHeading,newSpeed);
-            newVelocity = [1;0;0]*newSpeed;                                % Convert to local velocity vector
-            
-            % ////////////////// UPDATE AGENT STATE ///////////////////////
-            [newState] = obj.stateDynamics_velocities(dt,newVelocity,newHeading);
-            % IF ALL WAYPOINTS ARE ACHEIVED; FREEZE THE AGENT
-            if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                newState = obj.freezeAgent();
-            end
-            
-            % /////////// UPDATE THE CLASS GLOBAL PROPERTIES //////////////
-            obj = obj.updateGlobalProperties(dt,newState);
-            
-            % ////////////////// UPDATE AGENT STATE ///////////////////////
-            obj.DATA.algorithm_indicator(TIME.currentStep) = algorithm_indicator; % Record when the algorithm is ran
-            obj.DATA.algorithm_dt(TIME.currentStep) = algorithm_dt;               % Record the computation time
-            obj.DATA.inputs(1:length(obj.priorError),TIME.currentStep) = [newSpeed;newState(4:6)];         % Record the control inputs 
-            obj.DATA.inputNames = {'Speed (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
-        end
+        % MAIN CYCLE IS INHERITED FROM THE SUPERCLASS
+        % The waypoint handling, dynamics and update procedures must also
+        % be the same as the super-class.
 
-        %% THE RECIPROCAL AVOIDANCE OVERRIDING FUNCTIONS
         % GET THE VO VELOCITY CORRECTION
-        function [avoidance_V] = getAvoidanceCorrection(obj,dt,desired_V,knownObstacles,visualiseProblem)
+        function [headingVector,speed] = getAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the collision avoidance heading and
             % velocity correction.
             
-            % AGENT PROPERTIES
-            current_V = obj.localState(7:9,1);
-            capable_V = current_V + obj.feasabliltyMatrix*dt;              % Get all the feasible velocities this timestep 
-                       
+            % AGENT KNOWLEDGE
+            p_a = obj.localState(1:3,1);
+            v_a = obj.localState(7:9,1);
+            r_a = obj.VIRTUAL.radius;
+            
             % BUILD THE VELOCITY OBSTACLE SET
             VO = [];
             for item = 1:length(knownObstacles)
+                % CHECK NEIGHBOUR CONDITIONS
+                neighbourConditionA = norm(knownObstacles(item).position) < obj.neighbourDist;    % [CONFIRMED] 
+                if ~neighbourConditionA
+                    continue
+                end
+                % OBSTACLE KNOWLEDGE
+                p_b = knownObstacles(item).position + p_a; 
+                v_b = knownObstacles(item).velocity + v_a;               % Convert relative parameters to absolute
+                r_b = knownObstacles(item).radius;
+                tau_b = 0;
                 % DEFINE THE VELOCITY OBSTACLE PROPERTIES
-                [VOorigin,VOaxis,VOangle] = obj.defineHybridReciprocalVelocityObstacle(knownObstacles(item),visualiseProblem);
-                VO = vertcat(VO,struct('origin',VOorigin,'axis',VOaxis,'angle',VOangle));
+                [HRVO_i] = obj.define3DHybridReciprocalVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
+                VO = vertcat(VO,HRVO_i);
             end
+            
+            % GET THE CAPABLE VELOCITIES
+            capableVelocities = obj.feasabliltyMatrix;
             
             % SUBTRACT THE VELOCITY OBSTACLES FROM THE VELOCITY FIELDS
-            [escape_V] = obj.getEscapeVelocities(capable_V,VO);              % The viable velocities from the capable 
-            if isempty(escape_V)
-                warning('No viable escape velocities');
-                avoidance_V = desired_V;
-                return
-            end
+            [escapeVelocities] = obj.getEscapeVelocities(capableVelocities,VO);              % The viable velocities from the capable 
             
-            % SEARCH THE VIABLE ESCAPE VELOCITIES FOR THE VELOCITY WITH THE 
-            % SMALLEST DEVIATION FROM THE DESIRED VELOCITY          
-            searchMatrix = vertcat(escape_V,zeros(1,size(escape_V,2)));
-            for i = 1:size(searchMatrix,2)
-                searchMatrix(4,i) = norm(desired_V - searchMatrix(1:3,i)); % Add a dimension with the absolute vector value
+            % APPLY THE MINIMUM DIFFERENCE SEARCH STRATEGY
+            [avoidanceVelocity] = obj.strategy_minimumDifference(desiredVelocity,escapeVelocities);                  
+            
+            % SPECIAL CASE- VELOCITY MAGNITUDE IS ZERO
+            speed = norm(avoidanceVelocity);
+            headingVector = avoidanceVelocity/speed;
+            if isnan(headingVector)
+                headingVector = [1;0;0];  % Retain previous heading
             end
-            % FIND THE MINIMUM MAGNITUDE DEVIATION FROM THE DESIRED
-            [~,minIndex] = min(searchMatrix(4,:),[],2);                    % Return the index of the smallest vector
-            avoidance_V = searchMatrix(1:3,minIndex);
             
             % PLOT THE VECTOR CONSTRUCT
-            if visualiseProblem
-                scatter3(capable_V(1,:),capable_V(2,:),capable_V(3,:),'r'); 
-                scatter3(escape_V(1,:),escape_V(2,:),escape_V(3,:),'g'); 
-                q = quiver3(0,0,0,current_V(1),current_V(2),current_V(3),'b');
+            if visualiseProblem && obj.objectID == visualiseProblem
+                % PLOT THE LEADING TANGENT VECTOR
+                OMAS_axisTools.drawTriad(p_a,eye(3));
+                
+                % CURRENT VELOCITY
+                q = quiver3(gca,p_a(1),p_a(2),p_a(3),v_a(1),v_a(2),v_a(3),'m');
                 q.AutoScaleFactor = 1;
-                q = quiver3(0,0,0,desired_V(1),desired_V(2),desired_V(3),'g');
-                q.AutoScaleFactor = 1;               
-                q = quiver3(0,0,0,avoidance_V(1),avoidance_V(2),avoidance_V(3),'r');
+                % DESIRED VELOCITY
+                q = quiver3(gca,p_a(1),p_a(2),p_a(3),desiredVelocity(1),desiredVelocity(2),desiredVelocity(3),'g');
+                q.AutoScaleFactor = 1;   
+                % AVOIDANCE VELOCITY
+                q = quiver3(gca,p_a(1),p_a(2),p_a(3),avoidanceVelocity(1),avoidanceVelocity(2),avoidanceVelocity(3),'b');
                 q.AutoScaleFactor = 1;
-                scatter3(avoidance_V(1,:),avoidance_V(2,:),avoidance_V(3,:),'b','filled'); 
+                
+%                 plotCapableVelocities = capableVelocities + p_a;
+%                 plotEscapeVelocities = escapeVelocities + p_a;
+%                 plotAvoidanceVelocities = avoidanceVelocity + p_a;
+%                 scatter3(gca,plotCapableVelocities(1,:),plotCapableVelocities(2,:),plotCapableVelocities(3,:),'r'); 
+%                 scatter3(gca,plotEscapeVelocities(1,:),plotEscapeVelocities(2,:),plotEscapeVelocities(3,:),'g');                 
+%                 scatter3(gca,plotAvoidanceVelocities(1),plotAvoidanceVelocities(2),plotAvoidanceVelocities(3),'b','filled'); 
             end
         end
     end
-    % STATIC MATHEMATIC FUNCTIONS
+    
+    % /////////// HYBRID RECIPRICOL VELOCITY OBSTACLE METHODS /////////////
     methods (Access = public)
-        % DEFINE THE RECIPCOCAL VELOCITY OBSTACLE
-        function [HRVOorigin,HRVOaxis,HRVOgamma] = defineHybridReciprocalVelocityObstacle(obj,obstacle,plotOn)
+        % DEFINE THE 3D HYBRID RECIPCOCAL VELOCITY OBSTACLE (HRVO)
+        function [HRVO] = define3DHybridReciprocalVelocityObstacle(obj,p_a,v_a,r_a,p_b,v_b,r_b,tau_b,plotOn)
             % This function designs a Hybrid-Reciprocal Velocity Obstacle
             % (HRVO) for a sensed obstacle. This method is that presented
             % in the paper "The Hybrid Reciprocal Velocity Obstacle" by
@@ -180,141 +114,156 @@ classdef agent_HRVO < agent_RVO
             % VOapex   - The apex of HRVO
             % VOaxis   - The vector describing the cone axis
             % gamma_VO - The cone angle from the axis vector
+
+            % GENERATE A STANDARD VELOCITY OBSTACLE
+            [VO]  = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,plotOn);
+            [RVO] = obj.define3DReciprocalVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,plotOn);       
             
-            % AGENT KNOWLEDGE
-            v_a = obj.localState(7:9);
-            r_a = obj.VIRTUAL.size;
-            % OBSTACLE KNOWLEDGE
-            origin    = [0;0;0];
-            r_b       = obstacle.size;
-            lambda_ab = obstacle.state(1:3);
-            c_b       = obstacle.state(4:6);
-            v_b = v_a + c_b;
-            r_c = r_a + obj.obstacleSafetyFactor*r_b;
+            % CALCULATE THE VECTOR INTERSECTIONS DEPENDING ON ORIENTATION
+            % OF Va WITH RESPECT TO THE RVO CENTER-LINE
+            if RVO.isVaLeading 
+                % Va is on the leading side of the RVO
+                %apx is the intersection of the learding side of the RVO
+                %and the trailing side of the VO.
+                % INTERSECT LEADING RVO AND TRAILING VO
+                RVOelement = RVO.leadingEdgeUnit;
+                VOelement  = VO.trailingEdgeUnit;
+                % DELARE NEW HRVO PROPERTES
+                unit_leadingTangent  = RVOelement;
+                unit_trailingTangent = VOelement;
+            else
+                % INTERSECT TRAILING RVO AND LEADING VO
+                VOelement  = VO.leadingEdgeUnit;
+                RVOelement = RVO.trailingEdgeUnit;
+                % DELARE NEW HRVO PROPERTES
+                unit_leadingTangent  = VOelement;
+                unit_trailingTangent = RVOelement;
+            end
+
+            % GET THE INTERSECTION POINT
+%             [HRVOapex, isSuccessful] = obj.twoRayIntersection2D(VO.apex,VOelement,RVO.apex,-RVOelement); % Project the RVO vector towards the VO element
+%             [pa,pb,isSuccessful] = obj.twoRayIntersection3D(P1,dP1,P3,dP3)
+            [HRVOapex,pb,isSuccessful] = obj.findAny3DIntersection(VO.apex,VOelement,RVO.apex,-RVOelement);
+            
+            
+            if any(isnan(HRVOapex))%~isSuccessful
+                HRVOapex = RVO.apex;
+                warning('no line intersection');
+            end
                         
-            % ////////// PARAMETERS DEFINING THE PROBLEM PLANE ////////////
-            mod_lambda_b  = sqrt(sum(lambda_ab.^2));                        % Scalar relative seperation
-            unit_lambda_b = obj.unit(lambda_ab);                            % Unit relative position
-            unit_referenceAxis  = [0;0;1];                                 % Unit reference axis
+            % //////// DEFINE VELOCITY OBSTACLE PARAMETERS ////////////////
+            HRVO = struct('apex',HRVOapex,...
+                      'axisUnit',RVO.axisUnit,...
+                    'axisLength',RVO.axisLength,...
+                     'openAngle',RVO.openAngle,...
+               'leadingEdgeUnit',unit_leadingTangent,...
+              'trailingEdgeUnit',unit_trailingTangent,...
+                   'isVaLeading',RVO.isVaLeading);
             
-            % DEFINE THE PLANE OF AVOIDANCE                        
-            referenceVector = [1;0;0];                                     % The reference axis defaults to the agents direction
-            problemAxis = cross(referenceVector,unit_lambda_b);
-            if problemAxis == 0
-               referenceVector = unit_referenceAxis;                       % Else form a comparison to the unit y axis
-               problemAxis = cross(referenceVector,unit_lambda_b);         % Axes then align with the aerospace convention
-            end    
-            
-            % /////////// HYBRID-RECIPROCAL VELOCITY OBSTACLE /////////////
-            % CONSTRUCT THE VELOCITY OBSTACLE
-            r_VO = -r_c*unit_lambda_b;                                     % Unit radius of the obstacle (direction of lambdaAB)
-            HRVOgamma = asin(r_c/mod_lambda_b);                            % Get rotation angle for tangential vector
-            
-            % ////// DEFINE THE LEADING & TRAILING) TANGENT VECTORS ///////
-            leadingAngle = (pi/2) - HRVOgamma;                             % Define the angle to leading tangent point
-            [leadingTangentialRadius]  = obj.rotateVectorAboutAxis(r_VO,problemAxis,leadingAngle);
-            leadingTangentVector = lambda_ab + leadingTangentialRadius;    % The leading tangent vector
-            
-            trailingAngle = HRVOgamma - (pi/2);                             % Define the angle to leading tangent point
-            [trailingTangentialRadius]  = obj.rotateVectorAboutAxis(r_VO,problemAxis,trailingAngle);
-            trailingTangentVector = lambda_ab + trailingTangentialRadius;  % The leading tangent vector  
-            
-            % ///////// CALCULATE THE HRVO APEX/ORIGIN POSITION ///////////
-            VOorigin = v_b;
-            RVOorigin = (v_a + v_b)/2;
-            % CALCULATE THE VECTOR INTERSECTIONS USING KNOW PARAMETERS
-            PA = [RVOorigin,VOorigin]';                                    % Rays starting at the two origins
-            VOtrailing = VOorigin + trailingTangentVector;              
-            RVOleading = RVOorigin + leadingTangentVector;
-            PB = [RVOleading,VOtrailing]';                                 % Ray termination point
-            [P_intersect] = obj.intersect3Dvectors(PA,PB);
-            HRVOoffset = P_intersect';
-
-            % TRANSLATE THE COLLISION CONE INTO THE HRVO 
-            HRVOorigin = origin + HRVOoffset;                              % Position of the HRVO origin
-            HRVOaxis = (dot(leadingTangentVector,lambda_ab)/mod_lambda_b^2)*lambda_ab; % Define the tangent projection on AB
-            HRVOlambda = HRVOorigin + lambda_ab;                           % The position of the projected sphere 
-            HRVOtangentPoint = HRVOlambda + leadingTangentialRadius;       % The leading tangent of the HRVO    
-
             % PROBLEM VISUALISATION
-            if plotOn
-                hold on;
-                % PLOTTING PROPERTIES               
-                coneCenter = HRVOorigin + HRVOaxis;                           % Cone-tangent modified axis
-                
-                % PLOT THE LEADING TANGENT VECTOR
-                q = quiver3(0,0,0,1,0,0,'r');
-                q.AutoScaleFactor = 1;
-                q = quiver3(0,0,0,0,-1,0,'g');
-                q.AutoScaleFactor = 1;
-                q = quiver3(0,0,0,0,0,-1,'b');
-                q.AutoScaleFactor = 1;
-                
-                % DRAW OBSTACLE REPRESENTATION
-                [Xb,Yb,Zb] = obj.getSphere(lambda_ab,r_b);                            
-                sphB = mesh(Xb,Yb,Zb);  % Obstacle
+            if plotOn && obj.objectID == plotOn
+                % DRAW THE VO
+                coneApex   = p_a + HRVO.apex;
+                coneCenter = coneApex + HRVO.axisUnit*HRVO.axisLength;
+                % DRAW OBSTACLE AS INPUTTED
+                [Xb,Yb,Zb] = obj.getSphere(p_b,r_b);
+                sphB = mesh(gca,Xb,Yb,Zb);  % Obstacle
                 set(sphB,'facealpha',0.2,...
-                         'FaceColor','k',...
-                         'LineWidth',0.1,...
-                         'EdgeAlpha',0); 
-                % PLOT THE RELATIVE VELOCITY OF THE OBSTACLE
-                q = quiver3(lambda_ab(1),lambda_ab(2),lambda_ab(3),...
-                                 v_b(1),v_b(2),v_b(3),'b','filled');
-                q.AutoScaleFactor = 1; 
-                
-                % \\\\\\  DRAW THE VELOCITY OBSTACLE PROJECTION \\\\\\\\\\\
-                % PLOT THE VO ORIGIN
-                q = quiver3(origin(1),origin(2),origin(3),...
-                            HRVOorigin(1),HRVOorigin(2),HRVOorigin(3),'b');
+                    'FaceColor','b',...
+                    'LineWidth',0.1,...
+                    'EdgeAlpha',0);
+                % OBSTACLE VELOCITY (ABS)
+                q = quiver3(gca,p_b(1),p_b(2),p_b(3),...
+                    v_b(1),v_b(2),v_b(3),'b','filled');          % Plot the obstacles velocity from its relative position
                 q.AutoScaleFactor = 1;
+                
                 % DRAW THE VELOCITY OBSTACLE PROJECTION
-                [X_vo,Y_vo,Z_vo] = obj.getSphere(HRVOlambda,r_c);  
-                sphB = mesh(X_vo,Y_vo,Z_vo); 
+                [X_vo,Y_vo,Z_vo] = obj.getSphere(coneCenter,(r_a + r_b));
+                sphB = mesh(gca,X_vo,Y_vo,Z_vo);
                 set(sphB,'facealpha',0.2,...
-                         'FaceColor','b',...
-                         'LineWidth',0.1,...
-                         'EdgeAlpha',0);
-                % PLOT THE LEADING TANGENTIAL RADIUS
-                q = quiver3(HRVOlambda(1),HRVOlambda(2),HRVOlambda(3),...
-                            leadingTangentialRadius(1),leadingTangentialRadius(2),leadingTangentialRadius(3),'k');
+                    'FaceColor','b',...
+                    'LineWidth',0.1,...
+                    'EdgeAlpha',0);
+                
+                % //////////////// VO CONSTRUCTION ////////////////////////
+                % THE LEADING TANGENT                
+                leadingTangent = HRVO.leadingEdgeUnit*HRVO.axisLength;
+                q = quiver3(gca,coneApex(1),coneApex(2),coneApex(3),...
+                                leadingTangent(1),leadingTangent(2),leadingTangent(3),'b');                  
                 q.AutoScaleFactor = 1;
-                % PLOT THE LEADING TANGENT VECTOR
-                q = quiver3(HRVOorigin(1),HRVOorigin(2),HRVOorigin(3),...
-                    leadingTangentVector(1),leadingTangentVector(2),leadingTangentVector(3),'k');
+                
+                % THE TRAILING TANGENT                
+                trailingTangent = HRVO.trailingEdgeUnit*HRVO.axisLength;
+                q = quiver3(gca,coneApex(1),coneApex(2),coneApex(3),...
+                            trailingTangent(1),trailingTangent(2),trailingTangent(3),'b');
                 q.AutoScaleFactor = 1;
                 
                 % ASSEMBLE VELOCITY OBSTACLE CONES
-                nodes = 11;
-                obj.vectorCone(HRVOorigin,coneCenter,HRVOtangentPoint,nodes,'b');
+                try
+                    tangentPoint = coneApex + leadingTangentVector;
+                    nodes = 11;
+                    obj.vectorCone(coneApex,coneCenter,tangentPoint,nodes,'b');
+                catch
+                end
             end
-            
         end
     end
+    
     methods (Static)
-        % INTERSECT 3D CARTESIAN VECTORS
-        function [P_intersect] = intersect3Dvectors(PA,PB)
-            % Find intersection point of lines in 3D space, in the least squares sense.
-            % PA :          Nx3-matrix containing starting point of N lines
-            % PB :          Nx3-matrix containing end point of N lines
-            % P_Intersect : Best intersection point of the N lines, in least squares sense.
-            % distances   : Distances from intersection point to the input lines
-            % Anders Eikenes, 2012
+        % GET THE INTERSECTION BETWEEN TWO LINES IN 3D
+        function [pa,pb,isSuccessful] = findAny3DIntersection(P1,dP1,P3,dP3)
+            %     /*
+            %        Calculate the line segment PaPb that is the shortest route between
+            %        two lines P1P2 and P3P4. Calculate also the values of mua and mub where
+            %           Pa = P1 + mua (P2 - P1)
+            %           Pb = P3 + mub (P4 - P3)
+            %        Return FALSE if no solution exists.
+            %     */
             
-            Si = PB - PA; %N lines described as vectors
-            ni = Si ./ (sqrt(sum(Si.^2,2))*ones(1,3)); %Normalize vectors
-            nx = ni(:,1); ny = ni(:,2); nz = ni(:,3);
-            SXX = sum(nx.^2-1);
-            SYY = sum(ny.^2-1);
-            SZZ = sum(nz.^2-1);
-            SXY = sum(nx.*ny);
-            SXZ = sum(nx.*nz);
-            SYZ = sum(ny.*nz);
-            S = [SXX SXY SXZ;SXY SYY SYZ;SXZ SYZ SZZ];
-            CX  = sum(PA(:,1).*(nx.^2-1) + PA(:,2).*(nx.*ny)  + PA(:,3).*(nx.*nz));
-            CY  = sum(PA(:,1).*(nx.*ny)  + PA(:,2).*(ny.^2-1) + PA(:,3).*(ny.*nz));
-            CZ  = sum(PA(:,1).*(nx.*nz)  + PA(:,2).*(ny.*nz)  + PA(:,3).*(nz.^2-1));
-            C   = [CX;CY;CZ];
-            P_intersect = (S\C)';
+            % SOME SUFFICIENTLY SMALL VALUE FOR INTERSECTION
+            EPS = 1E-9;
+            isSuccessful = logical(false);
+            pa = NaN(3,1);
+            pb = NaN(3,1);
+            
+            % GET THE DIRECTIONS
+            p13(1) = P1(1) - P3(1);
+            p13(2) = P1(2) - P3(2);
+            p13(3) = P1(3) - P3(3);
+            
+%             if (abs(dP3(1)) < EPS && abs(dP3(2)) < EPS && abs(dP3(3)) < EPS)
+%                 return
+%             end
+%             
+%             if (abs(dP1(1)) < EPS && abs(dP1(2)) < EPS && abs(dP1(3)) < EPS)
+%                 return
+%             end
+            
+            d1343 = p13(1) * dP3(1) + p13(2) * dP3(2) + p13(3) * dP3(3);
+            d4321 = dP3(1) * dP1(1) + dP3(2) * dP1(2) + dP3(3) * dP1(3);
+            d1321 = p13(1) * dP1(1) + p13(2) * dP1(2) + p13(3) * dP1(3);
+            d4343 = dP3(1) * dP3(1) + dP3(2) * dP3(2) + dP3(3) * dP3(3);
+            d2121 = dP1(1) * dP1(1) + dP1(2) * dP1(2) + dP1(3) * dP1(3);
+            
+            denom = d2121 * d4343 - d4321 * d4321;
+            if (abs(denom) < EPS)
+                return
+            end
+            
+            numer = d1343 * d4321 - d1321 * d4343;
+            
+            mua = numer / denom;
+            mub = (d1343 + d4321 * mua) / d4343;
+            
+            % BUILD INTERSECTION COORDINATES
+            pa(1) = P1(1) + mua * dP1(1);
+            pa(2) = P1(2) + mua * dP1(2);
+            pa(3) = P1(3) + mua * dP1(3);
+            pb(1) = P3(1) + mub * dP3(1);
+            pb(2) = P3(2) + mub * dP3(2);
+            pb(3) = P3(3) + mub * dP3(3);
+            % IS SUCCESSFUL
+            isSuccessful = logical(true);
         end
     end
 end

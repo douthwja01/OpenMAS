@@ -1,9 +1,9 @@
-function [ objectIndex ] = getScenario_SDF2017offsetAngle(varargin)
+function [ objectIndex ] = getScenario_concentricAngle(varargin)
 % This function returns the concentric scenario devised for the SDF 2017
 % conference paper submission. Initialises the agents with the specific
 % conditions used in second example in the paper.
 
-fprintf('[SCENARIO]\tGetting the SDF2017 offset-angle collision scenario.\n');
+fprintf('[SCENARIO]\tGetting the concentric offset-angle scenario.\n');
 
 % DEFAULT AGENT/OBSTACLE CONFIGURATION IN THIS EXAMPLE
 defaultConfig = struct('file','scenario.mat',...
@@ -11,11 +11,15 @@ defaultConfig = struct('file','scenario.mat',...
                        'agentOrbit',250,...
                        'agentVelocity',18,...
                        'plot',0,...
+                       'waypointOrbit',[],...
                        'waypointRadius',2,...
                        'noiseFactor',0,...
-                       'offsetAngle',pi/4);
+                       'angle',pi/4);
 % PARSE THE USER OVERRIDES USING THE SCENARIO BUILDER
 [scenarioConfig] = scenarioBuilder.configurationParser(defaultConfig,varargin);
+if isempty(scenarioConfig.waypointOrbit)
+    scenarioConfig.waypointOrbit = scenarioConfig.agentOrbit;
+end    
 agentIndex = scenarioConfig.agents;
 agentNumber = numel(agentIndex);                    % Declare the number of agents
 
@@ -26,8 +30,8 @@ testScenario = scenarioBuilder(agentNumber);
 % 30mph - 13.4112m/s
 % 40mph - 17.9916m/s
 [ agentConfig ] = testScenario.planarAngle('radius',scenarioConfig.agentOrbit,...
-                                           'velocities',scenarioConfig.agentVelocity,...
-                                           'offsetAngle',scenarioConfig.offsetAngle);
+                                       'velocities',scenarioConfig.agentVelocity,...
+                                      'offsetAngle',scenarioConfig.angle);
 
 %% ASSIGN GLOBAL PARAMETERS TO THE AGENT INDEX
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
@@ -42,14 +46,14 @@ end
 %% DEFINE WAYPOINTS AND ASSIGN GLOBAL PARAMETERS
 % DEFINE THE FIRST WAYPOINT SET
 waypointPlanarRotation = pi;
-[ waypointConfig] = testScenario.planarAngle('radius',scenarioConfig.agentOrbit,'velocities',0,...
+[ waypointConfig] = testScenario.planarAngle('radius',scenarioConfig.waypointOrbit,'velocities',0,...
                                              'zeroAngle',waypointPlanarRotation,...
-                                             'offsetAngle',scenarioConfig.offsetAngle);
+                                             'offsetAngle',scenarioConfig.angle);
 
 % MOVE THROUGH THE WAYPOINTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning waypoint definitions:\n'); 
 for index = 1:agentNumber
-    nameString = sprintf('WP:%s',agentIndex{index}.name);
+    nameString = sprintf('WP-%s',agentIndex{index}.name);
     waypointIndex{index} = waypoint('radius',scenarioConfig.waypointRadius,'name',nameString);
     % APPLY GLOBAL STATE VARIABLES
     waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.position(:,index);

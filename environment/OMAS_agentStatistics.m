@@ -21,7 +21,7 @@ end
 % BUILD THE "MEANS" DATA STRUCTURE
 MEANS = struct(); global_mean_dt = 0;
 % MOVE THROUGH THE OBJECT SET 
-for ind = 1:numel(objectIndex)
+for ind = 1:SIM.totalObjects
     % GET THE OBJECTS META OBJECT
     METAObject = SIM.OBJECTS(SIM.globalIDvector == objectIndex{ind}.objectID); 
     isValidAgent = METAObject.type == OMAS_objectType.agent || 1 == isprop(objectIndex{ind},'DATA');
@@ -34,7 +34,7 @@ for ind = 1:numel(objectIndex)
     if isfield(agentDATA,'algorithm_dt')
         [agentDATA] = get_algorithmTimeData(agentDATA);
         % STORE THE AGENT'S MEAN TIME
-        fieldName = sprintf('%s_mean',objectIndex{ind}.name);
+        fieldName = sprintf('mean_dt_%s',objectIndex{ind}.name);
         MEANS.(fieldName) = agentDATA.algorithm_mean_dt;
         % GET THE (GLOBAL) ALGORITHM COMPUTATION-TIME DATA
         global_mean_dt = global_mean_dt + agentDATA.algorithm_mean_dt/SIM.totalAgents;
