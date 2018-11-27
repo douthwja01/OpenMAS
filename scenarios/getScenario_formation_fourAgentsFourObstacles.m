@@ -9,10 +9,10 @@ fprintf('[SCENARIO]\tGetting the four agent, four obstacle formation control exa
 defaultConfig = struct('file','scenario.mat',...
                        'agents',[],...
                        'agentOrbit',10,...
+                       'agentVelocity',0,...
                        'obstacles',4,...
-                       'obstacleRadius',2,...
-                       'obstacleOrbit',10,...
-                       'velocities',0,...
+                       'obstacleRadius',1,...
+                       'obstacleOrbit',5,...
                        'adjacencyMatrix',[],...                            % The globally specified adjacency matrix
                        'plot',0);                     
 % PARSE THE USER OVERRIDES USING THE SCENARIO BUILDER
@@ -20,7 +20,7 @@ defaultConfig = struct('file','scenario.mat',...
 
 % AGENT CONDITIONING
 agentNumber = numel(inputConfig.agents);
-assert(agentNumber == 4,'This scenario (scenario D) requires four input agents, specified by the "agent" attribute.');
+assert(agentNumber == 4,'This scenario requires four input agents, specified by the "agent" attribute.');
 
 if isnumeric(inputConfig.obstacles)
     obstacleSet = cell(inputConfig.obstacles,1);
@@ -42,10 +42,10 @@ end
 %% /////////////////// BUILD THE AGENTS GLOBAL STATES /////////////////////
 agentScenario = scenarioBuilder(agentNumber/2);
 % INNER AGENTS
-[ agentConfigA ] = agentScenario.planarRing('velocities',inputConfig.velocities,...
+[ agentConfigA ] = agentScenario.planarRing('velocities',inputConfig.agentVelocity,...
                                                 'radius',inputConfig.agentOrbit);
 % OUTER AGENTS                                           
-[ agentConfigB ] = agentScenario.planarRing('velocities',inputConfig.velocities,...
+[ agentConfigB ] = agentScenario.planarRing('velocities',inputConfig.agentVelocity,...
                                                 'radius',inputConfig.agentOrbit*1.5);
 
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
@@ -84,8 +84,8 @@ fprintf('[SCENARIO]\tAssigning obstacle global parameters...\n');
 obstacleIndex = cell(obstacleNumber,1);
 for index = 1:obstacleNumber
     obstacleIndex{index} = inputConfig.obstacles{index};                                    % Get the agents from the input structure
-    obstacleIndex{index}.name = sprintf('OB:%s',inputConfig.obstacles{index}.name);
-    obstacleIndex{index}.VIRTUAL.size = inputConfig.obstacleRadius;
+    obstacleIndex{index}.name = sprintf('OB-%s',inputConfig.obstacles{index}.name);
+    obstacleIndex{index}.VIRTUAL.radius = inputConfig.obstacleRadius;
     % APPLY GLOBAL STATE VARIABLES
     obstacleIndex{index}.VIRTUAL.globalPosition = obstacleConfig.position(:,index);
     obstacleIndex{index}.VIRTUAL.globalVelocity = obstacleConfig.velocity(:,index);
@@ -101,7 +101,7 @@ save(inputConfig.file,'objectIndex');
 
 % PLOT THE SCENE
 if inputConfig.plot
-    agentScenario.plotObjectIndex(objectIndex);                            % Plot the object index
+    scenarioBuilder.plotObjectIndex(objectIndex);                            % Plot the object index
 end
 
 % CLEAR THE REMAINING VARIABLES

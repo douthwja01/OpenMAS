@@ -11,7 +11,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
 %%  CLASS METHODS
     methods 
         % CONSTRUCTION METHOD
-        function obj = agent_2D_VO(varargin)
+        function [obj] = agent_2D_VO(varargin)
             % Construct the agent object and initialise with the following
             % specific parameters.
             
@@ -25,26 +25,22 @@ classdef agent_2D_VO < agent_2D & agent_VO
             obj.feasabliltyMatrix = []; % Omit parent field
              
             % VIRTUAL DEFINITION (SIMULATOR PARAMETERS)
-            obj.VIRTUAL.radius = obj.radius; 
-            obj.VIRTUAL.detectionRange = inf; % Overwrite agent_2D's radius                                           
+            obj.VIRTUAL.radius = 0.5; 
+            
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
-        function [obj] = processTimeCycle(obj,TIME,varargin)
+        function [obj] = main(obj,TIME,varargin)
             % INPUTS:
+            % obj      - The agent object
+            % TIME     - The current time structure
             % varargin - Cell array of inputs
-            % >dt      - The timestep
-            % >objects - The detectable objects cell array of structures
             % OUTPUTS:
-            % obj      - The updated project
+            % obj      - The updated object
             
             % GET THE TIMESTEP
-            if isstruct(TIME)
-                dt = TIME.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
+            dt = TIME.dt;
             
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
@@ -63,8 +59,8 @@ classdef agent_2D_VO < agent_2D & agent_VO
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-%             [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
-            [obj,obstacleSet,agentSet] = obj.getSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
+            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
+%             [obj,obstacleSet,agentSet] = obj.getSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
@@ -75,7 +71,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
-            avoidanceSet = [obstacleSet,agentSet];
+            avoidanceSet = [obstacleSet;agentSet];
             algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;  
             if ~isempty(avoidanceSet) && avoidanceEnabled
                 algorithm_indicator = 1;
@@ -86,33 +82,50 @@ classdef agent_2D_VO < agent_2D & agent_VO
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
                    
             % APPLY SPEED CONSTRAINT
-            if norm(desiredVelocity) > obj.maxSpeed
-                desiredVelocity = (desiredVelocity/norm(desiredVelocity))*obj.maxSpeed;
+            desiredSpeed = norm(desiredVelocity);
+            if desiredSpeed > obj.maxSpeed
+                desiredSpeed = obj.maxSpeed;
+                desiredHeadingVector = desiredVelocity/norm(desiredVelocity);
+                desiredVelocity = desiredHeadingVector*obj.maxSpeed;
             end  
-
-%             [~,d_heading] = obj.simpleController(desiredVelocity);
-%             headingRate = dot(desiredHeadingVector,[1;0])/dt;
+            
+            % GET THE EQUIVALENT HEADING ANGLE
+            [dHeading] = obj.getVectorHeadingAngles([1;0;0],[desiredHeadingVector;0]); % Relative heading angles   
+            omega = -dHeading/dt;
+            desiredVelocity = [desiredSpeed;0];
             
             % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////
-            [newState] = obj.stateDynamics_simple(dt,desiredVelocity,0);
-            % ///////////// UPDATE OBJECT GLOBAL PROPERTIES ///////////////
-            obj = obj.updateGlobalProperties_fixedFrame(dt,newState);  
+            [dX] = obj.dynamics_simple(obj.localState(1:3),desiredVelocity,omega);
+            obj.localState(1:3) = obj.localState(1:3) + dt*dX;
+            obj.localState(4:6) = dX;
 
+            % ///////////// UPDATE OBJECT GLOBAL PROPERTIES /////////////// 
+            if obj.VIRTUAL.idleStatus
+                obj.localState(4:5) = zeros(2,1);
+            end
+            [obj] = obj.updateGlobalProperties_2DVelocities(dt,obj.localState);
+            
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'Vx (m/s)','Vy (m/s)','Yaw Rate (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = newState(4:6);         % Record the control inputs
+            obj.DATA.inputNames = {'dx (m/s)','dy (m/s)','Yaw Rate (rad/s)'};
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);         % Record the control inputs
         end
+    end
+    
+    % //////////////////// VELOCITY OBSTACLE METHODS //////////////////////
+    methods 
         % CALCULATE THE NECESSARY 2D AVOIDANCE VELOCITY
         function [headingVector,speed] = getAvoidanceCorrection(obj,dt,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the 2D avoidance velocity command
             % and returns it to be achieved by the controller.
             
+            % INPUT HANDLING
+            assert(numel(desiredVelocity) == 2,'Desired velocity must be 2D');
+            
             % AGENT KNOWLEDGE
-%             p_a = obj.localState(1:2,1);
-%             v_a = obj.localState(4:5,1);
-%             r_a = obj.VIRTUAL.radius;
-            [p_a,v_a,r_a] = obj.getAgentMeasurements();
+            p_a = obj.localState(1:2,1);
+            v_a = obj.localState(4:5,1);
+            r_a = obj.VIRTUAL.radius;
             
             % BUILD THE VELOCITY OBSTACLE SET
             VO = [];
@@ -166,8 +179,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
                 q.AutoScaleFactor = 1;   
                 % AVOIDANCE VELOCITY
                 q = quiver(gca,p_a(1),p_a(2),avoidanceVelocity(1),avoidanceVelocity(2),'b');
-                q.AutoScaleFactor = 1;
-                
+                q.AutoScaleFactor = 1; 
 %                 plotCapableVelocities = capableVelocities + p_a;
 %                 plotEscapeVelocities = escapeVelocities + p_a;
 %                 plotAvoidanceVelocities = avoidanceVelocity + p_a;
@@ -175,10 +187,24 @@ classdef agent_2D_VO < agent_2D & agent_VO
 %                 scatter(gca,plotEscapeVelocities(1,:),plotEscapeVelocities(2,:),'g');                 
 %                 scatter(gca,plotAvoidanceVelocities(1),plotAvoidanceVelocities(2),'b','filled'); 
             end
-        end    
-    end
-    % //////////////////// VELOCITY OBSTACLE METHODS //////////////////////
-    methods    
+        end          
+        % ASSEMBLE THE 2D VELOCITY OBSTACLE (VO)
+        function [VO] = define2DVelocityObstacle(obj,p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn)
+            % This function assembles the standard velocity obstacle
+            % in 2D. 
+            
+            % MAP THE 2D INPUTS TO 3D 
+            p_a = [p_a;0]; v_a = [v_a;0];
+            p_b = [p_b;0]; v_b = [v_b;0];
+            % CALL THE 3D VO GENERATION FUNCTION
+            VO = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn);
+            % ALTER THE VO PARAMETERS 
+            VO.apex = VO.apex(1:2,1);
+            VO.axisUnit = VO.axisUnit(1:2,1);
+            VO.leadingEdgeUnit = VO.leadingEdgeUnit(1:2,1);
+            VO.trailingEdgeUnit = VO.trailingEdgeUnit(1:2,1);
+            VO.truncationCircleCenter = VO.truncationCircleCenter(1:2,1);
+        end 
         % CLEAR PATH STRATEGY
         function [optimalVelocity] = strategy_clearPath(obj,v_a,desiredVelocity,VOset,plotOn)
             % This function computes the optimal avoidance velocity using
@@ -202,10 +228,10 @@ classdef agent_2D_VO < agent_2D & agent_VO
             a = 0;  
             for VOnumA = 1:numel(VOset)
                 % THE FIRST VERTEX EDGE
-                [projections(:,1),isOnRay(1)] = obj.pointProjectionToRay(v_a,VOset(VOnumA).apex,VOset(VOnumA).leadingEdgeUnit);
+                [projections(:,1),isOnRay(1)] = obj.pointProjectionToRay(desiredVelocity,VOset(VOnumA).apex,VOset(VOnumA).leadingEdgeUnit);
                 % THE SECOND VERTEX EDGE
-                [projections(:,2),isOnRay(2)] = obj.pointProjectionToRay(v_a,VOset(VOnumA).apex,VOset(VOnumA).trailingEdgeUnit);
-                
+                [projections(:,2),isOnRay(2)] = obj.pointProjectionToRay(desiredVelocity,VOset(VOnumA).apex,VOset(VOnumA).trailingEdgeUnit);
+
                 % COLLECT THE PROJECTIONS POINTS
                 % The projections of 'v_a' on both the leadingEdgeUnit, trailingEdgeUnit
                 isOnRayPoints((1 + a*VOnumA):(2 + a*VOnumA)) = isOnRay;          % CONCATINATE THE IS ON RAY 
@@ -304,10 +330,10 @@ classdef agent_2D_VO < agent_2D & agent_VO
                         optimalMetricDistance = dis;
                     end
                 end
-%             elseif isempty(candidatesOutsideVO)
-%                 % IN THE EVENT THERE ARE NO VALID VELOCITIES
-%                 warning('There is no feasible velocity!');
-%                optimalVelocity = zeros(2,1);                
+            elseif isempty(candidatesOutsideVO)
+                % IN THE EVENT THERE ARE NO VALID VELOCITIES
+                warning('There is no feasible velocity!');
+                optimalVelocity = zeros(2,1);                
             end
             
             % //////////////////  PLOT THE SCENE //////////////////////////
@@ -353,25 +379,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
                 end
                 close all;
             end
-            
         end
-        % ASSEMBLE THE 2D VELOCITY OBSTACLE (VO)
-        function [VO] = define2DVelocityObstacle(obj,p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn)
-            % This function assembles the standard velocity obstacle
-            % in 2D. 
-            
-            % MAP THE 2D INPUTS TO 3D 
-            p_a = [p_a;0]; v_a = [v_a;0];
-            p_b = [p_b;0]; v_b = [v_b;0];
-            % CALL THE 3D VO GENERATION FUNCTION
-            VO = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn);
-            % ALTER THE VO PARAMETERS 
-            VO.apex = VO.apex(1:2,1);
-            VO.axisUnit = VO.axisUnit(1:2,1);
-            VO.leadingEdgeUnit = VO.leadingEdgeUnit(1:2,1);
-            VO.trailingEdgeUnit = VO.trailingEdgeUnit(1:2,1);
-            VO.truncationCircleCenter = VO.truncationCircleCenter(1:2,1);
-        end    
     end   
     % //////////////////////////// UTILITIES //////////////////////////////
     methods (Static) 
@@ -437,11 +445,6 @@ classdef agent_2D_VO < agent_2D & agent_VO
             flag = 0;
             VOtolerance = 1E-8;
 
-%             numericalTolerance = -(1e-8);            
-%             if VO.axisUnit'*(point-VO.apex) - norm(point-VO.apex)*cos(VO.openAngle/2) > numericalTolerance
-%                 flag=1;
-%             end
-            
             candidateVector = point - VO.apex;
             VOprojection   = norm(candidateVector)*cos(VO.openAngle/2);
             candProjection = VO.axisUnit'*candidateVector;
@@ -449,6 +452,18 @@ classdef agent_2D_VO < agent_2D & agent_VO
             if projDiff > VOtolerance   
                 flag = 1;
             end
+        end
+    end
+    % ////////////////////// 2D VO STATE INITIALISER //////////////////////
+    methods
+        % INITIALISE A STATE VECTOR AS [x y psi dx dy dpsi]
+        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
+            % This function calculates the intial state for a generic
+            % object.
+            % The default state vector:
+            % [x y psi dx dy dpsi]
+            % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
+            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
     end
 end

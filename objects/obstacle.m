@@ -31,9 +31,9 @@ classdef obstacle < objectDefinition
             obj.VIRTUAL.type = OMAS_objectType.obstacle;
             obj.VIRTUAL.symbol = 'o';
             obj.VIRTUAL.radius = 1;
-            
+                        
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(varargin);
+            [obj] = obj.configurationParser(obj,varargin);
         end      
     end
 end

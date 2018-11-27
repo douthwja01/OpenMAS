@@ -16,6 +16,9 @@ function [ DATA,META ] = OMAS_initialise(varargin)
 % OUTPUTS:
 % DATA       - The simulation output data structure
 
+type('logo.txt');
+%type('license.txt')
+
 % ///////////////// ASSIGN DEFAULT SIMULATION PARAMETERS //////////////////
 % The user must be able to run a simulation for an intended amount of time,
 % or run with a maximal time for all goals to be complete. 
@@ -23,13 +26,14 @@ function [ DATA,META ] = OMAS_initialise(varargin)
 % /////////////////////// DEFAULT TIMING STRUCTURE ////////////////////////
 TIME = struct('duration',1E3,...                                           % Assign default simulation duration (for output matrix scaling)
                     'dt',0.5,...
-             'startTime',0);
+             'startTime',0,...
+           'idleTimeOut',1);
          
 % //////////////// DEFAULT GENERAL CONFIGURATION STRUCTURE ////////////////
 defaultConfig = struct('figures',{{'events','fig'}},...
-               'warningDistance',10,...
+               'warningDistance',5,...
             'conditionTolerance',1E-3,...
-            'visabilityModifier',1,...
+            'visabilityModifier',2,...
                     'outputPath',strcat(pwd,'\data'),... 
                     'systemFile','temp.mat',...
                          'phase','SETUP',...                               % Initialise in setup mode
@@ -44,7 +48,19 @@ defaultConfig = struct('figures',{{'events','fig'}},...
 fprintf('[SETUP]\tConfirming input variables.\n');
 [SIM] = parseConfigurationVector(defaultConfig,varargin);
 clear TIME defaultConfig
-
+% CONFIRM VARIABLE TYPES
+assert(islogical(SIM.monteCarloMode),'Please specify the monte-carlo mode as a logical.');
+assert(islogical(SIM.gui),'Please specify the use of gui elements as a logical.');
+assert(ischar(SIM.systemFile),'Please provide a valid file path.');
+assert(ischar(SIM.outputPath),'Please provide a valid output path.');
+SIM.threadPool = logical(SIM.threadPool);
+assert(islogical(SIM.threadPool),'Please specify the multi-threading mode as a logical.');
+SIM.verbosity = uint8(SIM.verbosity);
+if ~iscell(SIM.figures) 
+%     ,'Please provide cell array of figure names')
+    SIM.figures = {SIM.figures};
+end
+    
 % /////////////// SOME PARAMETER DEDUCTION/INPUT HANDLING /////////////////
 assert(~isempty(SIM.objects),'Please provide a agent/object object vector.');
 % TRIM ANY EMPTY OBJECT CONTAINERS
@@ -53,6 +69,7 @@ for ind = 1:numel(SIM.objects)
       SIM.objects(ind) = {''};                                             % Remove invalid classes from the container
    end
 end
+% REMOVE EMPTY ENTRIES FROM THE OBJECT ARRAY
 SIM.objects = SIM.objects(~cellfun('isempty', SIM.objects)); 
 
 % DISABLE AGENT-WORKER ALLOCATION IN MONTE-CARLO MODE
@@ -81,9 +98,9 @@ fprintf('[%s]\tObjects parameterized.\n',META.phase);
 fprintf('[%s]\tGRAPHICS CONFIGURATION:\n',META.phase);
 fprintf('[%s]\tImporting object STLs.\n',META.phase);
 if META.gui && ~META.monteCarloMode
-   [META,STLimports] = configureVisuals(META);
-   fprintf('[%s]\t...%s files imported.\n',META.phase,num2str(STLimports));
-   clear STLimports;
+%    [META,STLimports] = configureVisuals(META);
+%    fprintf('[%s]\t...%s files imported.\n',META.phase,num2str(STLimports));
+%    clear STLimports;
 else
    fprintf('[%s]\t... STL importation supressed.\n',META.phase); 
 end
@@ -113,18 +130,23 @@ fprintf('[%s]\tDuration: %ss\tSampling: %ss\tSteps: %s\n',META.phase,...
    
 %% //////// BEGIN RUNNING THROUGH THE SIMULATION TIME CYCLE ///////////////
 fprintf('[%s]\tMoving to simulation...\n',META.phase);
+OMAS_start = tic();
 [DATA,META,EVENTS,objectIndex] = OMAS_mainCycle(META,objectIndex);
+OMAS_finish = toc(OMAS_start); 
+fprintf('[%s]\tOperation lasted %ss.\n',META.phase,num2str(OMAS_finish));
 
-%% ////////////////////////////////////////////////////////////////////////
-
-% BEGIN RUNNING EXTERNAL DATA ANALYSIS
+%% ///////////// ONCE COMPLETE - RUN EXTERNAL ANALYSIS ////////////////////
 % try
     fprintf('[%s]\tMoving to post-simulation analysis...\n[%s]\n',META.phase,META.phase);
     [DATA] = OMAS_analysis(META,objectIndex,EVENTS,DATA);                  % Jump to external analysis program
 % catch analysisError
 %     warning('[ERROR] A problem occurred interpreting the output data');
-%     warning(analysisError.message);
+%     rethrow(analysisError);
 % end
+
+% DELETE THE SYSTEM TEMPORARY FILE
+delete([META.outputPath,META.systemFile]);
+
 fprintf('\n[%s]\tExiting...\n\n',META.phase);
 end
 
@@ -145,31 +167,28 @@ end
 
 % ////////////// SIMULATION PARAMETER INITIALISATION //////////////////////
 % DEFINE TIME PARAMETERS
-% SIM.TIME.maxTime    = SIM.TIME.startTime + SIM.TIME.simTime;               % Define the end time
-SIM.TIME.endTime    = SIM.TIME.duration + SIM.TIME.startTime;              
-SIM.TIME.timeVector = SIM.TIME.startTime:SIM.TIME.dt:(SIM.TIME.endTime);   % The progressive time vector
-SIM.TIME.numSteps   = size(SIM.TIME.timeVector,2);                         % Number of resulting steps
-SIM.TIME.frequency  = 1/SIM.TIME.dt;                                       % Define the simulation frequency 
+SIM.TIME.endTime     = SIM.TIME.duration + SIM.TIME.startTime;              
+SIM.TIME.timeVector  = SIM.TIME.startTime:SIM.TIME.dt:(SIM.TIME.endTime);  % The progressive time vector
+SIM.TIME.currentTime = SIM.TIME.startTime;
+SIM.TIME.frequency   = 1/SIM.TIME.dt;                                      % Define the simulation frequency 
+SIM.TIME.numSteps    = size(SIM.TIME.timeVector,2);                % Number of resulting steps
+SIM.TIME.currentStep = 1;                                          % Initialise the current time properties 
 
-% INSTANTEOUS PARAMETERS
-SIM.TIME.currentTime = 0;
-SIM.TIME.currentStep = 1;
+% INPUT LOGIC VERIFICATION
+assert(SIM.TIME.duration  >= SIM.TIME.dt,'Simulation timestep must be lower than the total duration.');
+assert(SIM.TIME.startTime <= SIM.TIME.endTime,'Simulation end-time cannot be before its start-time.');
+assert(SIM.TIME.idleTimeOut >= 0,'Simulation time-out duration must be a positive scalar.');
 
 % DEFINE THE AVAILABLE STATUS TYPES FROM THE 'eventType' ENUMERATIONS
-% [~,SIM.eventNames] = enumeration('eventType');
-% SIM.eventNames = SIM.eventNames(2:end);
-% SIM.eventTypes = length(SIM.eventNames);                                   % Size the number of available sim events (neglect base definition)
 [eventEnums,~] = enumeration('eventType');
-
 % SEPERATE THE OBJECT VECTOR
 objectIndex = SIM.objects; 
 SIM = rmfield(SIM,'objects');                                              % Remove cell array to reduce data overhead
-
 % DEFINE THE NUMBER OF AGENTS
-SIM.totalObjects = numel(objectIndex);                                     % Define the object number
+SIM.totalObjects = uint8(numel(objectIndex));                             % Define the object number
 
 %PREPARE THE META.OBJECT GLOBAL STATUS VECTOR
-for i = 1:SIM.totalObjects
+for entity = 1:SIM.totalObjects
     % THE OBJECTS ARE ASSIGNED THEIR GLOBAL PARAMETERS IN THE GLOBAL XYZ 
     % (MATLAB) AXIS SYSTEM;
     % .position     - Global position in XYZ coordinates 
@@ -179,75 +198,80 @@ for i = 1:SIM.totalObjects
     % THE SIMULATION OPERATES IN THE ENU FROM IDENTICAL TO THE MATLAB FRAME
     
     % GLOBAL PARAMETERS ARE DECLARED IN THE MATLAB XYZ FRAME
-    globalENUPosition = objectIndex{i}.VIRTUAL.globalPosition;              % Get ENU global position
-    globalENUVelocity = objectIndex{i}.VIRTUAL.globalVelocity;              % Get ENU global velocity
-    staticBodyToRotatedGlobalQuaternion = objectIndex{i}.VIRTUAL.quaternion;% REDEFINE INITIAL QUATERNION AS STATIC BODY TO ROTATED EARTH QUATERNION
+    globalXYZPosition   = objectIndex{entity}.VIRTUAL.globalPosition;      % Get XYZ global position
+    globalXYZVelocity   = objectIndex{entity}.VIRTUAL.globalVelocity;      % Get XYZ global velocity
+    % REDEFINE INITIAL QUATERNION AS STATIC BODY TO ROTATED EARTH QUATERNION
+    globalXYZquaternion = objectIndex{entity}.VIRTUAL.quaternion;
     
     % CONFIRM XYZ INPUTS
-    assert(numel(globalENUPosition) == 3,'Global position must be given as a vector [3x1].');
-    assert(numel(globalENUVelocity) == 3,'Global velocity must be given as a vector [3x1].');
-    assert(numel(staticBodyToRotatedGlobalQuaternion) == 4,'Global attitude must be give as a quaternion vector [4x1].');      
-    % GET THE INITIAL ROTATIONS (XYZ -> XYZ)
-    [R_BG,R_GB] = OMAS_axisTools.quaternionToRotationMatrix(staticBodyToRotatedGlobalQuaternion);
-    % CALCULATE THE EULER HEADING
-    ZYXrotations = rotm2eul(R_GB,'ZYX');
-    ENUrotations = [0,0,1;0,1,0;1,0,0]*ZYXrotations';                      % Get the equivalent rotations around the XYZ axes
-        
-    % /////// UNTIL THIS POINT, GLOBAL PARAMETERS ARE GENERALISED /////////
-    % The problem we find is that we don't know how the objects states 
-    % relate to the allocated global position, velocity and quaternion.   
-    % Instead we call the objects method for initialising its own state.
-    objectIndex{i} = objectIndex{i}.initialise_localState(R_GB*globalENUVelocity,ENUrotations);
+    assert(numel(globalXYZPosition)   == 3,'Global position must be given as a vector [3x1].');
+    assert(numel(globalXYZVelocity)   == 3,'Global velocity must be given as a vector [3x1].');
+    assert(numel(globalXYZquaternion) == 4,'Global attitude must be give as a quaternion vector [4x1].');      
 
-    % ///////////////// INDIVIDUAL OBJECT ASSESSEMENT /////////////////////
-    % ASSIGN THE INITIAL ROTATION MATRIX
-    if ~isfield(objectIndex{i}.VIRTUAL,'R')
-        objectIndex{i}.VIRTUAL.R = R_BG;
+    %% ////////////////////// ROTATION CONVENTION /////////////////////////
+    % INPUTS:
+    % globalXYZPosition     - The global cartesian position
+    % globalXYZVelocity     - The global cartesian velocity
+    % globalXYZquaternion   - The quaternion defining the rotation of the
+    %                         body away from alignment with the global
+    %                         axes.                      
+    
+    % USING MATLABS TOOLBOX COP-OUT
+    Rxyz              = quat2rotm(globalXYZquaternion');                   % from fixed to rotated world
+    localXYZrotations = quat2eul(globalXYZquaternion','XYZ');
+    localXYZrotations = localXYZrotations';
+    localXYZVelocity  = Rxyz*globalXYZVelocity;                            % Move from rotated vector to axis aligned vector
+       
+    %% ////////////// ASSIGN INITIAL .VIRTUAL PARAMETERS //////////////////
+    objectIndex{entity}.VIRTUAL.R = Rxyz;
+    if objectIndex{entity}.VIRTUAL.type == OMAS_objectType.agent
+       objectIndex{entity}.VIRTUAL.idleStatus = logical(false);            % Initialise the agent as active
     end
+    
     % IF THERE IS NO DETECTION RANGE GIVEN (object/blind agent)
-    if ~isfield(objectIndex{i}.VIRTUAL,'detectionRange')
-        objectIndex{i}.VIRTUAL.detectionRange = 0;
+    if ~isfield(objectIndex{entity}.VIRTUAL,'detectionRadius')
+        objectIndex{entity}.VIRTUAL.detectionRadius = 0;
+    end 
+    % INITIALISE THE OBJECTS LOCAL STATE VECTOR (INDEPENDANT OF THE GLOBAL)
+    try
+        objectIndex{entity} = objectIndex{entity}.initialise_localState(localXYZVelocity,localXYZrotations);
+    catch initialisationError
+        warning('Unable to initialise the local state of object %s :%s',objectIndex{entity}.name);
+        rethrow(initialisationError)
     end
-    
-    % ///// CHECK FOR FORBIDDEN CHARACTERS IN OBJECT NAME ASSIGNMENTS /////
+    % CHECK FOR FORBIDDEN CHARACTERS IN OBJECT NAME ASSIGNMENTS 
     % This prevents issues from occurring with filenames and figures.
-    assertionString = sprintf('Forbidden character (:*?"<>|) in object identifier: "%s"',objectIndex{i}.name);
-    assert(~any(contains(objectIndex{i}.name,{'\','/',':','*','?','"','<','>','|'},'IgnoreCase',true)),assertionString);
-    
+    assertionString = sprintf('Forbidden character (:*?"<>|) in object identifier: "%s"',objectIndex{entity}.name);
+    assert(~any(contains(objectIndex{entity}.name,{'\','/',':','*','?','"','<','>','|'},'IgnoreCase',true)),assertionString);
+        
+    %% ////////// ASSEMBLE THE GLOBAL META OBJECT CONTAINER ///////////////
     % OBJECTS is a vector of structures containing the object META data 
-    SIM.OBJECTS(i) = struct('objectID',objectIndex{i}.objectID,...                  % ID reference number
-                                'name',objectIndex{i}.name,...                      % Name reference
-                               'class',class(objectIndex{i}),...                    % Class reference
-                                'type',objectIndex{i}.VIRTUAL.type,...              % Object type
-                              'colour',objectIndex{i}.VIRTUAL.colour,...            % Object virtual colour
-                              'symbol',objectIndex{i}.VIRTUAL.symbol,...            % Representative symbol (from type)
-                               'patch',[],...                                       % The objects patch verticies and faces
-                              'radius',objectIndex{i}.VIRTUAL.radius,...            % The objects critical radius
-                      'detectionRange',objectIndex{i}.VIRTUAL.detectionRange,...    % The simulations detection horizon for the aircraft
-                          'idleStatus',objectIndex{i}.VIRTUAL.idleStatus,...        % Agent completed Task Flag
-                         'globalState',[globalENUPosition;globalENUVelocity;staticBodyToRotatedGlobalQuaternion],...
-                                'R_GB',R_GB,...                                     % Current Global-body rotation matrix
-                                'R_BG',R_BG,...                                     % Current Body-global rotation matrix
-                   'relativePositions',zeros(SIM.totalObjects,3),...              % Relative distances between objects [dx;dy;dz]*objectCount
-                 'euclideanSeparation',zeros(SIM.totalObjects,1),...                % Euclidean scalar distances between objects (excluding itself)
-                        'objectStatus',zeros(SIM.totalObjects,(numel(eventEnums)-1)/2));
-    % DEFINE THE OBJECT-STATUS MATRIX
-%     SIM.OBJECTS(i).objectStatus = zeros((SIM.totalObjects),(numel(eventEnums/2)));  % A matrix recording all interactions against the object
-                    
+    SIM.OBJECTS(entity) = struct('objectID',objectIndex{entity}.objectID,...                  % ID reference number
+                                     'name',objectIndex{entity}.name,...                      % Name reference
+                                    'class',class(objectIndex{entity}),...                    % Class reference
+                                     'type',uint8(objectIndex{entity}.VIRTUAL.type),...       % Object type
+                                   'colour',objectIndex{entity}.VIRTUAL.colour,...            % Object virtual colour
+                                   'symbol',objectIndex{entity}.VIRTUAL.symbol,...            % Representative symbol (from type)
+                                   'radius',objectIndex{entity}.VIRTUAL.radius,...            % The objects critical radius
+                          'detectionRadius',objectIndex{entity}.VIRTUAL.detectionRadius,...   % The simulations detection horizon for the aircraft
+                               'idleStatus',logical(objectIndex{entity}.VIRTUAL.idleStatus),...        % Agent completed Task Flag
+                              'globalState',[globalXYZPosition;globalXYZVelocity;globalXYZquaternion],...
+                                        'R',Rxyz,...                                          % Current Global-Body rotation matrix
+                        'relativePositions',zeros(SIM.totalObjects,3),...                     % Relative distances between objects [dx;dy;dz]*objectCount
+                             'objectStatus',logical(zeros(SIM.totalObjects,(numel(eventEnums)-1)/2)));
+                            
     % ASSIGN NaN TO LOCATIONS OF SELF-REFERENCE            
-    SIM.OBJECTS(i).relativePositions((objectIndex{i}.objectID),:) = NaN;
-    SIM.OBJECTS(i).euclideanSeparation((objectIndex{i}.objectID),1) = NaN;
-    SIM.OBJECTS(i).objectStatus((objectIndex{i}.objectID),:) = NaN;
-  
+    SIM.OBJECTS(entity).relativePositions(entity,:) = NaN;                 % Mark self reference in the META structure as a NaN.
+
     % CHECK FOR SIMULATION/SAMPLING FREQUENCY ERROR
     % The user specifies an agent control frequency, which must be lower
     % than the minimum simulation sample frequency (1/dt)
-    if isprop(objectIndex{i},'SENSORS') && isfield(objectIndex{i}.SENSORS,'sampleFrequency')
-        if isinf(objectIndex{i}.SENSORS.sampleFrequency)
-        	objectIndex{i}.SENSORS.sampleFrequency = (1/SIM.TIME.dt);
-        elseif objectIndex{i}.SENSORS.sampleFrequency  > (1/SIM.TIME.dt)
-            error('Agent %s sample frequency (%sHz) cannot be greater than the simulation frequency (%sHz).',...
-                    objectIndex{i}.name,num2str(objectIndex{i}.sampleFrequency),num2str(1/SIM.TIME.dt));
+    if isprop(objectIndex{entity},'SENSORS') && isfield(objectIndex{entity}.SENSORS,'sampleFrequency')
+        assert(objectIndex{entity}.SENSORS.sampleFrequency  > (1/SIM.TIME.dt),...
+               'Agent %s sample frequency (%sHz) cannot be greater than the simulation frequency (%sHz).');
+        % SPECIAL CASE - UNLIMITED SENSING RATE
+        if isinf(objectIndex{entity}.SENSORS.sampleFrequency)
+        	objectIndex{entity}.SENSORS.sampleFrequency = (1/SIM.TIME.dt);
         end
     end
 end
@@ -255,10 +279,10 @@ end
 % GET THE TOTALS FOR EACH OBJECT TYPE FOR REFERENCE
 [objEnums,objNames] = enumeration('OMAS_objectType');                      % Define the number of other object types
 typeIndex = [SIM.OBJECTS.type];
-for i = 1:numel(objEnums)
-    typeLabel = strcat('total',char(objNames(i)),'s');
+for entity = 1:numel(objEnums)
+    typeLabel = strcat('total',char(objNames(entity)),'s');
     typeLabel(6) = upper(typeLabel(6));
-    SIM.(typeLabel) = sum(typeIndex == objEnums(i));
+    SIM.(typeLabel) = uint8(sum(typeIndex == objEnums(entity)));
 end
 % GET THE OBJECT ID REFERENCE VECTOR
 SIM.globalIDvector = [SIM.OBJECTS.objectID];
@@ -266,6 +290,7 @@ SIM.globalIDvector = [SIM.OBJECTS.objectID];
 SIM = orderfields(SIM);
 end
 
+%% PRE-SIMULATION TOOLS ///////////////////////////////////////////////////
 % PREPARE THE PATCH FILES FOR VISUALS
 function [SIM,STLimports] = configureVisuals(SIM)
 % This function prepares object STL files for presentation. 
@@ -303,11 +328,9 @@ for objectNumber = 1:SIM.totalObjects
         objectPatch.vertices = (objectPatch.vertices/dimMaximal)*SIM.OBJECTS(objectNumber).radius;
     end
     % RETURN PATCH-POPULATED META OBJECT
-    SIM.OBJECTS(objectNumber).patch = objectPatch;
+    SIM.OBJECTS(objectNumber).geometry = objectPatch;
 end
 end
-
-%% PRE-SIMULATION TOOLS ///////////////////////////////////////////////////
 % PARSE A PARAMETER VECTOR AGAINST A CONFIGURATION STRUCTURE
 function [config] = parseConfigurationVector(defaultConfig,parameterVector)
 % This function is designed to parse a generic set of user
@@ -315,26 +338,24 @@ function [config] = parseConfigurationVector(defaultConfig,parameterVector)
 % structure. The function searches for associated properties and
 % re-allocates the named variable with the associated value.
 
-% MOVE THROUGH THE PARAMETER PAIRS ('agents',agentIndex)
-for parameterIndex = 1:numel(parameterVector)
-    % FOR EACH USER-DEFINED PARAMETER
-    givenParameter = parameterVector{parameterIndex};
-    if ~ischar(givenParameter)
-        continue
-    end
-    assumedValue = parameterVector{parameterIndex + 1}; % The associated value
-    
+% INPUT HANDLING
+assert(mod(numel(parameterVector),2) == 0,' Please provide list of parameter:value pairs');
+% ASSIGN CONFIG TEMPLATE 
+config = defaultConfig;
+pairNum = numel(parameterVector)/2;
+for n = 1:pairNum
+    % PULL PARAMETER/VALUE PAIRS
+    parameterLabel = parameterVector{2*n - 1}; 
+    parameterValue = parameterVector{2*n};
     % IF THE OBJECT HAS A PROPERTY BY THAT NAME
-    if isfield(defaultConfig,givenParameter)
-        defaultConfig.(givenParameter) = assumedValue;   % Make a substitution
+    if isfield(config,parameterLabel)
+        config.(parameterLabel) = parameterValue;   % Make a substitution
     end
-    % IF THE CONFIG HAS A SUBSTRUCTURE WITH THAT PROPERTY
-    if isfield(defaultConfig.TIME,givenParameter)
-        defaultConfig.TIME.(givenParameter) = assumedValue;
+    % IF THE 'TIME' SUBSTRUCTURE HAS THAT PROPERTY
+    if isfield(config.TIME,parameterLabel)
+        config.TIME.(parameterLabel) = parameterValue;
     end
 end
-% REASSIGN FOR CLARITY
-config = defaultConfig;
 end
 % CONFIGURE THE PARALLEL/MULTITHREADED WORKERS
 function [poolObject] = configureThreadpool()
@@ -370,17 +391,6 @@ function configureDependencies(wrkDir,directorySet)
         return
     end   
     
-    % Move through the sub-directory list
-%     for i = 1:size(directorySet,2)
-%         pathName = strcat(wrkDir,'\',directorySet{i});
-%         try
-%             addpath(pathName);
-%         catch simDirectoryError
-%             warning('Unable to find critical sub-directories, have you changed directories?');
-%             error(simDirectoryError.message);
-%         end
-%     end
-
 pathCell = regexp(path, pathsep, 'split');
 
 if ispc  % Windows is not case-sensitive
@@ -425,7 +435,7 @@ if MCenableFlag                             % [TO BE REVISED]
     flag = 0;
     while flag ~= 1
         % RANDOMISE THE FILE NAME
-        fileString = strcat('sessiondata [',sprintf('%d',randi([0,9],1,10)),']');
+        fileString = strcat('cycledata-[',sprintf('%d',randi([0,9],1,10)),']');
         outputPath = strcat(absolutePath,fileString,'\');                  % Define the output directory
         % CREATE OUTPUT DIRECTORY
         flag = mkdir(absolutePath,fileString);

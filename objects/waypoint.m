@@ -38,6 +38,9 @@ classdef waypoint < objectDefinition
             obj.VIRTUAL.type = OMAS_objectType.waypoint;            
             obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin);  
             
+            % IMPORT THE GEOMETRY IF IT EXISTS
+            [obj.GEOMETRY] = obj.getObjectGeometry(obj);
+      
             % IF SIMPLE CONSTRUCTION.. RETURN NOW
             if length(varargin) < 1
                 return
@@ -102,6 +105,16 @@ classdef waypoint < objectDefinition
             else 
                 obj.ownership = vertcat(obj.ownership,newOwnership);       % Otherwise append the new ownership
             end
+        end
+        % FETCH ASSOCIATION BETWEEN AGENT AND WAYPOINT
+        function [isAssociated] = isIDAssociated(obj,agentID)
+            % Simple binary check if is waypoint is associated with the
+            % provided object ID number.           
+            
+            assert(isnumeric(agentID),'Agent ID must be a valid objectID');
+            
+            % CHECK THE OWNERSHIP INDEX FOR THIS ID
+            isAssociated = any(obj.ownership.objectID == agentID);
         end
         % FETCH ASSOCIATION BETWEEN AGENT AND WAYPOINT
         function [ownershipItem,IDindex] = getAgentAssociation(obj,agentObject)

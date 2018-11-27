@@ -19,15 +19,15 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent_2D(varargin);                                        
                                   
-            % SIM PARAMETERS
-            obj.VIRTUAL.radius = obj.radius;                               % Must be restated if the 2D agent is called first
-            obj.VIRTUAL.detectionRange = inf;                              % Assign the range attribute to the SIM VIRTUAL attribute
-            
+            % GET THE SENSOR DESCRIPTIONS
+%             obj = obj.getDefaultSensorParameters();     % For defaults
+%             obj = obj.getCustomSensorParameters();    % For experiment
+
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(varargin);
+            [obj] = obj.configurationParser(obj,varargin);
         end
         % ///////////////////// AGENT MAIN CYCLE //////////////////////////
-        function [obj] = processTimeCycle(obj,TIME,varargin)
+        function [obj] = main(obj,TIME,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
@@ -83,20 +83,14 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
             
-            % APPLY SPEED CONSTRAINT
-            if norm(desiredVelocity) > obj.maxSpeed
-                desiredVelocity = (desiredVelocity/norm(desiredVelocity))*obj.maxSpeed;
-            end  
-            
-            % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////
-            [newState] = obj.stateDynamics_simple(dt,desiredVelocity,0);
-            obj = obj.updateGlobalProperties_fixedFrame(dt,newState);  
+            % /// CONTROLLER
+            [obj] = obj.controller(dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             obj.DATA.algorithm_indicator(TIME.currentStep) = algorithm_indicator; % Record when the algorithm is ran
             obj.DATA.algorithm_dt(TIME.currentStep) = algorithm_dt;               % Record the computation time
             obj.DATA.inputNames = {'Vx (m/s)','Vy (m/s)','Yaw Rate (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = newState(4:6);         % Record the control inputs
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);         % Record the control inputs
             
             % // DISPLAY CONFLICT RESOLUTION
             if obj.objectID == visualiseAgent && visualiseProblem == 1
@@ -145,15 +139,17 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
                 avoidanceVelocity = desiredVelocity;
             end
 
-            % HANDLE SPECIAL CASE - VELOCITY MAGNITUDE IS ZERO
-            speed = norm(avoidanceVelocity);
-            headingVector = avoidanceVelocity/speed;
-            if isnan(headingVector)
-                headingVector = [1;0];                                   % Retain previous heading
+            % CHECK VELOCITY IS PERMISSIBLE
+            if any(isnan(avoidanceVelocity))
+                headingVector = [1;0];   % Retain forward direction
+                speed = 0;
+            else
+                speed = norm(avoidanceVelocity);
+                headingVector = avoidanceVelocity/speed;
             end
         end
     end
-    % ////////////////// THE VECTOR SHARING METHODS ///////////////////////
+    % ///////////////////// THE VECTOR SHARING METHODS ////////////////////
     methods (Access = public)
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
         function [U_a] = defineOptimalVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
@@ -185,6 +181,10 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
                 r_m = cross(c_temp,cross(r_temp,c_temp));
                 r_m = r_m(1:2,1);
             end
+            
+            if norm(r_m) == 0 % No miss vector -> compensate
+                r_m = 0.01*rand(2,1);
+            end    
             
             % DEFINE THE TIME TO COLLISION (+ve converging)
             tau = -(dot(r,c_b)/dot(c_b,c_b));
@@ -287,5 +287,18 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
     end
     % The function uses the same sensor characteristics from the parent
     % class "agent_vectorSharing.m".
+    
+     % ////////////////////// 2D VS STATE INITIALISER //////////////////////
+    methods
+        % INITIALISE A STATE VECTOR AS [x y psi dx dy dpsi]
+        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
+            % This function calculates the intial state for a generic
+            % object.
+            % The default state vector:
+            % [x y psi dx dy dpsi]
+            % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
+            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
+        end
+    end
 end
 % AGENT STATE VECTOR [x;y;phi;xdot;ydot;phidot]

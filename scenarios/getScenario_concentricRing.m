@@ -36,7 +36,7 @@ agentNumber = numel(scenarioConfig.agents);
 testScenario = scenarioBuilder(agentNumber);
 % DEFINE THE AGENT CONFIGURATIONS
 [ agentConfig ] = testScenario.planarRing('radius',scenarioConfig.agentOrbit,...
-                                      'velocities',scenarioConfig.agentVelocity,...
+                                        'velocity',scenarioConfig.agentVelocity,...
                                        'zeroAngle',scenarioConfig.offsetAngle);
   
 %% ASSIGN GLOBAL PARAMETERS TO THE AGENT INDEX
@@ -72,7 +72,6 @@ objectIndex = horzcat(agentIndex,waypointIndex);
 % PLOT THE SCENE
 if scenarioConfig.plot
     testScenario.plotObjectIndex(objectIndex);
-    pause;
 end
 % SAVE THE FILE
 save(scenarioConfig.file,'objectIndex','agentIndex','waypointIndex');

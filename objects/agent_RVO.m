@@ -22,7 +22,7 @@ classdef agent_RVO < agent_VO
             obj@agent_VO(varargin);                                        % Get the supercalss
 
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(varargin);
+            [obj] = obj.configurationParser(obj,varargin);
         end
         
         % MAIN CYCLE IS INHERITED FROM THE SUPERCLASS
@@ -49,14 +49,23 @@ classdef agent_RVO < agent_VO
                 if ~neighbourConditionA || ~neighbourConditionB || ~neighbourConditionC
                     continue
                 end
-                % OBSTACLE KNOWLEDGE
+                
+                % GENERAL OBSTACLE PARAMETERS
                 p_b = knownObstacles(item).position + p_a; 
                 v_b = knownObstacles(item).velocity + v_a;                 % Convert relative parameters to absolute
                 r_b = knownObstacles(item).radius;
-                tau = 0;
-                % DEFINE THE VELOCITY OBSTACLE PROPERTIES
-                [RVO_i] = obj.define3DReciprocalVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau,visualiseProblem);
-                VO = vertcat(VO,RVO_i);
+                tau_b = 0;
+
+                % OBSTACLE TYPE BEHAVIOUR
+                if knownObstacles(item).type == OMAS_objectType.agent
+                    % DEFINE RVO AS AGENT BEHAVIOUR
+                    [VO_i] = obj.define3DReciprocalVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
+                else
+                    % OBSTACLE BEHAVIOUR
+                    [VO_i] = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
+                end       
+                % CONCATINATE THE VO SET
+                VO = [VO,VO_i]; 
             end
             
             % GET THE CAPABLE VELOCITIES
@@ -109,16 +118,10 @@ classdef agent_RVO < agent_VO
             
             
             % GENERATE A STANDARD VELOCITY OBSTACLE
-            [VO] = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,plotOn);
-             
+            [RVO] = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,plotOn);
             % ////// DEFINE RECIPROCAL VELOCITY OBSTACLE PARAMETERS ///////
-            RVO = struct('apex',(v_a + v_b)/2,...
-                     'axisUnit',VO.axisUnit,...
-                   'axisLength',VO.axisLength,...
-                    'openAngle',VO.openAngle,...  
-              'leadingEdgeUnit',VO.leadingEdgeUnit,...
-             'trailingEdgeUnit',VO.trailingEdgeUnit,...
-                  'isVaLeading',VO.isVaLeading); 
+            RVO.apex = (v_a + v_b)/2; % Modify the apex position
+
             % ///////////////////////////////////////////////////////////// 
             % PROBLEM VISUALISATION
             if plotOn && obj.objectID == plotOn

@@ -1,0 +1,22 @@
+EXTERNPROTO Grid_101x101 [
+  exposedField SFVec3f position
+  exposedField SFRotation rotation
+  exposedField SFVec3f scale
+  exposedField SFColor color
+  exposedField SFInt32 visible
+]
+Background {
+  skyColor 0.9 0.9 0.9
+  groundColor 0.9 0.9 0.9
+}
+DEF XZ_Grid Grid_101x101 {
+}
+Transform {
+  translation 20 20 20
+  rotation 0 1 0 0.7854
+  children Viewpoint {
+    description "Perspective View"
+    orientation 1 0 0 -0.5
+    fieldOfView 0.5
+  }
+}

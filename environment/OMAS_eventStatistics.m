@@ -42,6 +42,8 @@ if isempty(uniqueCollisions)
 else
     collisionIDs = unique([uniqueCollisions(:).objectID_A,uniqueCollisions(:).objectID_B]); % The unique IDs involved in collisions
 end
+EVENTstatistics.uniqueCollisions = uniqueCollisions;
+
 agentSet = SIM.OBJECTS([SIM.OBJECTS.type] == OMAS_objectType.agent);   % The complete agent set
 % THE AGENTS THAT COLLIDED/WHERE COLLIDED WITH
 collidedAgents = SIM.OBJECTS(ismember([agentSet.objectID],collisionIDs));
@@ -52,6 +54,10 @@ EVENTstatistics.collisionPercentage = 100*(EVENTstatistics.collisions/SIM.totalA
 % >>>>>>> GET WAYPOINT STATISTICS
 [EVENTstatistics.waypointsAchieved,~] = getEventSummary(SIM,parsedEVENTS.waypoint);
 EVENTstatistics.waypointPercentage = 100*(EVENTstatistics.waypointsAchieved/SIM.totalWaypoints);
+if isnan(EVENTstatistics.waypointPercentage)
+    EVENTstatistics.waypointPercentage = 0;
+end
+
 % APPEND THE PARSED EVENT STRUCTURE FOR EXTERNAL MANIPULATION
 EVENTstatistics.events = parsedEVENTS;
 % PRINT THE SUMMARY

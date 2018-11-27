@@ -6,6 +6,7 @@ fprintf('[SCENARIO]\tGetting the waypoint following exercise.\n');
 % DEFAULT CONFIGURATION
 defaultConfig = struct('file','scenario.mat',...
                        'agents',[],...
+                       'agentVelocity',0,...
                        'noiseFactor',0,...
                        'plot',0);  
 % PARSE THE USER OVERRIDES USING THE SCENARIO BUILDER
@@ -18,14 +19,14 @@ agentNumber = numel(agentIndex);                    % Declare the number of agen
 fprintf('[SCENARIO]\tAssigning agent definition...\n'); 
 for i=1:agentNumber
     agentIndex{i}.VIRTUAL.globalPosition = [0;0;0] + scenarioConfig.noiseFactor*randn(3,1);
-    agentIndex{i}.VIRTUAL.globalVelocity = [5;0;0] + scenarioConfig.noiseFactor*randn(3,1);
+    agentIndex{i}.VIRTUAL.globalVelocity = [scenarioConfig.agentVelocity;0;0] + scenarioConfig.noiseFactor*randn(3,1);
     agentIndex{i}.VIRTUAL.quaternion = [1;0;0;0];
 end
 
 %% DEFINE THE WAYPOINT CONFIGURATION
 fprintf('[SCENARIO]\tBuilding the new scenario...\n');
 waypointRadius = 0.1;
-nameString = sprintf('WP:%s',agentIndex{1}.name);
+nameString = sprintf('WP-%s',agentIndex{1}.name);
 waypointPositions = [ 20 20;
                        0 20;
                        0 20];

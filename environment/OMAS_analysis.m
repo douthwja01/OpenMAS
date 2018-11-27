@@ -62,7 +62,7 @@ end
 fprintf('[%s]\tMoving to agent data parser...\n',META.phase);
 try
     [objectIndex,DATA.MEANS] = OMAS_agentStatistics(META,objectIndex);
-    DATA.objectIndex = objectIndex;
+%     DATA.objectIndex = objectIndex;
 catch agentParseError
     warning('[ERROR] A problem occurred parsing the agent data.');
     warning(agentParseError.message);
@@ -80,15 +80,6 @@ if isempty(figureList)
     return
 end
 
-% GET AXIS PROPERTIES RELATING TO THE TRAJECTORY DATA
-[minimumStateValues,maximumStateValues] = getTrajectoryAxisProperties(DATA);
-figureProperties = struct('axisMinimums',1.1*minimumStateValues,...
-                          'axisMaximums',1.1*maximumStateValues,...        % Add 10% for padding
-                          'minPosition',min(1.1*minimumStateValues(1:3)),...
-                          'maxPosition',max(1.1*maximumStateValues(1:3)));
-% ASSIGN THE FIGURE PROPERTIES STRUCTURE TO THE OUTPUT DATA
-DATA.figureProperties = figureProperties;
-
 % UPDATE RECORDS OF THE DATA STRUCTURES IN THE OUTPUT FILES
 sendOutputToFiles(META,EVENTS,DATA,objectIndex)
 
@@ -96,63 +87,13 @@ sendOutputToFiles(META,EVENTS,DATA,objectIndex)
 % GENERATE OUTPUT FIGURES
 for figNum = 1:length(figureList)
 %     try
-        [plotnum] = OMAS_figureGenerator(META,DATA,plotnum,figureList(figNum)); % Jump to the figure index
+        [plotnum] = OMAS_figureGenerator(META,objectIndex,DATA,plotnum,figureList(figNum)); % Jump to the figure index
 %     catch figureGenerationError
 %         warning('[ERROR] A problem occurred generating the output figures.');
 %         warning(figureGenerationError.message);
 %         fprintf('\n');
 %     end
 end
-end
-
-%% RAW DATA HANDLING FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% GET AXIS/STATE LIMITS FROM GLOBAL TRAJECTORY DATA
-function [stateMinimums,stateMaximums] = getTrajectoryAxisProperties(DATA)
-% This function determines the axis limits for the state vector by
-% determining the minimum and maximum values of all states across all
-% objects.
-
-% INPUTS:
-% DATA           - The METAulation DATA structure
-% - totalObjects - The number of agents METAulated
-% OUTPUTS:
-% stateMinimums - Trajectory axis minimum limit vector
-% stateMaximums - Trajectory axis maximum limit vector
-
-% CREATE AXIS DATA CONTAINERS
-systemStates = size(DATA.globalTrajectories,1)/DATA.totalObjects;          % The number of states per agent
-stateMinimums = zeros(systemStates,1);                   
-stateMaximums = zeros(systemStates,1);                                     % Define the trajectory axis limit containers
-
-for ID1 = 1:DATA.totalObjects
-    % GET THE AGENTS STATE-TIMESERIES DATA
-    [objectStateData] = OMAS_getTrajectoryData(DATA,ID1);                  % Get state timeseries data
-    
-    % DETERMINE GREATEST MIN/MAX STATES FOR EACH AGENTS
-    for x = 1:systemStates
-       stateMinimum(x) = min(objectStateData(x,:),[],2);                   % Get the minimum state value for this agent
-       stateMaximum(x) = max(objectStateData(x,:),[],2);                   % Get the max state value 
-       
-       % AFFIRM MINIMUM STATE RECORD
-       if stateMinimums(x) > stateMinimum(x)
-           stateMinimums(x) = stateMinimum(x);                             % Re-affirm the negative limits
-       end
-       % AFFIRM MAXIMUM STATE RECORD
-       if stateMaximums(x) < stateMaximum(x)
-           stateMaximums(x) = stateMaximum(x);                             % Re-affirm the positive limits
-       end
-    end  
-end
-
-% CHECK THAT THE LIMITS ARE VALID
-for x = 1:systemStates
-    if stateMinimums(x) == stateMaximums(x)
-        stateMinimums(x) = stateMinimums(x) - 1;
-        stateMaximums(x) = stateMaximums(x) + 1;                           % Modify the axis limits if they match
-    end
-end
-
-clearvars ID1 k axismax axismin
 end
 
 % SAVE DATA TO FILES
@@ -169,7 +110,8 @@ function sendOutputToFiles(META,EVENTS,DATA,objectIndex)
 % whos;
 % SAVE META DATA
 save(strcat(META.outputPath,'META.mat'),'META');
-save(strcat(META.outputPath,'OBJECTS.mat'),'objectIndex');
+OBJECTS = objectIndex;
+save(strcat(META.outputPath,'OBJECTS.mat'),'OBJECTS');
 % SAVE EVENT HISTORY
 save(strcat(META.outputPath,'EVENTS.mat'),'EVENTS');
 % SAVE OUTPUT DATA
@@ -177,4 +119,5 @@ save(strcat(META.outputPath,'DATA.mat'),'DATA');
 % DISPLAY NOTIFICATION
 % fprintf('[%s]\tData objects outputted to file:\n',META.phase);
 % fprintf('[%s]\tDirectory: %s\n',META.phase,META.outputPath);
+clearvars; 
 end

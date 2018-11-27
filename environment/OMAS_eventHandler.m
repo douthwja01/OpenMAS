@@ -5,7 +5,7 @@
 
 % Author: James A. Douthwaite 06/10/17
 
-function [metaObjectA,EVENT] = OMAS_eventHandler(SIM,metaObjectA,metaObjectB,eventEnumeration)
+function [EVENT] = OMAS_eventHandler(SIM,metaObjectA,metaObjectB,eventEnumeration)
 % INPUTS:
 % SIM                - A snapshot of the META data
 % - TIME.currentTime - Current simulation time
@@ -15,7 +15,6 @@ function [metaObjectA,EVENT] = OMAS_eventHandler(SIM,metaObjectA,metaObjectB,eve
 % eventEnumeration   - The type of event indicated by the simulator
 
 % OUTPUTS:
-% modifiedMETAobject - The META.OBJECT copy, updated with event history
 % EVENT              - The generated detection event structure
 
 % INPUT HANDLING
@@ -25,8 +24,6 @@ function [metaObjectA,EVENT] = OMAS_eventHandler(SIM,metaObjectA,metaObjectB,eve
 
 % DETERMINE THE AVAILABLE META DATA FOR objectA
 currentTime = SIM.TIME.currentTime;             % Current timestep
-% GET THE SIM.OBJECT INDEX FROM THE metaObjectB.ID
-METAindex = find(SIM.globalIDvector == metaObjectB.objectID);
 
 %% GENERATE THE APPROPRIATE EVENT CLASS
 % The simulation will generate one of the following events inreponse to the
@@ -35,61 +32,44 @@ METAindex = find(SIM.globalIDvector == metaObjectB.objectID);
 switch eventEnumeration
 % DETECTION EVENTS    
     case eventType.detection
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.detection) = 1;       % Ammend status of the META object
         % GENERATE C-FRIENDLY NOTIFICATION STRING
         infoString = char(['Detection notification [',metaObjectA.name,':',metaObjectB.name,']']);
         EVENTobj = detectionEvent(currentTime,metaObjectA,metaObjectB,infoString);
 % DETECTION-LOSS EVENTS    
     case eventType.null_detection
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.detection) = 0;       % Ammend status of the META object
         % GENERATE C-FRIENDLY NOTIFICATION STRING
         infoString = char(['Detection-loss notification [',metaObjectA.name,':',metaObjectB.name,']']);
         EVENTobj = detectionEvent(currentTime,metaObjectA,metaObjectB,infoString,eventType.null_detection);
  % WARNING/NEAR-MISS EVENTS
     case eventType.warning
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.warning) = 1;
         % GENERATE C-FRIENDLY NOTIFICATION STRING
         infoString = char(['Proximity warning notification [',metaObjectA.name,':',metaObjectB.name,']']);
         EVENTobj = warningEvent(currentTime,metaObjectA,metaObjectB,infoString);
 % A WARNING/NEAR MISS CONDITION NULLIFICATION
     case eventType.null_warning        
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.warning) = 0;
         % GENERATE C-FRIENDLY NOTIFICATION STRING
         infoString = char(['Proximity warning-clear notification [',metaObjectA.name,':',metaObjectB.name,']']);
         EVENTobj = warningEvent(currentTime,metaObjectA,metaObjectB,infoString,eventType.null_warning);
 % COLLISION/GEOMETRIC VIOLATION EVENTS
     case eventType.collision
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.collision) = 1;
         % GENERATE C-FRIENDLY NOTIFICATION STRING
         infoString = char(['Collision notification [',metaObjectA.name,':',metaObjectB.name,']']);
         EVENTobj = collisionEvent(currentTime,metaObjectA,metaObjectB,infoString);
 % COLLISION/GEOMETRIC VIOLATION NULLIFICATION EVENTS        
     case eventType.null_collision
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.collision) = 0;
         % GENERATE C-FRIENDLY NOTIFICATION STRING
         infoString = char(['Collision-clear notification [',metaObjectA.name,':',metaObjectB.name,']']);
         EVENTobj = collisionEvent(currentTime,metaObjectA,metaObjectB,infoString,eventType.null_collision);       
 % WAYPOINT ACHIEVED EVENTS   
     case eventType.waypoint
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.waypoint) = 1;
         % GENERATE C-FRIENDLY NOTIFICATION STRING
         infoString = char(['Waypoint notification [',metaObjectA.name,':',metaObjectB.name,']']);
         EVENTobj = waypointEvent(currentTime,metaObjectA,metaObjectB,infoString);
 % WAYPOINT-LOSS EVENTS
     case eventType.null_waypoint
-        % AMEND THE META OBJECT
-        metaObjectA.objectStatus(METAindex,eventType.waypoint) = 0;
         % A WAYPOINT RESET EVENT (NON-WAYPOINT)
-%         infoString = sprintf('Waypoint-reset notification [%s:%s]',metaObjectA.name,metaObjectB.name);
-%         EVENTobj = waypointEvent(METAObjectID,metaObjectB,infoString,eventType.null_waypoint);
-        EVENTobj = [];
+        infoString = sprintf('Waypoint-reset notification [%s:%s]',metaObjectA.name,metaObjectB.name);
+        EVENTobj = waypointEvent(METAObjectID,metaObjectB,infoString,eventType.null_waypoint);
 % EVENT UNKNOWN    
     otherwise
         fprintf('[ERROR]\tEvent type not recognised.');
@@ -129,7 +109,7 @@ EVENT = struct('eventID',EVENTobject.eventID,...
             'objectID_B',EVENTobject.objectID_B,...
                 'name_B',EVENTobject.name_B,...
                'state_B',EVENTobject.state_B,...    
-            'seperation',EVENTobject.seperation,...
+            'separation',EVENTobject.separation,...
                   'info',EVENTobject.info);               
 % clear EVENTobject 
 end

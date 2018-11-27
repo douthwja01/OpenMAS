@@ -14,7 +14,7 @@ classdef interactionEvent < eventDefinition
         objectID_B;
         name_B;
         state_B;
-        seperation;
+        separation;
     end
 %%  CLASS METHODS
     methods 
@@ -43,7 +43,7 @@ classdef interactionEvent < eventDefinition
             obj.name_B = objectB.name;                                     % Agent names of those involved
             obj.state_A = objectA.globalState;
             obj.state_B = objectB.globalState;                             % Record agent states 
-            obj.seperation = sqrt(sum((obj.state_A(1:3,1) - obj.state_B(1:3,1)).^2)); % Agent seperation at time of incident
+            obj.separation = sqrt(sum((obj.state_B(1:3,1) - obj.state_A(1:3,1)).^2)); % Agent seperation at time of incident
         end
     end
 end

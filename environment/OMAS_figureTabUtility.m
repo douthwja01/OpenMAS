@@ -118,7 +118,7 @@ catch
     validChildren = allChildren;
 end
 set(figHandle,'Units','Pixels');
-set(validChildren,'Units','Pixels');
+% set(validChildren,'Units','Pixels');
 
 % types = get(allChildren,'Type');
 % types = confirm_cell(types);

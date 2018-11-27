@@ -1,18 +1,15 @@
-%%%% MATLAB MULTI-AGENT SIMULATOR (OpenMAS) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% MATLAB OPENSOURCE MULTI-AGENT SIMULATOR (OpenMAS) %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%% Author James A. Douthwaite (jadouthwaite1@sheffield.ac.uk)
+%%%% Author James A. Douthwaite (douthwaiteja@gmail.com, jadouthwaite1sheffield.ac.uk)
 
 %%%% GENERAL README %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 OVERVIEW
 
-This file is intended to provide an brief introduction to this open multi-agent
+This file is intended to provide an brief introduction to this opensource multi-agent
 simulation (OpenMAS) tool. This directory contains a number of folders that 
 together form a framework for the simulation of generic multi-agent scenarios.  
 Inside this directory:
-- data 
-	+ The outputted simulation data and figures, ordered by simulation date 
-	 and time of execution.
 
 - environment 
 	+ The directory containing the simulation functions and utilities.
@@ -23,12 +20,15 @@ Inside this directory:
 	  [it is advised you do not change anything within this folder]
 
 - objects   
-	+ The directory of user/simulation object definitions.
+	+ The directory of user/default object definitions.
 
 - scenarios 
 	+ A directory of scenario definitions. Functions within here are 
-		designed to generate the object initial conditions in the global
-	  coordinate system. Scenario.fig, scenario.mat are auto generated.
+	  designed to generate the object initial conditions in the global
+	  coordinate system. Scenario.fig, scenario.mat may be auto generated.
+- data 
+	+ The outputted simulation data and figures, ordered by simulation date 
+	 and time of execution.
 
 IMPORTANT: Please ensure that all these directories are on the system path when 
 	   creating a simulation setup function (see setup_example.m).
@@ -37,11 +37,12 @@ IMPORTANT: Please ensure that all these directories are on the system path when
 
 An overivew of the complete process:
 1. Add the set of directories to the path of your script [i.e 'addpath('objects')'] 
+	(Some of these will be added automatically).
 2. Define the matrix of initial states using the 'scenarioBuilder' or use and existing 
 		scenario defined in /scenarios.
 3. Initialise the array of objects/agents with these initial conditions.
 4. Pass the array to the simulation with additional simulation parameters via the
-   simulation wrapper function 'simulation_initialise'.
+   simulation wrapper function 'simulation_initialise' as shown in 'setup_example.m'.
 5. Find the output DATA and META structures, in addition to selected figures within 
    the output 'data' directory (labelled with the current date+time).
 
@@ -54,26 +55,28 @@ The figures currently available for auto-generation are defined in
 in the current simulation. Providing the following arguements either individually or 
 as a cell array of labels to 'simulation_initialise' will result in the following:
 
-- 'ALL' 				 + Outputs all available figures.
-- 'EVENTOVERVIEW + A summary of the simulation events that occured over the 
-									 simulation time.
-- 'COLLISIONS'   + Snapshots of the the collision instances between agents.
-- 'TRAJECTORIES' + Produces a timeseries plot of each agents global state trajectories.
-- 'SEPERATIONS'  + The inter-agent seperations from the perspective of each agent.
-- 'INPUTS'			 + The control input trajectories, if stored to the agent.DATA property.
-- 'ISOMETRIC'		 + An isometric summation of the global agent trajectories.
-- '4VIEW'				 + A four perspective view of the scenario, annomated over time.
-- 'GIF'					 + An animation of the isometric view.
-- 'TIMES'				 + Plots of the computation times, if stored to the agent.DATA property.
-
+- 'ALL' 			+ Outputs all available figures.
+- 'EVENTS' 			+ A summary of the simulation events that occured over the 
+					  simulation time.
+- 'COLLISIONS'   	+ Snapshots of the the collision instances between agents.
+- 'TRAJECTORIES' 	+ Produces a timeseries plot of each agents global state trajectories.
+- 'SEPARATIONS'  	+ The inter-agent seperations from the perspective of each agent.
+- 'CLOSEST'		 	+ A comparison of the two closest agents over time.
+- 'INPUTS'			+ The control input trajectories, if stored to the agent.DATA property.
+- 'PLAN'			+ A simple top-down trajectory figure for all agents.
+- 'FIG'		 		+ An isometric summation of the global agent trajectories.
+- 'GIF'				+ An animation of the isometric view.
+- 'AVI'				+ An vidoe of the time series from the global prospective as a .avi.
+- 'TIMES'			+ Plots of the computation times, if stored to the agent.DATA property.
+- 'NONE'			+ Supress figures intentionally.
 example of passing figure requests to simulation_initialise:
 
-[DATA,META] = simulation_initialise('objects',agentArray,'figures','ALL');
+[DATA,META] = simulation_initialise('objects',agentArray,'figures',{'FIG','GIF'});
 
 %%% MAIN FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The main function the user will interact with is the simulation wrapper function
-named 'simulation_initialise.m' and your desired object class. The rest of the 
+named 'OMAS_initialise.m' and your desired object class. The rest of the 
 simulation is very much self-contained. Notes on some of the key functions are given
 below:
 
@@ -84,7 +87,7 @@ below:
 		'validateSimulationInputs' function. 
 	+ The main parameters include the object/agent and figure 
 		request array passed as string pairs. For example:
-		[DATA, META] = simulation_initialise('simtime',10,...
+		[DATA, META] = OMAS_initialise('maxDuration',10,...
 				       'objects',objectSet,'figures',listOfFigureLabels)]	 
 
 - scenarioBuilder 
@@ -99,7 +102,7 @@ below:
 
 - simulation_figureIndex 
 	+ Contains the list of available output figures which can be
-		selected via the 'simulation_initialise' function. Multiple
+		selected via the 'OMAS_initialise' function. Multiple
 		figures can be requested as via an array of string names.
 		[i.e. figureSet = {'eventoverview','trajectories'};]
 	+ The simulation outputs the figures 'eventoverview' and 'fig' 
@@ -115,7 +118,8 @@ a predefined scenario to get started and initialise their global properties.
 Finally define the simulation parameters (agents, time, timestep) and the requested
 figures to be auto-generated.
 
-Run this setup script and the output data will be returned the working directory.
+Run this setup script and the output data will be returned the working directory by
+default, unless a 'outputPath' properties defines another folder.
 
 
 		         

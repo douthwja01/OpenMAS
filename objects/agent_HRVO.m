@@ -22,7 +22,7 @@ classdef agent_HRVO < agent_RVO
             obj@agent_RVO(varargin);                                       % Get the supercalss
             
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(varargin);
+            [obj] = obj.configurationParser(obj,varargin);
         end
         
         % MAIN CYCLE IS INHERITED FROM THE SUPERCLASS
@@ -42,19 +42,30 @@ classdef agent_HRVO < agent_RVO
             % BUILD THE VELOCITY OBSTACLE SET
             VO = [];
             for item = 1:length(knownObstacles)
-                % CHECK NEIGHBOUR CONDITIONS
-                neighbourConditionA = norm(knownObstacles(item).position) < obj.neighbourDist;    % [CONFIRMED] 
-                if ~neighbourConditionA
+                % NEIGHBOUR CONDITIONS
+                neighbourConditionA = item < obj.maxNeighbours;                                 % Maximum number of neighbours
+                neighbourConditionB = norm(knownObstacles(item).position) < obj.neighbourDist;  % [CONFIRMED] 
+                neighbourConditionC = ~any(isnan(knownObstacles(item).velocity));               % Wait for a valid velocity reading
+                if ~neighbourConditionA || ~neighbourConditionB || ~neighbourConditionC
                     continue
                 end
-                % OBSTACLE KNOWLEDGE
+                                
+                % GENERAL OBSTACLE PARAMETERS
                 p_b = knownObstacles(item).position + p_a; 
-                v_b = knownObstacles(item).velocity + v_a;               % Convert relative parameters to absolute
+                v_b = knownObstacles(item).velocity + v_a;                 % Convert relative parameters to absolute
                 r_b = knownObstacles(item).radius;
                 tau_b = 0;
-                % DEFINE THE VELOCITY OBSTACLE PROPERTIES
-                [HRVO_i] = obj.define3DHybridReciprocalVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
-                VO = vertcat(VO,HRVO_i);
+
+                % OBSTACLE TYPE BEHAVIOUR
+                if knownObstacles(item).type == OMAS_objectType.agent
+                    % DEFINE RVO AS AGENT BEHAVIOUR
+                    [VO_i] = obj.define3DHybridReciprocalVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
+                else
+                    % OBSTACLE BEHAVIOUR
+                    [VO_i] = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
+                end       
+                % CONCATINATE THE VO SET
+                VO = [VO,VO_i]; 
             end
             
             % GET THE CAPABLE VELOCITIES
@@ -144,21 +155,16 @@ classdef agent_HRVO < agent_RVO
 %             [HRVOapex, isSuccessful] = obj.twoRayIntersection2D(VO.apex,VOelement,RVO.apex,-RVOelement); % Project the RVO vector towards the VO element
 %             [pa,pb,isSuccessful] = obj.twoRayIntersection3D(P1,dP1,P3,dP3)
             [HRVOapex,pb,isSuccessful] = obj.findAny3DIntersection(VO.apex,VOelement,RVO.apex,-RVOelement);
-            
-            
             if any(isnan(HRVOapex))%~isSuccessful
                 HRVOapex = RVO.apex;
                 warning('no line intersection');
             end
                         
-            % //////// DEFINE VELOCITY OBSTACLE PARAMETERS ////////////////
-            HRVO = struct('apex',HRVOapex,...
-                      'axisUnit',RVO.axisUnit,...
-                    'axisLength',RVO.axisLength,...
-                     'openAngle',RVO.openAngle,...
-               'leadingEdgeUnit',unit_leadingTangent,...
-              'trailingEdgeUnit',unit_trailingTangent,...
-                   'isVaLeading',RVO.isVaLeading);
+            % //////// CONSTRUCT THE HRVO FROM THE RVO TEMPLATE ///////////
+            HRVO = RVO;
+            HRVO.apex = HRVOapex;
+            HRVO.leadingEdgeUnit = unit_leadingTangent;
+            HRVO.trailingEdgeUnit = unit_trailingTangent;
             
             % PROBLEM VISUALISATION
             if plotOn && obj.objectID == plotOn

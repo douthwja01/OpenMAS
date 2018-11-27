@@ -2,19 +2,22 @@
 % This script contains an index of the figures that can be requested from
 % the simulation using the SIM.figures attribute.
 
-% Author: James A. Douthwaite 10/10/2016
+% Author: James A. Douthwaite 23/11/2018
 
 %% INDEX FUNCTION
-function [figureNumber] = OMAS_figureGenerator(SIM,DATA,figureNumber,figureLabel)
+function [figureNumber] = OMAS_figureGenerator(SIM,objectIndex,DATA,figureNumber,figureLabel)
 % INPUTS:
 % DATA         - The simulation output DATA structure
 % figureNumber - The current figure number
-% figureFlag   - The figure identifier
+% figureLabel  - The figure identifier
 % OUTPUT:
 % figureNumber - The updated figure number
 
 % PARAMETERISE ALL THE FIGURES BY CURRENT CONFIGURATION
-[DATA.figureProperties] = OMAS_figureProperties(SIM.OBJECTS,DATA.figureProperties);
+[DATA.figureProperties] = OMAS_figureProperties(SIM,DATA);
+
+% GENERATE THE REDUCED STATE TRAJECTORY FILE
+generateTrajectoryTempFile(SIM,DATA);
 
 % DETERMINE WHICH FIGURE IS TO BE GENERATED
 switch upper(char(figureLabel))
@@ -22,17 +25,34 @@ switch upper(char(figureLabel))
         fprintf('[%s]\tAll output figures requested.\n',SIM.phase);
         % MOVE THROUGH THE COMPLETE FIGURE VECTOR
         figureVector = {'EVENTS','COLLISIONS','TRAJECTORIES','SEPARATIONS',...
-                        'CLOSEST','INPUTS','PLAN','FIG','4VIEW','GIF','AVI','TIMES'};
+                        'CLOSEST','INPUTS','PLAN','FIG','GIF','AVI','TIMES'};
         for fig = 1:length(figureVector)
-            [figureNumber] = OMAS_figureGenerator(SIM,DATA,figureNumber,figureVector{fig});
+            [figureNumber] = OMAS_figureGenerator(SIM,objectIndex,DATA,figureNumber,figureVector{fig});
         end
-        close all;
+        close all;  % Kill figures
+        fprintf('[%s]\tAll figures pushed to output directory: \n[%s]\t%s',...
+                SIM.phase,SIM.phase,SIM.outputPath);
+
     case 'EVENTS'
         fprintf('[%s]\tGenerating the event overview figure.\n',SIM.phase);
-        [figureNumber,~] = get_eventOverview(SIM,DATA,figureNumber);    
+        [figureNumber,~] = get_eventOverview(SIM,DATA,figureNumber);  
+        
     case 'COLLISIONS'
-        fprintf('[%s]\tGenerating collision figure set.\n',SIM.phase);
-        [figureNumber,~] = get_collisionFigures(SIM,DATA,figureNumber);
+        fprintf('[%s]\tGenerating collision overview.\n',SIM.phase);
+        figureSet = [];
+        % CHECK COLLISIONS OCCURED
+        if ~isfield(DATA,'uniqueCollisions') || isempty(DATA.uniqueCollisions)
+            warning('[%s]\t...No collision data available.\n',SIM.phase);
+            return
+        end
+        for collisionNumber = 1:numel(DATA.uniqueCollisions)
+            [figureNumber,figureSet(collisionNumber)] = get_objectCollision(SIM,objectIndex,DATA,figureNumber,DATA.uniqueCollisions(collisionNumber));
+        end
+        % ASSEMBLE TABBED FIGURE
+        windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Collision Overview');
+        set(windowHandle,'Position',DATA.figureProperties.windowSettings);        % Maximise the figure in the tab
+        savefig(windowHandle,strcat(SIM.outputPath,'collision_overview'));        % Save the output figure
+        
     case 'TRAJECTORIES'
         fprintf('[%s]\tGenerating global trajectory figure.\n',SIM.phase);
         figureSet = [];
@@ -41,60 +61,105 @@ switch upper(char(figureLabel))
         end
         % ASSEMBLE TABBED FIGURE
         windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Trajectory Overview');
-        set(windowHandle,'Position',DATA.figureProperties.windowSettings);       % Maximise the figure in the tab
+        set(windowHandle,'Position',DATA.figureProperties.windowSettings);        % Maximise the figure in the tab
         savefig(windowHandle,strcat(SIM.outputPath,'globalTrajectory_overview')); % Save the output figure
+        
     case 'SEPARATIONS' 
         fprintf('[%s]\tGenerating object trajectory separation figure.\n',SIM.phase);
-        % INPUT HANDLING
+        figureSet = [];
         if SIM.totalObjects - SIM.totalWaypoints <= 1
             warning('There must be at least two collidable objects to plot seperation data.\n');
-            figureSet = [];
             return
-        else
-            figureSet = [];
-            for agentNum = 1:DATA.totalAgents
-                [figureNumber,figureSet(agentNum)] = get_agentSeparationFigure(SIM,DATA,figureNumber,agentNum);
-            end
-            % ASSEMBLE TABBED FIGURE
-            windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Separation Overview');
-            set(windowHandle,'Position', DATA.figureProperties.windowSettings);  % Maximise the figure in the tab
-            savefig(windowHandle,strcat(SIM.outputPath,'separations_overview')); % Save the output figure
         end
-    case 'CLOSEST' 
+        for agentNum = 1:DATA.totalAgents
+            [figureNumber,figureSet(agentNum)] = get_agentSeparationFigure(SIM,DATA,figureNumber,agentNum);
+        end
+        % ASSEMBLE TABBED FIGURE
+        windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Separation Overview');
+        set(windowHandle,'Position', DATA.figureProperties.windowSettings);       % Maximise the figure in the tab
+        savefig(windowHandle,strcat(SIM.outputPath,'separations_overview'));      % Save the output figure
+        
+    case 'CLOSEST'
         fprintf('[%s]\tGenerating object trajectory seperation figure.\n',SIM.phase);
         [figureNumber,~] = get_minimumSeparationFigure(SIM,DATA,figureNumber);
+        
     case 'INPUTS'
         fprintf('[%s}\tGenerating control input figure.\n',SIM.phase);
-        [figureNumber,~] = get_agentControlInputs(SIM,DATA,figureNumber);
+        [figureNumber,~] = get_agentControlInputs(SIM,objectIndex,DATA,figureNumber);
+        
     case 'PLAN'
         fprintf('[%s}\tGenerating top-down 2D(plan) figure.\n',SIM.phase);
-        [figureNumber,~] = get_topDownView(SIM,DATA,figureNumber);
+        [figureNumber,~] = get_topDownView(SIM,objectIndex,DATA,figureNumber);
+        
     case 'FIG' 
         fprintf('[%s]\tGenerating isometric trajectory figure.\n',SIM.phase);
-        [figureNumber,~] = get_isometricFigure(SIM,DATA,figureNumber);
-    case '4VIEW'
-        fprintf('[%s]\tGenerating four-view panel & gif file.\n',SIM.phase);
-        [figureNumber,~] = get_fourViewPanel(SIM,DATA,figureNumber);
+        [figureNumber,~] = get_isometricFigure(SIM,objectIndex,DATA,figureNumber);
+
     case 'GIF'
         fprintf('[%s]\tGenerating trajectory gif file.\n',SIM.phase);
-        [figureNumber,~] = get_isometricGif(SIM,DATA,figureNumber);
+        [figureNumber,~] = get_isometricGif(SIM,objectIndex,DATA,figureNumber);
+        
     case 'AVI'
         fprintf('[%s]\tGenerating trajectory avi file.\n',SIM.phase);
-        [figureNumber,~] = get_isometricAvi(SIM,DATA,figureNumber);
+        [figureNumber,~] = get_isometricAvi(SIM,objectIndex,DATA,figureNumber);
+        
     case 'TIMES'
         fprintf('[%s]\tGenerating computation timeseries figure.\n',SIM.phase);
-        [figureNumber,~] = get_computationTimes(SIM,DATA,figureNumber);
+        [figureNumber,~] = get_computationTimes(SIM,objectIndex,DATA,figureNumber);
+        
     case 'NONE'
         fprintf('[%s]\tFigure output supressed.\n',SIM.phase);
+        
     otherwise
-        warningStr = sprintf('[ERROR] Did not recognise figure request: "%s"',char(figureLabel));
-        warning(warningStr);
+        warning('[WARNING] Ignoring figure request "%s": Figure unknown.',char(figureLabel));
 end
 end
 
+% PREPARATION FUNCTIONS 
+function [filePath] = generateTrajectoryTempFile(SIM,DATA)
+% This function generates/appends to a temp file containing the trajectory 
+% states to be plotted in annimations. The number of states are reduced
+% according to the desired frame rate and are lower resolution than the
+% true number of steps in some cases.
+% OUTPUT:
+% filePath        - The path to the system file
+% objectIDx       - The trajectory data reduced to the desired number of frames.
+% frameTimeVector - The reduced time vector associated with the frames.
 
-%% FIGURE GENERATION FUNCTIONS 
-% ////////////////// COLLISION DATA FIGURE GENERATION /////////////////////
+% CREATE A TEMP FILE FOR THE GENERATION OF TRAJECTORY ELEMENTS
+numRep = floor(SIM.TIME.endStep/DATA.figureProperties.stepsPerFrame);          % Handle numsteps not divisable by stepsPerFrame
+logicalMatrix = logical(zeros(1,numRep*DATA.figureProperties.stepsPerFrame));  % Frame selection matrix
+
+% FOR EACH OBJECT, GET THE STATE SET
+outputStructure = struct();
+for objectNo = 1:DATA.totalObjects
+    % GET THE COMPLETE STATE SET
+    completeStateSet = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,...
+                                                  SIM.globalIDvector,...
+                                                  SIM.OBJECTS(objectNo).objectID,...
+                                                  inf);                    % All valid states for the object
+    completeStateSet = completeStateSet(:,1:numRep*DATA.figureProperties.stepsPerFrame);
+    
+    % GET THE INDICES OF EACH FRAME IN THE STATE SPACE
+    for num = 1:numRep
+        logicalMatrix(1,num*DATA.figureProperties.stepsPerFrame) = logical(true);
+    end
+    % SELECT THE STATES FROM THE COMPLETE SET
+    statesToPlot = completeStateSet(:,logicalMatrix);
+    % GENERATE DATA STRUCTURE TO BE SAVED
+    outputStructure.(sprintf('objectID%d',SIM.OBJECTS(objectNo).objectID)) = statesToPlot;
+end
+% GET THE TIME VECTOR FOR THE FRAME SET
+frameTimeVector = SIM.TIME.timeVector(1:numRep*DATA.figureProperties.stepsPerFrame);
+outputStructure.frameTimeVector = frameTimeVector(logicalMatrix);
+
+% SAVE A TEMPORARY FILE WITH THE STATES OF EACH OBJECT
+filePath = [SIM.outputPath,SIM.systemFile];
+save(filePath,'-struct','outputStructure','-append');
+end
+
+
+%% /////////////////// COLLISION DATA FIGURE GENERATION ///////////////////
 % GET EVENTS STATISTICS OVERVIEW PANEL
 function [currentFigure,figureHandle] = get_eventOverview(SIM,DATA,currentFigure)
 % This function generates a complete event summary plot
@@ -133,7 +198,7 @@ end
 
 % FIGURE META PROPERTIES
 figurePath = strcat(SIM.outputPath,'eventOverview');
-figureHandle = figure('Name','OpenMAS Event Overview');
+figureHandle = figure('Name','OpenMAS event overview');
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 % setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.08, 0.90, 0.88]);
@@ -152,7 +217,7 @@ set(h,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProp
 set(h,'Color',DATA.figureProperties.axesColor);
 xlim([-SIM.TIME.dt,SIM.TIME.endTime])
 legend(h,eventFields,'Location','northeastoutside')
-grid on;
+grid on; grid minor; box on;
 
 % ASSIGN SPECIFIC COLOURS TO KEY PROPERTIES
 colourVector = [0 0 0;     % 'event' type
@@ -190,8 +255,8 @@ set(tbox,'BackgroundColor','w',...
 h = subplot(subHandles(3));   
 axis off;  
 % CREATE THE COLLISION DATA CONTENTS
-agentSummary    = sprintf('Agent Collisions: \n %s/%s (%3.0f%%)',num2str(DATA.collisions),num2str(DATA.totalAgents),DATA.collisionPercentage);
-waypointSummary = sprintf('Waypoints: \n %s/%s (%3.0f%%)',num2str(DATA.waypointsAchieved),num2str(DATA.totalWaypoints),DATA.waypointPercentage);
+agentSummary    = sprintf('Agent Collisions: \n %.0f/%.0f (%.0f%%)',DATA.collisions,DATA.totalAgents,DATA.collisionPercentage);
+waypointSummary = sprintf('Waypoints: \n %.0f/%.0f (%.0f%%)',DATA.waypointsAchieved,DATA.totalWaypoints,DATA.waypointPercentage);
 statsInfo = {'Scenario Summary','',agentSummary,waypointSummary};
 
 
@@ -212,125 +277,182 @@ title(subplot(subHandles(1)),sprintf('Event occurance over a period of %ss',num2
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
-print(figureHandle,figurePath,'-dpdf','-r0');
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end
 
 % FIGURE COMPLETE
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;  
 end
 % PLOT THE COLLISION EVENT DESCRIPTION FIGURES
-function [currentFigure,tabbedFigureHandle] = get_collisionFigures(SIM,DATA,currentFigure)
+function [currentFigure,figureHandle] = get_objectCollision(SIM,objectIndex,DATA,currentFigure,collisionEvent)
 % This function is designed to move through the collsion event history and
 % generate figure for each of the collisions.
 
-% CHECK COLLISIONS OCCURED
-if ~isfield(DATA,'events') || ~isfield(DATA.events,'collisions') 
-    fprintf('[%s]\t...No collision data available.\n',SIM.phase);
-    tabbedFigureHandle = 0;
-    return
+% Generate the figure
+figureHandle = figure('Name',sprintf('[t=%.0fs] %s & %s',collisionEvent.time,collisionEvent.name_A,collisionEvent.name_B));
+set(figureHandle,'Position', DATA.figureProperties.windowSettings);             % [x y width height]
+set(figureHandle,'Color',DATA.figureProperties.figureColor);                    % Background colour
+ax = axes(figureHandle);
+hold on;
+
+view([70 25]);
+titlestr = sprintf('Collision Event between %s and %s at t=%s',...              % Declare title string for figure
+    collisionEvent.name_A,collisionEvent.name_B,num2str(collisionEvent.time));
+
+% EVENT, OBJECT AND META DATA
+META_A = SIM.OBJECTS(SIM.globalIDvector == collisionEvent.objectID_A);
+META_B = SIM.OBJECTS(SIM.globalIDvector == collisionEvent.objectID_B);                 % The associated META datas
+object_A = objectIndex{SIM.globalIDvector == collisionEvent.objectID_A};
+object_B = objectIndex{SIM.globalIDvector == collisionEvent.objectID_B};               % The associated object structures
+
+[objectAStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_A.objectID,inf);
+[objectBStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_B.objectID,inf);
+
+% /////////////// BEGIN GENERATING THE PLOT //////////////////////////////
+sphereFaceAlpha = 0.3;
+sphereLineWidth = 0.1;
+sphereEdgeAlpha = 0.1;                                                 % Show representative shapes with higher alpha
+
+% ////////// PLOT COLLISION ASSUMPTIONS IF NECESSARY /////////////////
+if META_A.type ~= OMAS_objectType.obstacle
+    % PLOT COLLISION SPHERE FOR A
+    [geometry] = OMAS_graphics.defineSphere(collisionEvent.state_A(1:3),META_A.radius);
+    % REPRESENT GEOMETRY AS A PATCH
+    patch(ax,...
+        'Vertices',geometry.vertices,...
+        'Faces',geometry.faces,...
+        'FaceColor',META_A.colour,...
+        'EdgeColor','k',...
+        'EdgeAlpha',sphereEdgeAlpha,...
+        'FaceAlpha',sphereFaceAlpha,...
+        'FaceLighting','gouraud',...
+        'LineWidth',sphereLineWidth);
 end
 
-figureSet = [];
-for collisionNumber = 1:size(DATA.events.collisions,1)
-    collisionEvent = DATA.events.collisions(collisionNumber);              % Get the collision event from the event history structure.
-    collisionTime = collisionEvent.time;                                   % Define the time of the collision
-    
-    % Generate the figure
-    tabStr = sprintf('Collision %s @ %s',num2str(collisionNumber),num2str(collisionTime));
-    figureHandle = figure('Name',tabStr);
-    set(figureHandle,'Position', DATA.figureProperties.windowSettings);       % [x y width height]
-    set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
-    
-    hold on; grid on; box on;                                              % Assign appropriate figure properties                                         
-    axis equal;
-    view([70 25]); 
-    titlestr = sprintf('Collision Event between %s and %s at t=%s',...     % Declare title string for figure
-                       collisionEvent.name_A,collisionEvent.name_B,num2str(collisionEvent.time));
-    % Get trajectory data
-    [objectAStates] = OMAS_getTrajectoryData(DATA,collisionEvent.objectID_A);              % Get the first object trajectory data
-    [objectBStates] = OMAS_getTrajectoryData(DATA,collisionEvent.objectID_B);              % Get the second object trajectory data
-    
-    %% PLOT THE TRAILS
-    plot3(objectAStates(1,:),objectAStates(2,:),objectAStates(3,:),...
-                'LineStyle',DATA.figureProperties.LineStyle,...
-                'LineWidth',DATA.figureProperties.LineWidth,...
-                'Color',SIM.OBJECTS(collisionEvent.objectID_A).colour);
-    plot3(objectBStates(1,:),objectBStates(2,:),objectBStates(3,:),...
-                'LineStyle',DATA.figureProperties.LineStyle,...
-                'LineWidth',DATA.figureProperties.LineWidth,...
-                'Color',SIM.OBJECTS(collisionEvent.objectID_B).colour);
-    
-    %% DEFINE THE COLLISION SPHERES 
-    % Build object A volume representation 
-    radiusA = SIM.OBJECTS(collisionEvent.objectID_A).radius;
-    [X,Y,Z] = sphere(40);
-    Xa = X.*radiusA + collisionEvent.state_A(1);
-    Ya = Y.*radiusA + collisionEvent.state_A(2);
-    Za = Z.*radiusA + collisionEvent.state_A(3);    
-    mesh(Xa,Ya,Za,...
-        'FaceColor',SIM.OBJECTS(collisionEvent.objectID_A).colour,...
-        'FaceAlpha',0.1,...
-        'LineWidth',DATA.figureProperties.LineWidth,...
-        'EdgeAlpha',0.2,...
-        'edgecolor',DATA.figureProperties.MarkerEdgeColor);  % Obstacle
-
-    % Build object B volume representation
-    radiusB = SIM.OBJECTS(collisionEvent.objectID_B).radius;
-    Xb = X.*radiusB + collisionEvent.state_B(1);
-    Yb = Y.*radiusB + collisionEvent.state_B(2);
-    Zb = Z.*radiusB + collisionEvent.state_B(3);
-    mesh(Xb,Yb,Zb,...
-        'FaceColor',SIM.OBJECTS(collisionEvent.objectID_B).colour,...
-        'FaceAlpha',0.1,...
-        'LineWidth',DATA.figureProperties.LineWidth,...
-        'EdgeAlpha',0.2,...
-        'edgecolor',DATA.figureProperties.MarkerEdgeColor);  % Obstacle
-
-    %% PLOT THE OBJECT VELOCITIES
-    q = quiver3(collisionEvent.state_A(1),...
-                collisionEvent.state_A(2),...
-                collisionEvent.state_A(3),...
-                collisionEvent.state_A(7),...
-                collisionEvent.state_A(8),...
-                collisionEvent.state_A(9),'r');
-    q.AutoScaleFactor = 1;
-    q.LineWidth = DATA.figureProperties.LineWidth;
-    q = quiver3(collisionEvent.state_B(1),...
-                collisionEvent.state_B(2),...
-                collisionEvent.state_B(3),...
-                collisionEvent.state_B(7),...
-                collisionEvent.state_B(8),...
-                collisionEvent.state_B(9),'g');
-    q.AutoScaleFactor = 1;
-    q.LineWidth = DATA.figureProperties.LineWidth;   
-    
-    % Other plot attributes
-    title(titlestr,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize);
-    xlabel('x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-    ylabel('y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-    zlabel('z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-    set(gca,'FontSize',DATA.figureProperties.axisFontSize,...
-          'fontWeight',DATA.figureProperties.fontWeight);
-    set(gca,'Color',DATA.figureProperties.axesColor);
-    hold off;
-    
-    figureSet = vertcat(figureSet,figureHandle);
+if META_B.type ~= OMAS_objectType.obstacle
+    % PLOT COLLISION SPHERE FOR B
+    [geometry] = OMAS_graphics.defineSphere(collisionEvent.state_B(1:3),META_B.radius);
+    % REPRESENT GEOMETRY AS A PATCH
+    patch(ax,...
+        'Vertices',geometry.vertices,...
+        'Faces',geometry.faces,...
+        'FaceColor',META_B.colour,...
+        'EdgeColor','k',...
+        'EdgeAlpha',sphereEdgeAlpha,...
+        'FaceAlpha',sphereFaceAlpha,...
+        'FaceLighting','gouraud',...
+        'LineWidth',sphereLineWidth);
 end
 
-% ASSEMBLE TABBED FIGURE
-tabbedFigureHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Collision Overview');
+% ///////////////////// PLOT THE GEOMETRY OF A ///////////////////////
+entityFaceAlpha = DATA.figureProperties.FaceAlpha;
+if isempty(object_A.GEOMETRY)
+    % REPRESENT AS SPHERE WITH DEFINED RADIUS
+    [vertexData,faceData] = OMAS_graphics.defineSphere(collisionEvent.state_A(1:3),META_A.radius);
+    entityLineWidth = 0.1;
+    entityEdgeAlpha = 0.1;                                 % Show representative shapes with higher alpha
+else
+    vertexData = object_A.GEOMETRY.vertices*META_A.R + collisionEvent.state_A(1:3,1)';
+    faceData   = object_A.GEOMETRY.faces;
+    entityLineWidth = 1;
+    entityEdgeAlpha = 0.8;
+end
+
+% REPRESENT GEOMETRY AS A PATCH
+patch(ax,...
+    'Vertices',vertexData,...
+    'Faces',faceData,...
+    'FaceColor',META_A.colour,...
+    'EdgeColor','k',...
+    'EdgeAlpha',entityEdgeAlpha,...
+    'FaceAlpha',entityFaceAlpha,...
+    'FaceLighting','gouraud',...
+    'LineWidth',entityLineWidth);
+
+% ///////////////////// PLOT THE GEOMETRY OF B ///////////////////////
+
+if isempty(object_B.GEOMETRY)
+    % REPRESENT AS SPHERE WITH DEFINED RADIUS
+    [vertexData,faceData] = OMAS_graphics.defineSphere(collisionEvent.state_B(1:3),META_B.radius);
+    entityLineWidth = 0.1;
+    entityEdgeAlpha = 0.1;                                 % Show representative shapes with higher alpha
+else
+    vertexData = object_B.GEOMETRY.vertices*META_B.R + collisionEvent.state_B(1:3,1)';
+    faceData   = object_B.GEOMETRY.faces;
+    entityLineWidth = 1;
+    entityEdgeAlpha = 0.8; %0.2;
+end
+% REPRESENT GEOMETRY AS A PATCH
+patch(ax,...
+    'Vertices',vertexData,...
+    'Faces',faceData,...
+    'FaceColor',META_B.colour,...
+    'EdgeColor','k',...
+    'EdgeAlpha',entityEdgeAlpha,...
+    'FaceAlpha',entityFaceAlpha,...
+    'FaceLighting','gouraud',...
+    'LineWidth',entityLineWidth);
+
+% PLOT THE TRAJECTORY TRAILS
+plot3(ax,objectAStates(1,:),objectAStates(2,:),objectAStates(3,:),...
+    'LineStyle',DATA.figureProperties.LineStyle,...
+    'LineWidth',DATA.figureProperties.LineWidth,...
+    'Color',META_A.colour);
+plot3(ax,objectBStates(1,:),objectBStates(2,:),objectBStates(3,:),...
+    'LineStyle',DATA.figureProperties.LineStyle,...
+    'LineWidth',DATA.figureProperties.LineWidth,...
+    'Color',META_B.colour);
+
+% PLOT THE OBJECT VELOCITY VECTORS
+q = quiver3(collisionEvent.state_A(1),...
+    collisionEvent.state_A(2),...
+    collisionEvent.state_A(3),...
+    collisionEvent.state_A(4),...
+    collisionEvent.state_A(5),...
+    collisionEvent.state_A(6),'r');
+q.AutoScaleFactor = 1;
+q.LineWidth = DATA.figureProperties.LineWidth;
+
+q = quiver3(collisionEvent.state_B(1),...
+    collisionEvent.state_B(2),...
+    collisionEvent.state_B(3),...
+    collisionEvent.state_B(4),...
+    collisionEvent.state_B(5),...
+    collisionEvent.state_B(6),'g');
+q.AutoScaleFactor = 1;
+q.LineWidth = DATA.figureProperties.LineWidth;
+
+% ADD ANNOTATIONS
+annotationText = sprintf('    %s [ID-%s]',META_A.name,num2str(META_A.objectID));
+text(collisionEvent.state_A(1),collisionEvent.state_A(2),collisionEvent.state_A(3),annotationText);
+annotationText = sprintf('    %s [ID-%s]',META_B.name,num2str(META_B.objectID));
+text(collisionEvent.state_B(1),collisionEvent.state_B(2),collisionEvent.state_B(3),annotationText);
+
+% Other plot attributes
+title(titlestr,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize);
+xlabel('x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
+ylabel('y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
+zlabel('z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
+set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
+set(ax,'Color',DATA.figureProperties.axesColor);
+axis('equal');
+grid on;  box on;
+hold off;
 
 % SAVE THE OUTPUT FIGURE
-savefig(tabbedFigureHandle,strcat(SIM.outputPath,'collisionOverview.fig'));
-
+filename = sprintf('collisionEvent_[ID-%.0f] %s_[ID-%.0f] %s.fig',collisionEvent.objectID_A,collisionEvent.name_A,collisionEvent.objectID_B,collisionEvent.name_B);
+savefig(figureHandle,strcat(SIM.outputPath,filename));
+% ITERATE PLOT
 currentFigure = currentFigure + 1;
 end
 
-% ////////////////// TRAJECTORY DATA FIGURE GENERATION ////////////////////
+%% ////////////////// TRAJECTORY DATA FIGURE GENERATION ///////////////////
 % GET THE GLOBAL TRAJECTORY DATA FOR AN INDIVIDUAL OBJECT
 function [currentFigure,figureHandle] = get_objectTrajectory(SIM,DATA,currentFigure,objectNum)
 
@@ -346,7 +468,8 @@ set(figureHandle,'Visible','off');
 plotCellWidth = 4; plotCellA = 1;                                          % The width of each figure, the start of the plot
 
 % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
-[objectStates] = OMAS_getTrajectoryData(DATA,objectNum);              % Get the object data
+[objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(objectNum).objectID,inf);
+
 % STATE NAME VECTOR
 stateTags = {'x(m)','y(m)','z(m)',...
              'u(m/s)','v(m/s)','w(m/s)',...
@@ -390,36 +513,63 @@ end
 hold off; 
 
 % SAVE THE OUTPUT FIGURE
-fileName = strcat(SIM.outputPath,sprintf('globalTrajectory_[ID%s] %s',num2str(SIM.OBJECTS(objectNum).objectID),SIM.OBJECTS(objectNum).name));
+fileName = strcat(SIM.outputPath,sprintf('globalTrajectory_[ID-%.0f] %s',SIM.OBJECTS(objectNum).objectID,SIM.OBJECTS(objectNum).name));
+% set(figureHandle,'Visible','on');                                        % Make it visable for saving
 savefig(figureHandle,fileName);                                            % As matlab figure 
-
+% set(figureHandle,'Visible','off');
 % ITERATE PLOT
 currentFigure = currentFigure + 1;
 end
 % AGENT CONTROL INPUT TRAJECTORIES
-function [currentFigure,figureHandle] = get_agentControlInputs(SIM,DATA,currentFigure)
+function [currentFigure,figureHandle] = get_agentControlInputs(SIM,objectIndex,DATA,currentFigure)
 % Draws the seperations of all agents from each other, neglecting waypoint
 % objects.
+
+figureHandle = [];
+
+% SANITY CHECK 1
+if DATA.totalAgents == 0
+    warning('No agent data available.'); 
+    return 
+else
+    % LOGICALLY SELECT THE AGENTS FROM THE OBJECT INDEX 
+    agentObjectIndex = objectIndex([SIM.OBJECTS.type] == OMAS_objectType.agent); % The agents themselves  
+end
+
+iter = 0;
+for ID1 = 1:SIM.totalAgents
+    % TRY TO GET THE REQUIRED PROPERTIES
+    try
+       testA = agentObjectIndex{ID1}.DATA.inputNames;
+       testB = agentObjectIndex{ID1}.DATA.inputs;
+    catch
+       iter = iter + 1; 
+    end
+end
+
+% SANITY CHECK 2
+if iter == SIM.totalAgents
+    warning('No agents with defined input timeseries. Use the "DATA.inputNames" and "DATA.inputs" fields if desired.');
+    return 
+end
 
 % Declare title string for figure  
 titlestr = sprintf('Agent control trajectories over a period of %ss',num2str(SIM.TIME.endTime));
 figurePath = strcat(SIM.outputPath,'inputs');
 
 % FIGURE META PROPERTIES
-figureHandle = figure('Name','OpenMAS Control Inputs');
+figureHandle = figure('Name','OpenMAS control inputs');
 setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.88, 0.85]);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 plotCellA = 1; plotCellWidth = 4;                                          % The width of each figure, the start of the plot
 
-% LOGICALLY GET THE AGENT'S FROM THE OBJECT INDEX
-agentObjectIndex = DATA.objectIndex([SIM.OBJECTS.type] == OMAS_objectType.agent); % The agents themselves
 
 % FOR EACH AGENT'S PERSPECTIVE
 for ID1 = 1:SIM.totalAgents
     % GET EVALUATION OBJECT
     evalAgent = agentObjectIndex{ID1};
-    % OBJECT IS AN AGENT
+    % CHECK SKIP CONDITION
     if isempty(evalAgent.DATA)
         warning('[OUTPUT]\tProperty .DATA is empty for agent %s',evalAgent.name);
         continue
@@ -431,9 +581,12 @@ for ID1 = 1:SIM.totalAgents
     inputCount = size(inputTrajectories,1);
 
     % BUILD THE SUB-PLOT
-    plotCellB = ID1*plotCellWidth;                                         % The end of the plot
-    plotLocation = subplot(DATA.totalAgents,plotCellWidth,[plotCellA plotCellB]);
+    plotCellB = double(ID1*plotCellWidth);                                         % The end of the plot
+    plotLocation = subplot(double(DATA.totalAgents),plotCellWidth,[plotCellA plotCellB]);
+    set(plotLocation,'Color',DATA.figureProperties.axesColor);
+    set(plotLocation,'GridLineStyle','--');
     hold on;
+    
     % LEGEND LABELS
     legendEntries = cell(inputCount,1);   
     numericLabelling = 1;
@@ -456,23 +609,25 @@ for ID1 = 1:SIM.totalAgents
         end    
     end
     % Y AXIS LABEL
-    ystring = sprintf('Inputs \n [ID:%s]',num2str(evalAgent.objectID));%,evalAgent.name);
+    ystring = sprintf('Inputs \n [ID-%s]',num2str(evalAgent.objectID));%,evalAgent.name);
     
     % PLOT THE SEPERATION DATA ON CURRENT FIGURE
     plot(plotLocation,DATA.timeVector(:,1:SIM.TIME.endStep),inputTrajectories(:,1:SIM.TIME.endStep),...
         'LineStyle','-','LineWidth',DATA.figureProperties.LineWidth);
-    
+    % ADD THE AXES LABELS
     ylabel(plotLocation,ystring,'fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','On');
-    grid on; box on; 
-    set(plotLocation,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','On');
-    set(plotLocation,'Color',DATA.figureProperties.axesColor);
+    set(plotLocation,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
+    grid on; box on; grid minor;
     
     % ADD FIGURE TITLE TO FIRST PLOT HEADER
     if plotCellA == 1
         title(plotLocation,titlestr,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize);                                          % Append title to first subplot
     end
+    % Prevent overlap of x-label
     if ID1 == DATA.totalAgents
         xlabel(plotLocation,'t (s)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','On');                                        % Append title to first subplot
+    else
+        set(plotLocation,'XTickLabel',[]); 
     end
     
     % ADD LEGEND
@@ -484,12 +639,13 @@ hold off;
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
-print(figureHandle,figurePath,'-dpdf','-r0');
-
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end 
 % INCREMENT THE FIGURE INDEX
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;  
@@ -522,7 +678,8 @@ set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Bac
 set(figureHandle,'Visible','off');
 
 % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
-[agentStates] = OMAS_getTrajectoryData(DATA,globalIndex);                  % Trajectory data per objectID
+% [agentStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,globalIndex);                  % Trajectory data per objectID
+[agentStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(globalIndex).objectID,inf);
 
 % CALCULATE THE ABSOLUTE SEPERATION FROM ALL OTHER OBJECTS OVER TIME
 legendEntries = cell(1,(DATA.totalAgents-1));
@@ -541,8 +698,7 @@ for ID2 = 1:DATA.totalObjects
         % Container for the timeseries data
         ABSseperationTimeSeries = zeros(1,size(agentStates,2));
         % Get comparative state data
-        [objectStates] = OMAS_getTrajectoryData(DATA,ID2);
-        
+        [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID2).objectID,inf);
         % Reset collision instance to 0
         collisionInstance = 0;
         for simStep = 1:size(ABSseperationTimeSeries,2)
@@ -594,6 +750,7 @@ xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
 ylim(ax,[(-0.1*maxSeriesSeperation) (1.1*maxSeriesSeperation)]);
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
 set(ax,'Color',DATA.figureProperties.axesColor);
+set(ax,'GridLineStyle','--')
 legend(ax,legendEntries,'Location','northeastoutside');
 grid on; box on;
 drawnow;
@@ -601,11 +758,13 @@ hold off;
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
-print(figureHandle,figurePath,'-dpdf','-r0');
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end
 
 % INCREMENT THE FIGURE INDEX
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
@@ -633,15 +792,15 @@ collidableIDs = LOCB(LIA);
 separationTimeSeries = inf(numel(collidableIDs),numel(collidableIDs),SIM.TIME.numSteps);
 for IDnumA = 1:numel(collidableIDs)
     % THE AGENT STATES
-    [objectStatesA] = OMAS_getTrajectoryData(DATA,collidableIDs(IDnumA));
-    
+    [objectStatesA] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(collidableIDs(IDnumA)),inf);
     for IDnumB = 1:numel(collidableIDs)
         if IDnumA == IDnumB 
             % OMIT SEPERATIONS BETWEEN ITSELF
             continue
         else
             % GET THE AGENT STATE TIMESERIES
-            objectStatesB = OMAS_getTrajectoryData(DATA,collidableIDs(IDnumB));
+%             objectStatesB = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,collidableIDs(IDnumB));
+            [objectStatesB] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(collidableIDs(IDnumB)),inf);
             centroidSeparations = objectStatesB(1:3,:) - objectStatesA(1:3,:);  % seperation of the centroids
             centroidSeparations = sqrt(sum(centroidSeparations.^2,1));
             % STORE IN SEPERATION TIMESERIES MATRIX
@@ -653,24 +812,20 @@ end
 % GET THE MINIMUM SEPERATIONS FOR EACH AGENT
 % If the number of obstacle/agents exceeds 10 objects, we are only
 % interested in the 10 interactions that came the closest to collision.
-maxDisplayObjects = inf;
+% maxDisplayObjects = inf;
 
 % MIN AND MAXIMUM SEPERATION MATRICES [IDA by IDB]
 minABAxes = collidableIDs;
 minABMatrix = min(separationTimeSeries,[],3);                          % Minimum separations over the timeseries
 maxABMatrix = max(separationTimeSeries,[],3);
-
 maxABMatrix(isinf(maxABMatrix)) = NaN;
-
 [h_maxVals,~] = max(maxABMatrix,[],2);       % The minimum seperations, horezontal indicies
 maxProximity = max(h_maxVals);               % Maximal seperation
 
 % MIN-MATRIX > MINIMUM SEPERATIONS [IDA by IDB]
-
-
 % minABMatrix is a matrix of closest interactions between all objects A
 % vs B.
-[h_val,h_ind] = min(minABMatrix,[],2); % The minimum seperations, horezontal indicies
+[~,h_ind] = min(minABMatrix,[],2); % The minimum seperations, horezontal indicies
 
 % DETERMINE UNIQUE INTERACTIONS
 % [ord,ord_ind] = sort(h_val);           % Sort minimums by magnitude
@@ -711,8 +866,8 @@ for interaction = 1:size(plotableInteractions,1)
     criticalLimit = SIM.OBJECTS(ID1).radius + SIM.OBJECTS(ID2).radius;
     
     % BUILD LEGEND STRING
-    label1 = sprintf('[ID:%s]%s',num2str(SIM.OBJECTS(ID1).objectID),num2str(SIM.OBJECTS(ID1).name));
-    label2 = sprintf('[ID:%s]%s',num2str(SIM.OBJECTS(ID2).objectID),num2str(SIM.OBJECTS(ID2).name));
+    label1 = sprintf('[ID-%s]%s',num2str(SIM.OBJECTS(ID1).objectID),num2str(SIM.OBJECTS(ID1).name));
+    label2 = sprintf('[ID-%s]%s',num2str(SIM.OBJECTS(ID2).objectID),num2str(SIM.OBJECTS(ID2).name));
     
     legendEntries{legendCounter} = strcat(label1,' - ',label2);
 %     legendEntries = horzcat(legendEntries,label1,label2);
@@ -741,6 +896,7 @@ xlabel(ax,'t (s)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.
 ylabel(ax,'Separation(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'fontSmoothing','On');
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'fontSmoothing','On');
 set(ax,'Color',DATA.figureProperties.axesColor);
+set(ax,'GridLineStyle','--');
 xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
 ylim(ax,[0 (0.5*maxProximity)]);
 grid on; box on;
@@ -752,49 +908,57 @@ hold off;
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
-print(figureHandle,figurePath,'-dpdf','-r0');
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end
 
 % INCREMENT THE FIGURE INDEX
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;    
 end
 
-% /////////////////////// GENERAL OVERVIEW FIGURES ////////////////////////
+%% ////////////////////// GENERAL OVERVIEW FIGURES ////////////////////////
 % GET THE STANDARD 2D TRAJECTORY DATA.figureProperties [ UPDATED ]
-function [currentFigure,figureHandle] = get_topDownView(SIM,DATA,currentFigure)
+function [currentFigure,figureHandle] = get_topDownView(SIM,objectIndex,DATA,currentFigure)
 
 % FIGURE TITLE
 titlestr = sprintf('Object trajectories over a period of %ss',num2str(SIM.TIME.endTime));
-figurePath = strcat(SIM.outputPath,'2DplanFigure');
+figurePath = strcat(SIM.outputPath,'2Dtrajectories');
 
 % CONFIGURE THE PLOT ATTRIBUTES
-figureHandle = figure('Name','OpenMAS aerial view');
+figureHandle = figure('Name','OpenMAS top-down image');
 set(figureHandle,'Position',DATA.figureProperties.windowSettings);         % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
+ax = axes(figureHandle);
 % setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.08, 0.90, 0.88]); % MAXIMISE GRAPH SIZE IN WINDOW
 
 legendCounter = 1; legendEntries = cell(DATA.totalObjects,1);
-ax = gca;
+
 hold on; grid on; box on;
 for ID1 = 1:DATA.totalObjects    
     % GET OBJECT OVERVIEW DATA
-    legendString = sprintf('[ID:%s] %s',num2str(SIM.OBJECTS(ID1).objectID),SIM.OBJECTS(ID1).name);
+    legendString = sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(ID1).objectID),SIM.OBJECTS(ID1).name);
     legendEntries(legendCounter) = {legendString};
+    % THE OBJECT HANDLE
+    objectHandle = objectIndex{SIM.OBJECTS(ID1).objectID == SIM.globalIDvector};
     % EXTRACT FINAL POSITION DATA FROM THE TRAJECTORY MATRIX
-    [finalStates] = OMAS_getTrajectoryData(DATA,ID1,'last');
+    [finalStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,SIM.TIME.endStep);
     finalPosition = finalStates(1:3,:);
+    % LOCAL FIXED TO GLOBAL ROTATED
+    R_final = OMAS_geometry.quaternionToRotationMatrix(finalStates(7:10)); 
     % DISPLAY THE OBJECT
-    if isstruct(SIM.OBJECTS(ID1).patch)
-        patch(ax,'Vertices',SIM.OBJECTS(ID1).patch.vertices*SIM.OBJECTS(ID1).R_GB + finalPosition',...
-            'Faces',SIM.OBJECTS(ID1).patch.faces,...
+    if numel(objectHandle.GEOMETRY.vertices) > 0
+        patch(ax,'Vertices',objectHandle.GEOMETRY.vertices*R_final + finalPosition',...
+            'Faces',objectHandle.GEOMETRY.faces,...
             'FaceColor',SIM.OBJECTS(ID1).colour,...
             'EdgeColor',DATA.figureProperties.EdgeColor,...
             'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
             'FaceLighting',DATA.figureProperties.FaceLighting,...
+            'FaceAlpha',DATA.figureProperties.FaceAlpha,...
             'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties
     else
         % PLOT THE TERMINAL POSITIONS
@@ -813,7 +977,8 @@ legend('off')
 hold on;
 for ID1 = 1:DATA.totalObjects 
     % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
-    [objectStates] = OMAS_getTrajectoryData(DATA,ID1,'valid');
+    idleFlag = NaN('double');
+    [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,idleFlag);
     positions = objectStates(1:3,:);
     plot3(positions(1,:),positions(2,:),positions(3,:),...
           'LineStyle',DATA.figureProperties.LineStyle,...
@@ -833,61 +998,79 @@ end
 legend(legendEntries,'location','northeastoutside');
 % legend(ax,legendEntries,'location','best');
 title(ax,titlestr,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize);
-xlabel(ax,'x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);  
-ylabel(ax,'y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize); 
-xlim(ax,[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-ylim(ax,[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-zlim(ax,[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
+xlabel(ax,'x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
+ylabel(ax,'y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');% axis equal
 set(ax,'Color',DATA.figureProperties.axesColor);
-axis square;     
+set(ax,'GridLineStyle','--');
+% xlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
+% ylim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
+% zlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
+
+axisMins = DATA.figureProperties.axisMinimums(1:3) - DATA.figureProperties.objectMaximalRadii;
+axisMaxs = DATA.figureProperties.axisMaximums(1:3) + DATA.figureProperties.objectMaximalRadii;
+xlim(ax,[axisMins(1),axisMaxs(1)]);
+ylim(ax,[axisMins(2),axisMaxs(2)]);
+zlim(ax,[axisMins(3),axisMaxs(3)]);
+axis square equal;
+
+% axis square;     
 view([0 90]);
 % set(ax,'outerposition',[0.05 0.15 1 0.68]);                               % Set the axes offset position in the figure window
 hold off;
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3),pos(4)]);
-print(figureHandle,figurePath,'-dpdf','-r0');
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3),pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end
 
 % FIGURE COMPLETE
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;
 end
 % GET THE STANDARD 3D TRAJECTORY DATA.figureProperties [ UPDATED ]
-function [currentFigure,figureHandle] = get_isometricFigure(SIM,DATA,currentFigure)
+function [currentFigure,figureHandle] = get_isometricFigure(SIM,objectIndex,DATA,currentFigure)
 
 % FIGURE TITLE
 titlestr = sprintf('Object trajectories over a period of %ss',num2str(SIM.TIME.endTime));
 figurePath = strcat(SIM.outputPath,'isometricFigure');
 
 % CONFIGURE THE PLOT ATTRIBUTES
-figureHandle = figure('Name','OpenMAS Isometric view');
+figureHandle = figure('Name','OpenMAS isometric view');
 set(figureHandle,'Position',DATA.figureProperties.windowSettings);         % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 % setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.08, 0.90, 0.88]); % MAXIMISE GRAPH SIZE IN WINDOW
-
+ax = axes(figureHandle);
 legendCounter = 1; legendEntries = cell(DATA.totalObjects,1);
-ax = gca;
+
 hold on; grid on; box on;
 for ID1 = 1:DATA.totalObjects    
     % GET OBJECT OVERVIEW DATA
-    legendString = sprintf('[ID:%s] %s',num2str(SIM.OBJECTS(ID1).objectID),SIM.OBJECTS(ID1).name);
+    legendString = sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(ID1).objectID),SIM.OBJECTS(ID1).name);
     legendEntries(legendCounter) = {legendString};
+    % THE ASSOCIATED LOGIC
+    objectID1 = objectIndex{SIM.globalIDvector == SIM.OBJECTS(ID1).objectID};
     % EXTRACT FINAL POSITION DATA FROM THE TRAJECTORY MATRIX
-    [finalStates] = OMAS_getTrajectoryData(DATA,ID1,'last');
+    [finalStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,SIM.TIME.endStep);
     finalPosition = finalStates(1:3,:);
+    
+    % LOCAL FIXED TO GLOBAL ROTATED
+    R_final = OMAS_geometry.quaternionToRotationMatrix(finalStates(7:10));
+    
     % DISPLAY THE OBJECT
-    if isstruct(SIM.OBJECTS(ID1).patch)
-        patch(ax,'Vertices',SIM.OBJECTS(ID1).patch.vertices*SIM.OBJECTS(ID1).R_GB + finalPosition',...
-            'Faces',SIM.OBJECTS(ID1).patch.faces,...
+    if numel(objectID1.GEOMETRY.vertices) > 0
+        patch(ax,'Vertices',objectID1.GEOMETRY.vertices*R_final + finalPosition',...
+            'Faces',objectID1.GEOMETRY.faces,...
             'FaceColor',SIM.OBJECTS(ID1).colour,...
             'EdgeColor',DATA.figureProperties.EdgeColor,...
             'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
             'FaceLighting',DATA.figureProperties.FaceLighting,...
+            'FaceAlpha',DATA.figureProperties.FaceAlpha,...
             'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties            % Patch properties
     else
         % PLOT THE TERMINAL POSITIONS
@@ -905,8 +1088,9 @@ end
 legend('off')
 hold on;
 for ID1 = 1:DATA.totalObjects 
-    % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
-    [objectStates] = OMAS_getTrajectoryData(DATA,ID1,'valid');
+    % EXTRACT STATE TIME-SERIES DATA UPTO THE IDLE POINT
+    idleFlag = NaN('double');
+    [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,idleFlag);
     positions = objectStates(1:3,:);
     plot3(positions(1,:),positions(2,:),positions(3,:),...
           'LineStyle',DATA.figureProperties.LineStyle,...
@@ -919,12 +1103,18 @@ title(ax,titlestr,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.
 xlabel(ax,'x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);  
 ylabel(ax,'y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize); 
 zlabel(ax,'z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize); 
-xlim(ax,[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-ylim(ax,[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-zlim(ax,[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
+
+% xlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
+% ylim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
+zlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
+xlim(ax,[DATA.figureProperties.axisMinimums(1),DATA.figureProperties.axisMaximums(1)]);
+ylim(ax,[DATA.figureProperties.axisMinimums(2),DATA.figureProperties.axisMaximums(2)]);
+% zlim(ax,[DATA.figureProperties.axisMinimums(3),DATA.figureProperties.axisMaximums(3)]);
+
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');% axis equal
 set(ax,'Color',DATA.figureProperties.axesColor);
-axis vis3d;     
+set(ax,'GridLineStyle','--');
+axis vis3d equal;     
 view([-24 36]);
 set(ax,'outerposition',[0.05 0.15 1 0.68]);                               % Set the axes offset position in the figure window
 grid on; 
@@ -932,341 +1122,85 @@ hold off;
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3),pos(4)]);
-% print(figureHandle,figurePath,'-dpdf','-r0');
-
-% FIGURE COMPLETE
-DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
-currentFigure = currentFigure + 1;
-end
-% GET THE 3 PLAN + ISOMETRIC ANIMATED TRAILS FIGURE
-function [currentFigure,figureHandle] = get_fourViewPanel(SIM,DATA,currentFigure)
-% This function generates a four-view animated panel showing the motion of
-% all objects in the simulation.
-
-% OUTPUT FILE
-fileName = strcat(SIM.outputPath,'fourView','.gif');
-
-% DATA CONTAINERS
-% We need to build a matrix of states*tailLength*IDs,step
-globalTraces = NaN((DATA.figureProperties.tailLength/SIM.TIME.dt),10,DATA.totalObjects,SIM.TIME.numSteps); % Pre-allocate matrix
-globalMarkers = NaN(10,SIM.totalObjects,SIM.TIME.numSteps); 
-
-% BEGIN GENERATING THE MARKER AND TRACE PLOT MATRICES
-for step = 1:SIM.TIME.endStep
-    for entity = 1:DATA.totalObjects
-        % GET THE TRAJECTORY DATA FOR THE AGENT
-        [objectStates] = OMAS_getTrajectoryData(DATA,entity,'valid'); % All valid states for the object      
-        activeSteps = size(objectStates,2);                                % The number of steps where object is active
-        % DESIRED TRACE LENGTH
-        tailStepLength = DATA.figureProperties.tailLength/SIM.TIME.dt;     % Get the tail step length
-        if step < activeSteps 
-            % IF THE AGENT IS ACTIVE
-            markerStates = objectStates(:,step);                            % Step position
-            if step > tailStepLength
-                % ONLY THE STATES FOR THE TRACE DURATION
-                traceEnd = step - (tailStepLength-1);
-                tailTrace = objectStates(:,traceEnd:step);               % States between the step and (step - tailStepLength)
-            else
-                % TRANSITIONING PERIOD                    
-                tailTrace = objectStates(:,1:step);                      % All points upto the step position
-            end
-        else
-            % IF THE AGENT IS INACTIVE
-            markerStates = objectStates(:,end);                             % Step position
-            tailOrigin = ((activeSteps + 1) - tailStepLength);
-            if tailOrigin > 0
-                tailTrace = objectStates(:,((activeSteps + 1) - tailStepLength):end);
-            else
-                tailTrace = objectStates(:,(activeSteps + 1):end);
-            end
-        end
-                
-        % COLUMNS OF MATRICES X,Y,Z ARE THE OBJECTS
-        globalMarkers(:,entity,step) = markerStates;      
-        
-        % BUILD MATICES OF TAIL COORDINATES
-        % We need to build a matrix of dimensions
-        % [tailLength*states*IDs,step], the resulting plot matrices must be
-        % of dimensions [state(1)*tailLength,IDs]
-        globalTraces(1:size(tailTrace,2),:,entity,step) = tailTrace';
-    end
-end
-
-% BUILD FIGURE
-% CONFIGURE THE PLOT ATTRIBUTES
-figureHandle = figure('Name','OpenMAS Four Viewpoint Panel');
-% META FIGURE PROPERTIES
-setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.1, 0.90, 0.88]);
-set(figureHandle,'Position',DATA.figureProperties.windowSettings);         % [x y width height]
-set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
-set(figureHandle,'MenuBar','none');
-set(figureHandle,'ToolBar','none');
-
-% CONFIGURE VIDEO SETTINGS
-fps = 50; % Define a maximum frame rate 
-if SIM.TIME.endStep > fps*SIM.TIME.endTime
-    numFrames = fps*SIM.TIME.endTime; 
-else
-    numFrames = SIM.TIME.endStep;                                          % The default number of frames
-    fps = numFrames/SIM.TIME.endTime;
-end
-% CALCULATE THE RESULTANT STEPS PER FRAME
-stepsPerFrame = floor(SIM.TIME.endStep/numFrames);                         % Get the nearest integer steps/frame
-if stepsPerFrame == 0                                                      % If the frame frequency is higher than the simulation sample frequency
-    stepsPerFrame = 1;                                                     % Default to one frame per sample (highest sample rate)
-end
-
-F(numFrames) = struct('cdata',[],'colormap',[]);
-% AXES SETTINGS
-titleString = sprintf('Object planar trajectories over a period of %ss',num2str(SIM.TIME.endTime));
-ax = gca();
-ax.NextPlot = 'replaceChildren';
-frame = 1;
-
-% GET THE LAST INSTANCE OF A VALID STATE
-for step = 1:SIM.TIME.endStep
-    % CHECK IF A FRAME IS TO BE CAPTURED THIS STEP
-    if rem(step,stepsPerFrame) ~= 0
-        continue
-    end
-    % STEP DATA
-    xData = squeeze(globalTraces(:,1,:,step));
-    yData = squeeze(globalTraces(:,2,:,step));
-    zData = squeeze(globalTraces(:,3,:,step));
-    markerStates = globalMarkers(:,:,step);
-    
-    % BUILD THE FRAME 
-    if frame == 1
-        % GENERATE THE SUB PLOTS (SPECIFIC ORIENTATIONS)
-        subHandles(1) = subplot(4,4,[1 6]);%,'align'
-        subHandles(2) = subplot(4,4,[3 8]);%,'align'
-        subHandles(3) = subplot(4,4,[9 14]);%,'align'
-        subHandles(4) = subplot(4,4,[11 16]);%'align');           
-        hold on;
-        for entity = 1:SIM.totalObjects
-            % GET THE GLOBAL POSE AT STEP
-            if isstruct(SIM.OBJECTS(entity).patch)
-                % CALCULATE PATCH 'POSE'
-                [~,R2] = OMAS_axisTools.quaternionToRotationMatrix(markerStates(7:end,entity));
-                objectVertices = SIM.OBJECTS(entity).patch.vertices*R2 + markerStates(1:3,entity)';
-                % GENERATE MARKER HANDLES
-                for handleID = 1:numel(subHandles)
-                    h = subplot(subHandles(handleID));
-                    % GENERATE PATCH PLOTS
-                    markerHandles(handleID,entity) = patch(h,'Vertices',objectVertices,...
-                        'Faces',SIM.OBJECTS(entity).patch.faces,...
-                        'FaceColor',SIM.OBJECTS(entity).colour,...
-                        'EdgeColor',DATA.figureProperties.EdgeColor,...
-                        'EdgeAlpha',DATA.figureProperties.EdgeAlpha,... 
-                        'FaceLighting',DATA.figureProperties.FaceLighting,...
-                        'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties
-                    hold on;
-                    % ASSIGN TRACE PROPERTIES
-                    traceHandles(handleID,entity) = plot3(h,xData(:,entity),yData(:,entity),zData(:,entity),...
-                    'LineStyle',DATA.figureProperties.LineStyle,...
-                    'LineWidth',DATA.figureProperties.LineWidth,...
-                    'Color',SIM.OBJECTS(entity).colour);
-                    xlabel(h,'x(m)'); ylabel(h,'y(m)'); zlabel(h,'z(m)');
-                end
-            else
-                % GENERATE MARKER HANDLES
-                for handleID = 1:numel(subHandles)
-                    % OTHERWISE USE THEIR ALLOCATED SYMBOL
-                    h = subplot(subHandles(handleID));
-                    markerHandles(handleID,entity) = plot3(h,markerStates(1,entity),markerStates(2,entity),markerStates(3,entity),...
-                    'Marker',SIM.OBJECTS(entity).symbol,...
-                    'MarkerSize',DATA.figureProperties.MarkerSize,...
-                    'MarkerFaceColor',SIM.OBJECTS(entity).colour,...
-                    'MarkerEdgeColor',DATA.figureProperties.MarkerEdgeColor,...
-                    'Color',SIM.OBJECTS(entity).colour);
-                    hold on;
-                    % ASSIGN TRACE PROPERTIES
-                    traceHandles(handleID,entity) = plot3(h,xData(:,entity),yData(:,entity),zData(:,entity),...
-                    'LineStyle',DATA.figureProperties.LineStyle,...
-                    'LineWidth',DATA.figureProperties.LineWidth,...
-                    'Color',SIM.OBJECTS(entity).colour);
-                    xlabel(h,'x(m)'); ylabel(h,'y(m)'); zlabel(h,'z(m)');
-                end
-            end 
-        end
-        % CONFIGURE THE PLOT SET 
-        set(subHandles(:),'Box','on','XGrid','on','YGrid','on','ZGrid','on');
-        set(subHandles(:),'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
-        set(subHandles(:),'fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-        set(subHandles(:),'Color',DATA.figureProperties.axesColor);
-        set(subHandles(:),'XLimMode','manual','YLimMode','manual','ZLimMode','manual');
-        set(subHandles(:),'XLim',[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        set(subHandles(:),'YLim',[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        set(subHandles(:),'ZLim',[DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        % ADD LEGEND
-        if SIM.totalObjects <= 10
-            %legend(subHandles(1),DATA.figureProperties.legendEntries,'Location','NorthEastOutside');
-        end
-        % CORRECT ORIENTATIONS
-        set(subHandles(1),'View',[45 45]);
-        set(subHandles(2),'View',[0 90]);
-        set(subHandles(3),'View',[90 0]);
-        set(subHandles(4),'View',[0 0]);
-        % META TITLE
-%         suptitle(titleString)
-    else
-        % UPDATE THE EXISTING PLOT HANDLES FOR EACH AGENT
-        for entity = 1:SIM.totalObjects
-            for handleID = 1:numel(subHandles)
-                
-                if isstruct(SIM.OBJECTS(entity).patch)
-                    % GET THE GLOBAL POSE AT STEP
-                    [~,R2] = OMAS_axisTools.quaternionToRotationMatrix(markerStates(7:end,entity));
-                    % BUILD MARKER
-                    set(markerHandles(handleID,entity),'Vertices',SIM.OBJECTS(entity).patch.vertices*R2 + markerStates(1:3,entity)');
-                else
-                    % UPDATE MARKER DATA
-                    set(markerHandles(handleID,entity),'XData',markerStates(1,entity));
-                    set(markerHandles(handleID,entity),'YData',markerStates(2,entity));
-                    set(markerHandles(handleID,entity),'ZData',markerStates(3,entity));
-                end
-                % UPDATE TRACE DATA
-                set(traceHandles(handleID,entity),'XData', xData(:,entity));
-                set(traceHandles(handleID,entity),'YData', yData(:,entity));
-                set(traceHandles(handleID,entity),'ZData', zData(:,entity));
-            end
-        end
-    end
-    drawnow;
-    
-    % COLLECT FRAMES
-    F(frame) = getframe(figureHandle);
-    im = frame2im(F(frame));
-    [imind,cm] = rgb2ind(im,256);
-    
-    % APPEND THE FRAMES TO GIF
-    if frame == 1
-        imwrite(imind,cm,fileName,'gif', 'Loopcount',inf,'DelayTime',(1/fps));
-    else
-        imwrite(imind,cm,fileName,'gif','WriteMode','append','DelayTime',(1/fps));
-    end
-    frame = frame + 1;                  % Move to next frame
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3),pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
 end
 
 % FIGURE COMPLETE
-DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;
+% CLEAN UP
+clearvars -except currentFigure figureHandle
 end
 % GET THE 3D TRAJECTORY TRAILS AS A GIF  [ UPDATED ]
-function [currentFigure,figureHandle] = get_isometricGif(SIM,DATA,currentFigure)
+function [currentFigure,figureHandle] = get_isometricGif(SIM,objectIndex,DATA,currentFigure)
 % This function generates an animated .gif representing the object
 % trajectories over the complete timeseries.
 
-% OUTPUT FILE
-filePath = strcat(SIM.outputPath,'isometricFigure.gif');
-
-% DATA CONTAINERS
-% We need to build a matrix of states*tailLength*IDs,step
-globalTraces = NaN((DATA.figureProperties.tailLength/SIM.TIME.dt),10,DATA.totalObjects,SIM.TIME.numSteps); % Pre-allocate matrix
-globalMarker = NaN(10,SIM.totalObjects,SIM.TIME.numSteps); 
-
-% BEGIN GENERATING THE MARKER AND TRACE PLOT MATRICES
-for step = 1:SIM.TIME.endStep
-    for indexValue = 1:DATA.totalObjects
-        % GET THE TRAJECTORY DATA FOR THE AGENT
-        [objectStates] = OMAS_getTrajectoryData(DATA,indexValue,'valid'); % All valid states for the object      
-        activeSteps = size(objectStates,2);                                % The number of steps where object is active
-        % DESIRED TRACE LENGTH
-        tailStepLength = DATA.figureProperties.tailLength/SIM.TIME.dt;     % Get the tail step length
-        if step < activeSteps 
-            % IF THE AGENT IS ACTIVE
-            markerState = objectStates(:,step);                            % Step position
-            if step > tailStepLength
-                % ONLY THE STATES FOR THE TRACE DURATION
-                traceEnd = step - (tailStepLength-1);
-                tailTrace = objectStates(:,traceEnd:step);               % States between the step and (step - tailStepLength)
-            else
-                % TRANSITIONING PERIOD                    
-                tailTrace = objectStates(:,1:step);                      % All points upto the step position
-            end
-        else
-            % IF THE AGENT IS INACTIVE
-            markerState = objectStates(:,end);                             % Step position
-            tailTrace = objectStates(:,((activeSteps + 1) - tailStepLength):end);
-        end
-                
-        % COLUMNS OF MATRICES X,Y,Z ARE THE OBJECTS
-        globalMarker(:,indexValue,step) = markerState;      
-        
-        % BUILD MATICES OF TAIL COORDINATES
-        % We need to build a matrix of dimensions
-        % [tailLength*states*IDs,step], the resulting plot matrices must be
-        % of dimensions [state(1)*tailLength,IDs]
-        globalTraces(1:size(tailTrace,2),:,indexValue,step) = tailTrace';
-    end
-end
-
 % CONFIGURE THE PLOT ATTRIBUTES
-figureHandle = figure('Name','OpenMAS Isometric Timelapse');
+filePath = strcat(SIM.outputPath,'isometricFigure.gif');
+figureHandle = figure('Name','OpenMAS isometric timelapse (GIF)');
+titleString = sprintf('Object global trajectories over a period of %ss',num2str(SIM.TIME.endTime));
+
 % MAXIMISE GRAPH SIZE IN WINDOW
 setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.08, 0.90, 0.88]);
-set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
+set(figureHandle,'Position',DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
-set(figureHandle,'MenuBar','none');
-set(figureHandle,'ToolBar','none');
-% set(figureHandle,'Visible','off');
-
-
-% CONFIGURE VIDEO SETTINGS
-fps = 50; % Define a maximum frame rate 
-if SIM.TIME.endStep > fps*SIM.TIME.endTime
-    numFrames = fps*SIM.TIME.endTime; 
-else
-    numFrames = SIM.TIME.endStep;                                          % The default number of frames
-    fps = numFrames/SIM.TIME.endTime;
+if DATA.figureProperties.publish
+    set(figureHandle,'MenuBar','none');
+    set(figureHandle,'ToolBar','none');
+    set(figureHandle,'Visible','off');
 end
-% CALCULATE THE RESULTANT STEPS PER FRAME
-stepsPerFrame = floor(SIM.TIME.endStep/numFrames);                         % Get the nearest integer steps/frame
-if stepsPerFrame == 0                                                      % If the frame frequency is higher than the simulation sample frequency
-    stepsPerFrame = 1;                                                     % Default to one frame per sample (highest sample rate)
-end
-
-F(numFrames) = struct('cdata',[],'colormap',[]);
 % AXES SETTINGS
-titleString = sprintf('Object global trajectories over a period of %ss',num2str(SIM.TIME.endTime));
-ax = gca();
-ax.NextPlot = 'replaceChildren';
-frame = 1;
-for step = 1:SIM.TIME.endStep
-    % CHECK IF A FRAME IS TO BE CAPTURED THIS STEP
-    if rem(step,stepsPerFrame) ~= 0
-        continue
-    end
-    % STEP DATA
-    xData = squeeze(globalTraces(:,1,:,step));
-    yData = squeeze(globalTraces(:,2,:,step));
-    zData = squeeze(globalTraces(:,3,:,step));
+ax = axes(figureHandle);
+
+% GET THE SIZE OF THE PLOTTED SET
+% The data has already been pre-formatted so that the number of states
+% aligns with the number of expected frames in the annimation.
+% IMPORT THE OBJECT DATA FROM TEMP FILE
+load([SIM.outputPath,SIM.systemFile]);
+framesToPlot = size(eval(sprintf('objectID%d',SIM.OBJECTS(1).objectID)),2);   % The variable name in the workspace
+F(framesToPlot) = struct('cdata',[],'colormap',[]);
+
+% ax.NextPlot = 'replaceChildren';
+inclinationAngle = 62;
+viewPoint = -10;
+viewRate = 0.05;
+for frame = 1:framesToPlot
+    hold on;
+    % Must be done on a step by step base to get the annimations correct.
     
     % BUILD THE FRAME 
     if frame == 1
-        hold on;
-        % INITIAL TRACE PLOT
-        traceHandle = plot3(ax,xData,yData,zData);
         % UPDATE OBJECT HANDLES
         for entity = 1:SIM.totalObjects
-            if isstruct(SIM.OBJECTS(entity).patch)
+            % GET THE OBJECT HANDLE
+            objectHandle = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entity).objectID};
+            % PULL VARIABLE FROM WORKSPACE
+            variableLabel = sprintf('objectID%d',SIM.OBJECTS(entity).objectID); % The variable name in the workspace
+            globalStates = eval(variableLabel);                              % Evalutate object states      
+            
+            % TRACE INITIAL POSITIONS
+            traceHandle(entity) = plot3(ax,globalStates(1,frame),globalStates(2,frame),globalStates(3,frame));
+            if numel(objectHandle.GEOMETRY.vertices) > 0
                % GET THE GLOBAL POSE AT STEP
-               [~,R2] = OMAS_axisTools.quaternionToRotationMatrix(globalMarker(7:end,entity,step));
+               [R_frame] = OMAS_geometry.quaternionToRotationMatrix(globalStates(7:end,frame));
                % BUILD MARKER
-               markerHandle(entity) = patch(ax,'Vertices',SIM.OBJECTS(entity).patch.vertices*R2 + globalMarker(1:3,entity,step)',...
-                   'Faces',SIM.OBJECTS(entity).patch.faces,...
+               markerHandle(entity) = patch(ax,...
+                   'Vertices',objectHandle.GEOMETRY.vertices*R_frame + globalStates(1:3,frame)',...
+                   'Faces',objectHandle.GEOMETRY.faces,...
                    'FaceColor',SIM.OBJECTS(entity).colour,...
                    'EdgeColor',DATA.figureProperties.EdgeColor,...
-                   'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...          
+                   'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
                    'FaceLighting',DATA.figureProperties.FaceLighting,...
+                   'FaceAlpha',DATA.figureProperties.FaceAlpha,...
                    'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties
             else
                 % INITIAL MARKER PLOT
-                markerHandle(entity) = plot3(ax,globalMarker(1,entity,step),globalMarker(2,entity,step),globalMarker(3,entity,step));
+                markerHandle(entity) = plot3(ax,globalStates(1,frame),globalStates(2,frame),globalStates(3,frame));
                 % ASSIGN MARKER PROPERTIES
                 markerHandle(entity).Marker = SIM.OBJECTS(entity).symbol;
                 markerHandle(entity).MarkerSize = DATA.figureProperties.MarkerSize;
@@ -1278,46 +1212,75 @@ for step = 1:SIM.TIME.endStep
             traceHandle(entity).LineStyle = DATA.figureProperties.LineStyle;
             traceHandle(entity).LineWidth = DATA.figureProperties.LineWidth;
             traceHandle(entity).Color = SIM.OBJECTS(entity).colour;
-            % ANNOTATION WITH THE CURRENT TIME
-            clockHandle = annotation('textbox',[0.02 0.05 0.15 0.04],'String','Time:','FitBoxToText','off');
-            set(clockHandle,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
         end
+        % ANNOTATION WITH THE CURRENT TIME
+        clockHandle = annotation('textbox',[0.025 0.025 0.15 0.06],'String','Time:','FitBoxToText','off');
+        set(clockHandle,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
         % FIGURE PROPERTIES
-        title(titleString,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize);
-        xlabel('x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-        ylabel('y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-        zlabel('z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
+        title(titleString,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize,'FontSmoothing','on');
+        xlabel('x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
+        ylabel('y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
+        zlabel('z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
         set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
         set(ax,'Color',DATA.figureProperties.axesColor);
-        xlim([DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        ylim([DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        zlim([DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        set(ax,'outerposition',[0.02 0.1 1 0.88]);
-        grid on; box on; hold off;
+        set(ax,'GridAlpha',0.25,'GridColor','k');
+        set(ax,'GridLineStyle','--');
+        axisLimit = (DATA.figureProperties.objectMaximalRadii + DATA.figureProperties.maxAbsPosition);
+        xlim(ax,[-axisLimit,axisLimit]);
+        ylim(ax,[-axisLimit,axisLimit]);
+        zlim(ax,[-axisLimit,axisLimit]);
+        axis manual;
+        
         legend(markerHandle,DATA.figureProperties.legendEntries,'Location','northeastoutside');
-        view([-45 50]);
+        view([viewPoint inclinationAngle]);     % Set initial view angle
+        grid on; box on; hold off;
     else
+        % CONTINUED FRAMES
         % FOR EACH PLOT ENTITY
-        for entity = 1:numel(markerHandle)
-            if isstruct(SIM.OBJECTS(entity).patch)
+        for entity = 1:SIM.totalObjects
+            % GET THE OBJECT HANDLE
+            objectHandle = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entity).objectID};
+            % PULL VARIABLE FROM WORKSPACE
+            variableLabel = sprintf('objectID%d',SIM.OBJECTS(entity).objectID); % The variable name in the workspace
+            globalStates = eval(variableLabel);                                 % Evalutate object states
+            % CHECK IF UPDATE IS NECESSARY
+            if any(isnan(globalStates(:,frame)))                                % Object is static, freeze its position
+                continue
+            end
+            
+            % HANDLE DIFFERENT REPRESENTATIONS
+            if numel(objectHandle.GEOMETRY.vertices) > 0
                 % GET THE GLOBAL POSE AT STEP
-                [~,R2] = OMAS_axisTools.quaternionToRotationMatrix(globalMarker(7:end,entity,step));
+                [R_frame] = OMAS_geometry.quaternionToRotationMatrix(globalStates(7:end,frame));
                 % BUILD MARKER
-                set(markerHandle(entity),'Vertices',SIM.OBJECTS(entity).patch.vertices*R2 + globalMarker(1:3,entity,step)');
+                set(markerHandle(entity),'Vertices',objectHandle.GEOMETRY.vertices*R_frame + globalStates(1:3,frame)');
             else
                 % UPDATE MARKER DATA
-                set(markerHandle(entity),'XData',globalMarker(1,entity,step));
-                set(markerHandle(entity),'YData',globalMarker(2,entity,step));
-                set(markerHandle(entity),'ZData',globalMarker(3,entity,step));
+                set(markerHandle(entity),'XData',globalStates(1,frame));
+                set(markerHandle(entity),'YData',globalStates(2,frame));
+                set(markerHandle(entity),'ZData',globalStates(3,frame));
+            end
+            
+            % UPDATE TRACE DATA
+            if frame <= DATA.figureProperties.tailLength/SIM.TIME.dt
+                % TRANSITIONING PERIOD                    
+                tailTrace = globalStates(1:3,1:frame);                     % All points upto the step position
+            elseif (frame - DATA.figureProperties.tailLength/SIM.TIME.dt) > 0
+                % IF THE TRAIL IS NOW A SUBSET
+                tailTrace = globalStates(1:3,(frame-(DATA.figureProperties.tailLength/SIM.TIME.dt)):frame);        % All points upto the step position
+            else
+                tailTrace = globalStates(1:3,frame);        
             end
             % UPDATE TRACE DATA
-            set(traceHandle(entity),'XData', xData(:,entity));
-            set(traceHandle(entity),'YData', yData(:,entity));
-            set(traceHandle(entity),'ZData', zData(:,entity));
+            set(traceHandle(entity),'XData', tailTrace(1,:));
+            set(traceHandle(entity),'YData', tailTrace(2,:));
+            set(traceHandle(entity),'ZData', tailTrace(3,:));
         end
-        % UPDATE TIMESTAMP ANNOTATION
-        set(clockHandle,'String',sprintf('Time: %ss',num2str(SIM.TIME.timeVector(1,step))));
     end
+    % UPDATE TIMESTAMP ANNOTATION
+    % view([viewPoint inclinationAngle]); % Dont re-apply each time
+    set(clockHandle,'String',sprintf('Time: %ss',num2str(frameTimeVector(frame))));
+    % FORCE IMAGE WRITE
     drawnow();
     
     % COLLECT FRAMES
@@ -1327,149 +1290,103 @@ for step = 1:SIM.TIME.endStep
     
     % APPEND THE FRAMES TO GIF
     if frame == 1
-        imwrite(imind,cm,filePath,'gif','Loopcount',inf,'DelayTime',(1/fps));
+        imwrite(imind,cm,filePath,'gif','Loopcount',inf,'DelayTime',(1/DATA.figureProperties.fps));
     else
-        imwrite(imind,cm,filePath,'gif','WriteMode','append','DelayTime',(1/fps));
+        imwrite(imind,cm,filePath,'gif','WriteMode','append','DelayTime',(1/DATA.figureProperties.fps));
     end
-    frame = frame + 1;                  % Move to next frame
+%     viewPoint = viewPoint + viewRate;
 end
-
 % FIGURE COMPLETE
-DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;
+% CLEAN UP
+clearvars -except currentFigure figureHandle
 end
 % GET THE 3D TRAJECTORY TRAIS AS A VIDEO [ UPDATED ]
-function [currentFigure,figureHandle] = get_isometricAvi(SIM,DATA,currentFigure)
-% This function generates a video of the complete simulation trajectories
-% over the complete series.
-
-% OUTPUT FILE
-fileName = strcat(SIM.outputPath,'isometricFigure','.avi');
-
-% DATA CONTAINERS
-% We need to build a matrix of states*tailLength*IDs,step
-globalTraces = NaN((DATA.figureProperties.tailLength/SIM.TIME.dt),10,DATA.totalObjects,SIM.TIME.numSteps); % Pre-allocate matrix
-globalMarker = NaN(10,SIM.totalObjects,SIM.TIME.numSteps); 
-
-% BEGIN GENERATING THE MARKER AND TRACE PLOT MATRICES
-for step = 1:SIM.TIME.endStep
-    for indexValue = 1:DATA.totalObjects
-        % GET THE TRAJECTORY DATA FOR THE AGENT
-        [objectStates] = OMAS_getTrajectoryData(DATA,indexValue,'valid'); % All valid states for the object      
-        activeSteps = size(objectStates,2);                                % The number of steps where object is active
-        % DESIRED TRACE LENGTH
-        tailStepLength = DATA.figureProperties.tailLength/SIM.TIME.dt;     % Get the tail step length
-        if step < activeSteps 
-            % IF THE AGENT IS ACTIVE
-            markerState = objectStates(:,step);                            % Step position
-            if step > tailStepLength
-                % ONLY THE STATES FOR THE TRACE DURATION
-                traceEnd = step - (tailStepLength-1);
-                tailTrace = objectStates(:,traceEnd:step);               % States between the step and (step - tailStepLength)
-            else
-                % TRANSITIONING PERIOD                    
-                tailTrace = objectStates(:,1:step);                      % All points upto the step position
-            end
-        else
-            % IF THE AGENT IS INACTIVE
-            markerState = objectStates(:,end);                             % Step position
-            tailTrace = objectStates(:,((activeSteps + 1) - tailStepLength):end);
-        end
-                
-        % COLUMNS OF MATRICES X,Y,Z ARE THE OBJECTS
-        globalMarker(:,indexValue,step) = markerState;      
-        
-        % BUILD MATICES OF TAIL COORDINATES
-        % We need to build a matrix of dimensions
-        % [tailLength*states*IDs,step], the resulting plot matrices must be
-        % of dimensions [state(1)*tailLength,IDs]
-        globalTraces(1:size(tailTrace,2),:,indexValue,step) = tailTrace';
-    end
-end
+function [currentFigure,figureHandle] = get_isometricAvi(SIM,objectIndex,DATA,currentFigure)
+% This function generates a new 3D trajectory figure be exporting the
+% trajectory data to the output directory before generating the figure.
 
 % CONFIGURE THE PLOT ATTRIBUTES
-figureHandle = figure('Name','OpenMAS Isometric Timelapse');
+fileName = strcat(SIM.outputPath,'isometricFigure');
+figureHandle = figure('Name','OpenMAS isometric timelapse (AVI)');
+titleString = sprintf('Object global trajectories over a period of %ss',num2str(SIM.TIME.endTime));
+
 % MAXIMISE GRAPH SIZE IN WINDOW
 setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.08, 0.90, 0.88]);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
-set(figureHandle,'MenuBar','none');
-set(figureHandle,'ToolBar','none');
-set(figureHandle,'Visible','off');
+if DATA.figureProperties.publish
+    set(figureHandle,'MenuBar','none');
+    set(figureHandle,'ToolBar','none');
+    % set(figureHandle,'Visible','off');
+end
+% CREATE THE AXES IN THE FIGURE
+ax = axes(figureHandle);
+% ASSUME THE objectIndex is in the same order as the SIM.OBJECTS
 
-% CONFIGURE VIDEO SETTINGS
-fps = 50; % Define a maximum frame rate 
-if SIM.TIME.endStep > fps*SIM.TIME.endTime
-    numFrames = fps*SIM.TIME.endTime; 
-else
-    numFrames = SIM.TIME.endStep;                                          % The default number of frames
-    fps = numFrames/SIM.TIME.endTime;
-end
-% CALCULATE THE RESULTANT STEPS PER FRAME
-stepsPerFrame = floor(SIM.TIME.endStep/numFrames);                         % Get the nearest integer steps/frame
-if stepsPerFrame == 0                                                      % If the frame frequency is higher than the simulation sample frequency
-    stepsPerFrame = 1;                                                     % Default to one frame per sample (highest sample rate)
-end
-vidFile = VideoWriter(fileName,'Motion JPEG AVI');
-vidFile.FrameRate = fps;                                                   % Set the videos fps to match the sample rate
+% GET THE SIZE OF THE PLOTTED SET
+% The data has already been pre-formatted so that the number of states
+% aligns with the number of expected frames in the annimation.
+% IMPORT THE OBJECT DATA FROM TEMP FILE
+load([SIM.outputPath,SIM.systemFile]);
+framesToPlot = size(eval(sprintf('objectID%d',SIM.OBJECTS(1).objectID)),2);   % The variable name in the workspace
+
+% PREPARE THE 'AVI' GENERATOR
+vidFile = VideoWriter(fileName);
+vidFile.FrameRate = DATA.figureProperties.fps;                           % Set the videos fps to match the sample rate
 vidFile.Quality = 50;
-
 open(vidFile);
-frameSet = moviein(numFrames);                                             % Pre-allocate video object for frames
-F(numFrames) = struct('cdata',[],'colormap',[]);
 
-% AXES SETTINGS
-titleString = sprintf('Object global trajectories over a period of %ss',num2str(SIM.TIME.endTime));
-ax = gca(); 
-ax.NextPlot = 'replaceChildren';
-
-frame = 1; viewPoint = -45;
-for step = 1:SIM.TIME.endStep
-    % CHECK IF A FRAME IS TO BE CAPTURED THIS STEP
-    if rem(step,stepsPerFrame) ~= 0
-        continue
-    end
-    % STEP DATA
-    xData = squeeze(globalTraces(:,1,:,step));
-    yData = squeeze(globalTraces(:,2,:,step));
-    zData = squeeze(globalTraces(:,3,:,step));
-    % BUILD THE FRAME 
+% ax.NextPlot = 'replaceChildren';
+inclinationAngle = 62;
+viewPoint = -10; 
+% viewRate = 0.05;
+for frame = 1:framesToPlot
+    % Must be done on a step by step base to get the annimations correct.
     % BUILD THE FRAME 
     if frame == 1
         hold on;
-        % INITIAL TRACE PLOT
-        traceHandle = plot3(ax,xData,yData,zData);
         % UPDATE OBJECT HANDLES
-        for ID1 = 1:SIM.totalObjects
-            if isstruct(SIM.OBJECTS(ID1).patch)
+        for entity = 1:SIM.totalObjects
+            % GET THE OBJECT FOR REFERENCE
+            objectHandle = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entity).objectID};
+            % PULL VARIABLE FROM WORKSPACE
+            variableLabel = sprintf('objectID%d',SIM.OBJECTS(entity).objectID); % The variable name in the workspace
+            objectStates = eval(variableLabel);                              % Evalutate object states        
+            % TRACE INITIAL POSITIONS
+            traceHandle(entity) = plot3(ax,objectStates(1,frame),objectStates(2,frame),objectStates(3,frame));
+            % THE 
+            if numel(objectHandle.GEOMETRY.vertices) > 0
                % GET THE GLOBAL POSE AT STEP
-               [~,R2] = OMAS_axisTools.quaternionToRotationMatrix(globalMarker(7:end,ID1,step));
+               [R_frame] = OMAS_geometry.quaternionToRotationMatrix(objectStates(7:end,frame));
                % BUILD MARKER
-               markerHandle(ID1) = patch(ax,'Vertices',SIM.OBJECTS(ID1).patch.vertices*R2 + globalMarker(1:3,ID1,step)',...
-                   'Faces',SIM.OBJECTS(ID1).patch.faces,...
-                   'FaceColor',SIM.OBJECTS(ID1).colour,...
+               markerHandle(entity) = patch(ax,...
+                   'Vertices',objectHandle.GEOMETRY.vertices*R_frame + objectStates(1:3,frame)',...
+                   'Faces',objectHandle.GEOMETRY.faces,...
+                   'FaceColor',SIM.OBJECTS(entity).colour,...
                    'EdgeColor',DATA.figureProperties.EdgeColor,...
                    'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
                    'FaceLighting',DATA.figureProperties.FaceLighting,...
+                   'FaceAlpha',DATA.figureProperties.FaceAlpha,...
                    'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties
             else
                 % INITIAL MARKER PLOT
-                markerHandle(ID1) = plot3(ax,globalMarker(1,ID1,step),globalMarker(2,ID1,step),globalMarker(3,ID1,step));
+                markerHandle(entity) = plot3(ax,objectStates(1,frame),objectStates(2,frame),objectStates(3,frame));
                 % ASSIGN MARKER PROPERTIES
-                markerHandle(ID1).Marker = SIM.OBJECTS(ID1).symbol;
-                markerHandle(ID1).MarkerSize = DATA.figureProperties.MarkerSize;
-                markerHandle(ID1).MarkerFaceColor = SIM.OBJECTS(ID1).colour;
-                markerHandle(ID1).MarkerEdgeColor = DATA.figureProperties.MarkerEdgeColor;
-                markerHandle(ID1).Color = SIM.OBJECTS(ID1).colour;
+                markerHandle(entity).Marker = SIM.OBJECTS(entity).symbol;
+                markerHandle(entity).MarkerSize = DATA.figureProperties.MarkerSize;
+                markerHandle(entity).MarkerFaceColor = SIM.OBJECTS(entity).colour;
+                markerHandle(entity).MarkerEdgeColor = DATA.figureProperties.MarkerEdgeColor;
+                markerHandle(entity).Color = SIM.OBJECTS(entity).colour;
             end
             % ASSIGN TRACE PROPERTIES
-            traceHandle(ID1).LineStyle = DATA.figureProperties.LineStyle;
-            traceHandle(ID1).LineWidth = DATA.figureProperties.LineWidth;
-            traceHandle(ID1).Color = SIM.OBJECTS(ID1).colour;
-            % ANNOTATION WITH THE CURRENT TIME
-            clockHandle = annotation('textbox',[0.02 0.05 0.15 0.04],'String','Time:','FitBoxToText','off');
-            set(clockHandle,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
+            traceHandle(entity).LineStyle = DATA.figureProperties.LineStyle;
+            traceHandle(entity).LineWidth = DATA.figureProperties.LineWidth;
+            traceHandle(entity).Color = SIM.OBJECTS(entity).colour;
         end
+        % ANNOTATION WITH THE CURRENT TIME
+        clockHandle = annotation('textbox',[0.025 0.025 0.15 0.06],'String','Time:','FitBoxToText','off');
+        set(clockHandle,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
         % FIGURE PROPERTIES
         title(titleString,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize,'FontSmoothing','on');
         xlabel('x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
@@ -1478,90 +1395,138 @@ for step = 1:SIM.TIME.endStep
         set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
         set(ax,'Color',DATA.figureProperties.axesColor);
         set(ax,'GridAlpha',0.25,'GridColor','k');
-        xlim([DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        ylim([DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        zlim([DATA.figureProperties.minPosition,DATA.figureProperties.maxPosition]);
-        set(ax,'outerposition',[0.02 0.1 1 0.88]);
-        grid on; box on; hold off;
+        set(ax,'GridLineStyle','--');
+%         xlim(ax,[DATA.figureProperties.axisMinimums(1),DATA.figureProperties.axisMaximums(1)]);
+%         ylim(ax,[DATA.figureProperties.axisMinimums(2),DATA.figureProperties.axisMaximums(2)]);
+%         zlim(ax,[DATA.figureProperties.axisMinimums(3),DATA.figureProperties.axisMaximums(3)]);
+        axisLimit = (DATA.figureProperties.objectMaximalRadii + DATA.figureProperties.maxAbsPosition);
+        xlim(ax,[-axisLimit,axisLimit]);
+        ylim(ax,[-axisLimit,axisLimit]);
+        zlim(ax,[-axisLimit,axisLimit]);
+        axis manual;
+        
         legend(markerHandle,DATA.figureProperties.legendEntries,'Location','northeastoutside');
-        view([-45 50]);
+%         set(ax,'OuterPosition', [.1, .2, .9, .6]); % [xLeft, yBottom, width, height]
+        view([viewPoint inclinationAngle]);     % Set initial view angle
+        grid on; box on;hold off;
     else
+        % CONTINUED FRAMES
         % FOR EACH PLOT ENTITY
-        for entity = 1:numel(markerHandle)
-            if isstruct(SIM.OBJECTS(entity).patch)
+        for entity = 1:SIM.totalObjects
+            % GET THE OBJECT FOR REFERENCE
+            objectHandle = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entity).objectID};
+            % PULL VARIABLE FROM WORKSPACE
+            variableLabel = sprintf('objectID%d',SIM.OBJECTS(entity).objectID); % The variable name in the workspace
+            objectStates = eval(variableLabel);                                 % Evalutate object states
+            % CHECK IF UPDATE IS NECESSARY
+            if any(isnan(objectStates(:,frame)))                                % Object is static, freeze its position
+                continue
+            end
+            % HANDLE DIFFERENT REPRESENTATION
+            if numel(objectHandle.GEOMETRY.vertices) > 0
                 % GET THE GLOBAL POSE AT STEP
-                [~,R2] = OMAS_axisTools.quaternionToRotationMatrix(globalMarker(7:end,entity,step));
+                [R_frame] = OMAS_geometry.quaternionToRotationMatrix(objectStates(7:end,frame));
                 % BUILD MARKER
-                set(markerHandle(entity),'Vertices',SIM.OBJECTS(entity).patch.vertices*R2 + globalMarker(1:3,entity,step)');
+                set(markerHandle(entity),'Vertices',objectHandle.GEOMETRY.vertices*R_frame + objectStates(1:3,frame)');
             else
                 % UPDATE MARKER DATA
-                set(markerHandle(entity),'XData',globalMarker(1,entity,step));
-                set(markerHandle(entity),'YData',globalMarker(2,entity,step));
-                set(markerHandle(entity),'ZData',globalMarker(3,entity,step));
+                set(markerHandle(entity),'XData',objectStates(1,frame));
+                set(markerHandle(entity),'YData',objectStates(2,frame));
+                set(markerHandle(entity),'ZData',objectStates(3,frame));
             end
             % UPDATE TRACE DATA
-            set(traceHandle(entity),'XData', xData(:,entity));
-            set(traceHandle(entity),'YData', yData(:,entity));
-            set(traceHandle(entity),'ZData', zData(:,entity));
+            if frame <= DATA.figureProperties.tailLength/SIM.TIME.dt
+                % TRANSITIONING PERIOD                    
+                tailTrace = objectStates(1:3,1:frame);                     % All points upto the step position
+            elseif (frame - DATA.figureProperties.tailLength/SIM.TIME.dt) > 0
+                % IF THE TRAIL IS NOW A SUBSET
+                tailTrace = objectStates(1:3,(frame-(DATA.figureProperties.tailLength/SIM.TIME.dt)):frame);        % All points upto the step position
+            else
+                tailTrace = objectStates(1:3,frame);        
+            end
+            % UPDATE TRACE DATA
+            set(traceHandle(entity),'XData', tailTrace(1,:));
+            set(traceHandle(entity),'YData', tailTrace(2,:));
+            set(traceHandle(entity),'ZData', tailTrace(3,:));
         end
-        % UPDATE TIMESTAMP ANNOTATION
-        set(clockHandle,'String',sprintf('Time: %ss',num2str(SIM.TIME.timeVector(1,step))));
-        view([viewPoint 50]);
     end
-    drawnow();
-    
-    % COLLECT FRAMES
-    F(frame) = getframe(figureHandle);
-    writeVideo(vidFile,F(frame));       % Write frame to video
+    % UPDATE TIMESTAMP ANNOTATION
+    set(clockHandle,'String',sprintf('Time: %ss',num2str(frameTimeVector(frame))));
+    % FORCE IMAGE WRITE
+    drawnow;
+    % COLLECT FRAMES    
+    writeVideo(vidFile,getframe(figureHandle));       % Write frame to video
     % INCREMENT
-    viewPoint = viewPoint + 0.05;
-    frame = frame + 1;                  % Move to next frame
+%     viewPoint = viewPoint + viewRate;
 end
 close(vidFile);
-% FIGURE COMPLETE
-DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
+
+% close(vidFile);
 currentFigure = currentFigure + 1;
+% CLEAN UP
+clearvars -except currentFigure figureHandle
 end
 
-% //////////////////////////// TIMING FIGURES /////////////////////////////
+%% /////////////////////////// TIMING FIGURES /////////////////////////////
 % COMPUTATION TIME FIGURES
-function [currentFigure,figureHandle] = get_computationTimes(SIM,DATA,currentFigure)
+function [currentFigure,figureHandle] = get_computationTimes(SIM,objectIndex,DATA,currentFigure)
 % This function gets the computation time figures for all agents using the
-% DATA.objectIndex.DATA fields.
+% objectIndex.DATA fields.
 % INPUTS:
-% SIM  - Local copy of the META structure
-% DATA - The output data structure
+% SIM     - Local copy of the META structure
+% OBJECTS - The object class objects.
 % currentFigure - The current figure number
 % OUTPUTS:
 % currentFigure - Updated figure number
 % figureHandle - Handle to the created figure
 
+figureHandle = [];
+
+% SANITY CHECK 1
+if DATA.totalAgents == 0
+    warning('No agent data available.'); 
+    return 
+else
+    % LOGICALLY SELECT THE AGENTS FROM THE OBJECT INDEX 
+    agentObjectIndex = objectIndex([SIM.OBJECTS.type] == OMAS_objectType.agent); % The agents themselves  
+end
+
+iter = 0;
+for ID1 = 1:SIM.totalAgents
+    % TRY TO GET THE REQUIRED PROPERTIES
+    try
+       agentObjectIndex{ID1}.DATA.algorithm_dt;
+    catch
+       iter = iter + 1; 
+    end
+end
+
+% SANITY CHECK 2
+if iter == SIM.totalAgents
+    warning('No agents with defined algorithm timeseries in "DATA.algorithm_dt".');
+    return 
+end
+
+
 % CONFIGURE THE PLOT ATTRIBUTES
 figurePath = strcat(SIM.outputPath,'computationTimes');
-figureHandle = figure('Name','OpenMAS Computation Time Series');
+figureHandle = figure('Name','OpenMAS computation timeseries');
+ax = axes(figureHandle);
 set(figureHandle,'Position',DATA.figureProperties.windowSettings);         % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.08, 0.90, 0.88]);
 
-for ind = 1:SIM.totalObjects
+for ind = 1:SIM.totalAgents
     % GET OBJECT DATA
-    entity = DATA.objectIndex{ind};
-    % TEST FOR THE 'DATA' FIELD
-    if ~isprop(entity,'DATA') || isempty(entity.DATA)
-        continue
-    end
+    entity = objectIndex{ind};
     % GET THE EQUIVALENT SIM OBJECT
     IDvector = [SIM.OBJECTS.objectID];
     SIMobject = SIM.OBJECTS(IDvector == entity.objectID);
-    if ~isfield(entity.DATA,'algorithm_dt')
-        continue
-    else
-        % GET THE TIMESERIES DATA
-        dt_timeSeries = entity.DATA.algorithm_dt*1E3; 
-    end
+    % GET THE TIMESERIES DATA
+    dt_timeSeries = entity.DATA.algorithm_dt*1E3; 
 
     % LEGEND LABEL
-    displayString = sprintf('[ID:%s] %s',num2str(SIMobject.objectID),SIMobject.name);
+    displayString = sprintf('[ID-%s] %s',num2str(SIMobject.objectID),SIMobject.name);
     % GENERATE FIGURES
     plot(DATA.timeVector(1:SIM.TIME.endStep),dt_timeSeries,...
          'Color',SIMobject.colour,...
@@ -1569,69 +1534,33 @@ for ind = 1:SIM.totalObjects
          'DisplayName',displayString);
     hold on;
 end
-grid on; box on;
+grid on; box on; grid minor;
 titleString = sprintf('Agent Computation times over a period of %ss',num2str(SIM.TIME.endTime));
 title(titleString,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize,'FontSmoothing','on');
 xlabel('t (s)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
 ylabel('Computation Time(ms)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
 legend('Location','northeastoutside');
-set(gca,'FontSize',DATA.figureProperties.axisFontSize,'FontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
-set(gca,'Color',DATA.figureProperties.axesColor);
-
+set(ax,'FontSize',DATA.figureProperties.axisFontSize,'FontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
+set(ax,'Color',DATA.figureProperties.axesColor);
+set(ax,'GridLineStyle','--');
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
-print(figureHandle,figurePath,'-dpdf','-r0');
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end
 
 % INCREMENT THE FIGURE INDEX
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;   
 end
 
-% ////////////////////////// MONTE-CARLO FIGURES //////////////////////////
-% PLOT THE MEAN COMPUTATION TIME TIME-SERIES
-function [figureHandle] = get_MonteCarloTimeSeries(cycleSample)
-% This function generates the mean computation time - time
-% series.
 
-% BRING UP THE FIRST SIMPLE
-[cycleSample] = obj.importCycleData(1);
-exampleDATA = cycleSample.DATA;
-exampleMETA = cycleSample.META;
-
-% META FIGURE PROPERTIES
-titleString = sprintf('Monte-Carlo (%s cycle) mean computation times',num2str(obj.cycles));
-figurePath = strcat(obj.sessionPath,'\','computationTimeSeries');
-figureHandle = figure('Name','Monte-Carlo Analysis: Agent mean computation times');
-setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.1, 0.90, 0.88]);
-set(figureHandle,'Position',exampleDATA.figureProperties.windowSettings);        % [x y width height]
-set(figureHandle,'Color',exampleDATA.figureProperties.backGroundColor);          % Background colour
-
-% GENERATE THE FIGURE
-axesHandle = gca;
-displayData = agentData.meanLoopTimeSeries*100;                 % Convert s to ms
-lineHandle = plot(axesHandle,agentData.meanTimeVector,displayData);
-set(lineHandle,'LineWidth',exampleDATA.figureProperties.LineWidth);
-
-% FIGURE PROPERTIES
-title(titleString,'fontweight',exampleDATA.figureProperties.fontWeight,'fontsize',exampleDATA.figureProperties.titleFontSize,'FontSmoothing','on');
-xlabel(axesHandle,'t (s)','fontweight',exampleDATA.figureProperties.fontWeight,'fontSize',exampleDATA.figureProperties.axisFontSize,'FontSmoothing','on');
-ylabel(axesHandle,'Computation Time (ms)','fontweight',exampleDATA.figureProperties.fontWeight,'fontSize',exampleDATA.figureProperties.axisFontSize,'FontSmoothing','on');
-set(axesHandle,'FontSize',exampleDATA.figureProperties.axisFontSize,'fontWeight',exampleDATA.figureProperties.fontWeight,'FontSmoothing','on');
-set(axesHandle,'GridAlpha',0.25,'GridColor','k');
-xlim([ 0 exampleMETA.TIME.endTime]);
-%            set(axesHandle,'outerposition',[0.01 0.05 1 0.88]);
-grid on; box on; hold off;
-
-% SAVE FIGURE TO OUTPUT DIRECTORY
-savefig(figureHandle,figurePath);
-
-% SAVE AS PDF
-set(figureHandle,'Units','Inches');
-pos = get(figureHandle,'Position');
-set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3),pos(4)]);
-print(figureHandle,figurePath,'-dpdf','-r0');
-end
+% NOTES:
+% WAIT FOR INPUT BEFORE CLOSING ALL
+%         if ~SIM.monteCarloMode
+%             input(sprintf('\n[%s]\tPress enter to clear tray and exit.\n',SIM.phase));
+%         end

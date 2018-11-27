@@ -5,56 +5,85 @@
 % Author: James A. Douthwaite
 
 % Fetch states from Trajectory matrix
-function [objectStateData,stateIndex] = OMAS_getTrajectoryData(DATA,objectID,step)
+function [objectStateData,indexOfLastState] = OMAS_getTrajectoryData(trajectoryMatrix,globalIDvector,objectID,step)
 % This is the generic function for returning the state trajectory data for
 % a given agent ID number.
 % INPUTS:
-% DATA     - The complete DATA structure
-% objectID - The object ID to be indexed
-% step     - The desired step
-% OUTPUT:
-% objectStateData - The object state evolution data
+% trajectoryMatrix - a complete matrix of object global states [objects*n x steps].
+% objectNumber     - The the index of desired objects ID in the SIM.OBJECTS list.
+% step             - The requested simulation step.
+%  + >steps        - Return states for all timesteps.
+%  + nan           - Return states for all timesteps until the agent way idle.
+%  + step          - Return a specific state at a given timestep.
 
 % DETERMINE THE NUMBER OF OUTPUT STATES
-statecount = size(DATA.globalTrajectories,1)/DATA.totalObjects;            % Determing the number of system states
+numberOfGlobalStates = 10;                                                          % Determing the number of system states
+systemStates = size(trajectoryMatrix,1);
 
-% IF THE INDEX IS NOT KNOWN
-if ~isfield(DATA,'stateIndex')   
-    systemStates = size(DATA.globalTrajectories,1);
-    indexSet(1,:) = (0:statecount:systemStates-statecount) + 1;            % Declare the state indices
-    indexSet(2,:) = statecount:statecount:systemStates;
-    DATA.stateIndex = indexSet;
-    % Clear redundant variables 
-    clearvars indexSet systemStates
+% INPUT HANDLING
+assert(mod(systemStates,numberOfGlobalStates) == 0,'The dimensions of the state matrix provided is incorrect.');
+
+% DEFINE THE INDEX OF THE OBJECT FROM ITS OBJECT ID 
+logicalIndices = globalIDvector == objectID;                                        % The logical position of the ID
+indexPosition = inf;
+for i = 1:numel(logicalIndices)
+   if logicalIndices(i)
+      indexPosition = i; 
+      break
+   end
 end
+
+%INFER INDEX PROPERTIES
+indexSet = uint16(zeros(2,systemStates/numberOfGlobalStates));
+indexSet(1,:) = (0:numberOfGlobalStates:systemStates-numberOfGlobalStates) + 1;     % Declare the state indices
+indexSet(2,:) = numberOfGlobalStates:numberOfGlobalStates:systemStates;
+
 % DEFINE THE STATE LIMITS (INDICES) THAT 
-stateLimits = DATA.stateIndex(:,objectID);
+objectStateIndices = indexSet(:,indexPosition);
 
-% EXTRACT DATA USING THE DATA.stateIndex
-if exist('step','var') 
-    if ischar(step) && strncmp(step,'last',4)
-    	% LAST STATE REQUESTED
-        objectStateData = DATA.globalTrajectories(stateLimits(1):stateLimits(2),:);   % Full timeseries
-        validStates = ~any(isnan(objectStateData(1:3,:)));                            % non-NaN states
-        stateIndex = find(validStates,1,'last');
-        objectStateData = objectStateData(:,stateIndex);                              % Final valid object state
-    elseif ischar(step) && strncmp(step,'valid',5)
-        % ONLY VALID STATES (ALL STATES UPTO TERMINATION 'NaN')
-        objectStateData = DATA.globalTrajectories(stateLimits(1):stateLimits(2),:);   % Full timeseries
-        validStates = ~any(isnan(objectStateData(1:3,:)));                            % non-NaN states
-        stateIndex = find(validStates,1,'last');
-        objectStateData = objectStateData(:,1:stateIndex);                            % Final valid object state
-    else
-        % SPECIFIC STEP
-        objectStateData = DATA.globalTrajectories(stateLimits(1):stateLimits(2),step);% A specific time step has been specified
-        stateIndex = step;
-    end
-else
+% RETURN ALL TIMESERIES DATA
+if step > size(trajectoryMatrix,2) 
     % FULL TIME SERIES
-    objectStateData = DATA.globalTrajectories(stateLimits(1):stateLimits(2),:);   % Otherwise extract the complete timeseries
-    stateIndex = size(objectStateData,2);
+    objectStateData = trajectoryMatrix(objectStateIndices(1):objectStateIndices(2),:);   % Otherwise extract the complete timeseries
+    indexOfLastState = uint32(size(objectStateData,2));                               % Indices of the last state
+    return
 end
 
-clearvars newStateIndex stateIndex n statecount;
+% assert(isnumeric(step),'Step provided must be an integer number.');
+
+% RETURN ALL STATES UPTO THE POINT OF INACTIVITY (INDICATED BY NaNs)
+if isnan(step)
+        % RETURN ONLY VALID STATES (ALL STATES UPTO TERMINATION 'NaN')
+        objectStateData = trajectoryMatrix(objectStateIndices(1):objectStateIndices(2),:);  % Full timeseries
+        % IF THE AGENT IS ACTIVE AT ALL TIMESTEPS
+        logicalMatrix = logical(isnan(objectStateData(1:3,:)));
+        if ~any(any(logicalMatrix))
+            indexOfLastState = uint32(size(objectStateData,2));
+            return
+        end
+        % THERE ARE NAN OCCURANCES
+        indexOfLastState = size(logicalMatrix,2);
+        for i = size(logicalMatrix,2):1
+            if sum(logicalMatrix(:,i)) ~= 3
+                indexOfLastState = size(logicalMatrix,2) - i;
+                break
+            end
+        end
+        objectStateData = objectStateData(:,1:indexOfLastState);                            % Final valid object state
+        indexOfLastState = uint32(indexOfLastState);
+else
+    % SPECIFIC STEP
+    objectStateData = trajectoryMatrix(objectStateIndices(1):objectStateIndices(2),step);% A specific time step has been specified
+    indexOfLastState = uint32(step);
 end
 
+end
+
+% if ischar(step) 
+%     if strncmp(step,'last',4)
+%         % LAST STATE REQUESTED
+%         objectStateData = trajectoryMatrix(objectStateIndices(1):objectStateIndices(2),:);   % Full timeseries
+%         validStates = ~any(isnan(objectStateData(1:3,:)));                            % non-NaN states
+%         indicesOfFinalState = find(validStates,1,'last');
+%         objectStateData = objectStateData(:,indicesOfFinalState);                              % Final valid object state
+%     elseif strncmp(step,'valid',5)

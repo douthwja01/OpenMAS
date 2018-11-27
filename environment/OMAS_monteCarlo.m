@@ -1,338 +1,260 @@
-%% OpenMAS MONTE-CARLO SIMULATION TOOLBOX (OMAS_monteCarlo.m) %%%%%%%%%%%%%
-% This function provides a suite of tools for monte-carlo type simulations
-% of defined agent sets and scenarios.
-
-% Author: James A. Douthwaite 24/03/18
+%% OpenMAS MONTE-CARLO SIMULATION UTILITY (OMAS_monteCarlo.m) %%%%%%%%%%%%%
+% This function is designed to compute a defined number of instances of the
+% OpenMAS multi-agent simulator.
+% TERMINOLOGY:
+% study   - A set of initial conditions consiting of several sessions. 
+% session - A defined set of initial conditions for which many OpenMAS 
+%           instances are evaluated.
+% cycle   - A individual instance of the OpenMAS scenario with the initial
+%           conditions specified by the session settings.
 
 classdef OMAS_monteCarlo
    properties
-       % DEFAULT SIMULATION PARAMETERS
-       SETTINGS;
-       % DEFAULT MONTE-CARLO PARAMETERS
-       outputPath = strcat(pwd,'\data');                                   % Highest level output path
-       systemFile = 'studyData.mat';
-       sessionPath;                                                        % The directory of the individual study
-       sessionNumber = 1; 
-       cycles = 1;                                                         % Default number of cycles
-       phase = 'MONTE-CARLO';
-       OMASFileNames = {'META','DATA','EVENTS'};
-       threadPool = logical(false);
-       shutDownOnComplete = logical(false);
+       % DEFAULT OMAS SIMULATION PARAMETERS
+       OMAS_settings;                                                      % Container for the MC settings
+       
+       % DEFAULT MONTE-CARLO PARAMETERS 
+       objects;                                % The object set
+       maxObjectNumber = 300;                  % The maximum number of objects defining studies
+       cycles;                                 % Default number of cycles
+       sessions;                               % Parameter representing the num
+       sessionLabels = {};                     % Parameter providing reference to each session
+       phase;
+       systemFiles = {'META','DATA','EVENTS','OBJECTS'};
+       threadPool;                             % Complete in a asynchronous way
+       shutDownOnComplete;                     % Shutdown on completion
+       outputPath = pwd;
    end
-   % ///////////////////// MONTE-CARLO UTILITIES //////////////////////////
+   
+   % ////////////////////////////// MAIN //////////////////////////////////
    methods
-       % CONSTRUCTOR METHOD
+       % INITIALISER METHOD
        function [obj] = OMAS_monteCarlo(varargin)
            % INPUT HANDLING
            if length(varargin) == 1 && iscell(varargin)                    % Catch nested cell array inputs
                varargin = varargin{:};
            end
-           fprintf('\n[%s]\tIntialising Monte-Carlo instance.\n',obj.phase);
+           
+           % //////////////////// INPUT HANDLING ////////////////////////// 
            % PARSE MONTE-CARLO PARAMETERS
-           [obj] = obj.configurationParser(obj,varargin); 
-                      
-           % GET THE SIMULATION SETTINGS
-           defaultConfig = obj.getDefaultConfig();  
-           obj.SETTINGS  = obj.configurationParser(defaultConfig,varargin); % Parse input config against the default config
-           
-           % INPUT HANDLIING
-           assert(~isempty(obj.SETTINGS.objects),'Please specify an object configuration cell array of the form: [numberOfAlgorithms x numberOfObjects]');
-           
-           % CONFIGURE THE MONTE-CARLO DIRECTORIES
-           obj.sessionPath = obj.outputPath;
-           obj.systemFile = [obj.sessionPath,'\',obj.systemFile];          % System files
-           
+           [monteCarloConfig] = obj.configurationParser(obj.getDefaultMCconfig(),varargin);
+           [obj] = obj.configurationParser(obj,monteCarloConfig);     
+           % PARSE DEFAULT OMAS CONFIGURATION
+           obj.OMAS_settings = obj.configurationParser(obj.getDefaultOMASConfig(),varargin); % Parse input config against the default config
+           % CONFIRM PROPOSED OBJECTS ARE VALID
+           assert(~isempty(obj.objects),'Please provide a object array of the form: [numberOfAlgorithms x numberOfObjects]');
+           assert(numel(obj.objects) < obj.maxObjectNumber,sprintf('The number objects (%d) in the proposed study is to high.',numel(obj.objects))) 
+           obj.sessions = size(obj.objects,1);
+           % //////////////////////////////////////////////////////////////
+           fprintf('\n[%s]\tIntialising Monte-Carlo instance.\n',obj.phase);
            % ENABLE MATLAB PAUSING
            pause on
        end
-   end   
-   % ////////////////////////// DATA ANALYSIS /////////////////////////////
+   end
+   
+   
    methods
-       % HIGHEST LEVEL 'N' CYCLE ANALYSIS
-       function [summaryData,obj] = evaluateCycles(obj)
-           % This function computes a complete cycle set, imports the
-           % resultant data and computes the available statistical analyses.
+       % EVALUATE THE PROPOSED CYCLE
+       function [] = evaluateAllCycles(obj)
+           % This function completes the proposed cycles given the settings
+           % specified settings. This function assumes that we are 
+           % evaluating:
+           % VARIABLES:
+           % - objectSets        - [m x n]
+           % - numberPopulations - [a b c]
+           % CONSTANTS:
+           % - cycles
+           % - SETTINGS
            
-           % ASSUMPTIONS:
-           % - The .SETTINGS.objects input takes the form:
-           %   [numberOfStudies x numberOfObjects]. This therefore
-           %   allows sequential testings of multiple object sets.           
+           % GENERATE THE MONTE-CARLO DIRECTORY
+           [highestLevelPath] = obj.createMonteCarloDirectory(obj.outputPath);
            
-           %            % GENERATE WAIT-BAR
-           %            wbHandle = waitbar(0,'Processing...',...
-           %                'Name','Processing Monte-Carlo Cycles',...
-           %                'CreateCancelBtn','setappdata(gcbf,''canceling'',1)',...
-           %                'Position',[0;50;40;20],...
-           %                'WindowStyle','normal');
-           %            setappdata(wbHandle,'canceling',0);
+           % CREATE SESSION LABELS
+           for i = 1:obj.sessions
+               sessionObjects = obj.objects(i,:);
+               sessionObjects = sessionObjects(cellfun('isempty',sessionObjects) == 0); 
+               
+               % WRITE SESSION LABEL 
+               % Simply take the class of the first object
+               obj.sessionLabels{i} = class(sessionObjects{1});
+           end
            
-           % DETERMINE THE NATURE OF THE PROCEDURES
-           [numStudies,~] = size(obj.SETTINGS.objects);
-           for study = 1:numStudies
-               % DEFINE THE CURRENT STUDY NUMBER
-               obj.sessionNumber = study;
+           % IF REQUIRED, ENSURE A POOL IS PRESENT
+           if obj.threadPool
+               obj.threadpoolInterface('CONFIRM');
+           end
+           
+           % ////////////// POPULATE THE SESSION DIRECTORIES //////////////
+           obj.phase = 'CYCLING';
+           for i = 1:obj.sessions 
+               % Each session represents a unique object set that will be
+               % simulated over 'n' cycles.
                
-               % GET THE NUMBER OF STUDY OBJECTS
-               objectIndex = obj.SETTINGS.objects(obj.sessionNumber,:);
-               numObjects = numel(objectIndex(cellfun('isempty',objectIndex) == 0)); % Omit empty cells
-               clear objectIndex
-               
-               % ALLOCATE NEW SESSION PATH FOR THE GIVEN STUDY
-               [obj.sessionPath] = obj.getMonteCarloDirectory(obj.outputPath,numObjects,obj.cycles);
-               
-               %                % CHECK WAIT-BAR INTERACTION
-               %                if getappdata(wbHandle,'canceling')
-               %                    delete(wbHandle);
-               %                    break
-               %                else
-               %                    % UPDATE THE WAIT-BAR PROGRESS
-               %                    wbStatus = sprintf('Session progress (%d/%d)',study,numStudies);
-               %                    waitbar((study/numStudies),wbHandle,wbStatus);
-               %                end
-               
-               % ///////////////////// RUN CYCLES /////////////////////////
-               % BEGIN RUNNING CYCLES
+               % //////////// DEFINE THE SESSION PARAMETERS ///////////////
+               % OMIT EMPTY ENTRIES IN THE OBJECT INDEX
+               sessionObjects = obj.objects(i,:);
+               sessionObjects = sessionObjects(cellfun('isempty',sessionObjects) == 0);           
+               sessionLabel = sprintf('-objects(%d)-label(%s)',numel(sessionObjects),obj.sessionLabels{i});
+               % ALLOCATE NEW SESSION PATH FOR A GIVEN STUDY
+               sessionPath = obj.createSessionDirectory(highestLevelPath,sessionLabel);                            
+               % ///////////////// COMPUTE THE CYCLES /////////////////////
                if obj.threadPool
-                   [obj,lastCycle,cycleMessage] = obj.parallelCycles();
+                   obj.parallelCycles(sessionPath,sessionObjects);
                else
-                   [obj,lastCycle,cycleMessage] = obj.sequentialCycles();
+                   obj.sequentialCycles(sessionPath,sessionObjects);
                end
-               
-               if lastCycle ~= obj.cycles
-                   logString = sprintf('Final cycle(%d/%d), session %d failed with error: \n %s',lastCycle,obj.cycles,obj.sessionNumber,cycleMessage);
-                   obj.writeLogFile(obj.sessionPath,logString)
-               else
-                   logString = sprintf('Final cycle(%d/%d), session %d complete successfully.',lastCycle,obj.cycles,obj.sessionNumber);
-                   obj.writeLogFile(obj.sessionPath,logString);
-               end
-
-               clearvars -except obj
-               
-               fprintf('\n[%s]\tAnalysing output data...\n',obj.phase);
-               
-               % GET THE VALID DATA PATH LIST
-               [validSamplePaths] = obj.getValidSessionPaths(obj.sessionPath);
-               numSamples = numel(validSamplePaths);
-               
-               % COLLATE MEAN DATA OVER SAMPLES
-               summaryData = struct('meanCollisions',0,...
-                                    'meanWaypoints',0,....
-                                    'minSeparation',0,...
-                                    'maxSeparation',0,...
-                                    'meanLoopTime',0,...
-                                    'minLoopTime',0,...
-                                    'maxLoopTime',0,...
-                                    'meanLoopTimeSeries',[],...
-                                    'meanTimeVector',[]);
-                                
-               % MOVE THROUGH THE SESSION SAMPLES                 
-               for sampleNum = 1:numSamples
-                   % EVALUATE EVENT DATA AT A GIVEN SESSION PATH
-                   absSamplePath = strcat(obj.sessionPath,'\',validSamplePaths(sampleNum));
-                   [sample,isSuccessful] = obj.importPathData(absSamplePath);
-                   if ~isSuccessful
-                       continue
-                   end
-                   
-                   % ////// UPDATE MONTE-CARLO DATA WITH NEW SAMPLE ///////
-                   % UPDATE MEAN EVENT STATS
-                   [collisions,waypoints] = obj.getEventStatistics(sample);
-                   summaryData.meanCollisions = summaryData.meanCollisions + collisions/numSamples;
-                   summaryData.meanWaypoints  = summaryData.meanWaypoints + waypoints/numSamples;
-                   % UPDATE MEAN SEPARATION STATS
-                   [minSeparation,maxSeparation] = obj.getTrajectoryStatistics(sample);
-                   summaryData.minSeparation = summaryData.minSeparation + minSeparation/numSamples;
-                   summaryData.maxSeparation = summaryData.maxSeparation + maxSeparation/numSamples;
-                   % UPDATE MEAN AGENT/ALGORITHM TIMING PARAMETERS
-                   [mean_dt,min_dt,max_dt,dt_timeSeries,timeVector] = obj.getAgentTimingStatistics(sample);
-                   summaryData.meanLoopTime = summaryData.meanLoopTime + mean_dt/numSamples;
-                   summaryData.minLoopTime = summaryData.minLoopTime + min_dt/numSamples;
-                   summaryData.maxLoopTime = summaryData.maxLoopTime + max_dt/numSamples;
-                   summaryData.meanTimeVector = timeVector;
-                   if isempty(summaryData.meanLoopTimeSeries)
-                       % IF THIS IS THE FIRST CYCLE-SAMPLE
-                       summaryData.meanLoopTimeSeries = dt_timeSeries/obj.cycles;
-                   else
-                       % IF THE CURRENT MEAN VECTOR IS LONGER THAN THE CYCLE-SAMPLE
-                       summaryData.meanLoopTimeSeries = summaryData.meanLoopTimeSeries + dt_timeSeries/numSamples;
-                   end
-                   % PURGE SAMPLE
-                   clear sample absSamplePath
-               end
-               
-               % ////////// GENERATE THE KNOWN OUTPUT FIGURES /////////////
-               % THE AGENT COMPUTATIONAL TIME TIME-SERIES
-               obj.get_MC_timeSeries(summaryData);
-
-               % PUSH TO DATA TO OUTPUT DIRECTORY
-               save(strcat(obj.sessionPath,'\summaryData.mat'),'summaryData');
-               filePath = strcat(obj.sessionPath,'\summaryData.csv');
-               writetable(struct2table(summaryData,'AsArray',true),filePath);
-               
-               % PUSH SUMMARY LABEL 
-               obj.writeSessionDescriptor();
-               
-%                % CHECK WAIT-BAR INTERACTION
-%                if getappdata(wbHandle,'canceling')
-%                    delete(wbHandle);
-%                    break
-%                else
-%                    % UPDATE THE WAIT-BAR PROGRESS
-%                    wbStatus = sprintf('Session progress (%s/%s)',num2str(study),num2str(numStudies));
-%                    waitbar(study/numStudies,wbHandle,wbStatus);
-%                end
-               
-               % CLOSE FIGURES
-               close all;
+               % //////////////////////////////////////////////////////////
+               clearvars -except obj highestLevelPath
            end
            
-           fprintf('\n[%s]\t..Exiting.\n',obj.phase);
-           % SHUTDOWN IF REQUESTED
-           if obj.shutDownOnComplete
-               fprintf('\n[%s]\t...shutting down PC.\n',obj.phase);
-               system('shutdown -s');
+           % //////////////////// DATA IMPORTATION ////////////////////////
+           % The number of data points imported can potentially be very
+           % large. For this reason, the parallel pool is retained.
+           % The data that will be imported:
+           obj.phase = 'ANALYSIS';
+           
+           % GET LIST OF OUTPUT DATA LOCATIONS BY SESSION
+           [sessionList] = obj.getPathSubDirectories(highestLevelPath);
+           sessionLabelVector = obj.sessionLabels;
+           if obj.threadPool
+               parfor i = 1:obj.sessions
+                   % SESSION PATH
+                   sessionPath = [highestLevelPath,'\',sessionList{i}];
+                   % COMPUTE SESSION BASED STATISTICS 
+                   summaryData(i) = obj.computeSessionAnalyitics(sessionPath);
+                   % ADD GENERAL FIELDS
+                   summaryData(i).label = sessionLabelVector{i};
+               end
+           else
+               for i = 1:obj.sessions
+                   % SESSION PATH
+                   sessionPath = [highestLevelPath,'\',sessionList{i}];
+                   % COMPUTE SESSION BASED STATISTICS 
+                   summaryData(i) = obj.computeSessionAnalyitics(sessionPath);
+                   % ADD GENERAL FIELDS
+                   summaryData(i).label = sessionLabelVector{i};
+               end
            end
-           clearvars -except summaryData obj
+           % /////// CALCULATE THE MONTE-CARLO INSTANCE STATISTICS ////////
+           % Using the data collected from each of the monte-carlo sessions
+           % we can calculate and compare statistics from all sessions.
+           obj.phase = 'OUTPUT';
+           
+           studyOutputPath = [highestLevelPath,'\'];
+           
+           % GET THE OpenMAS FIGURE PROPERTIES STRUCTURE (for continuity)
+           [figureProperties] = OMAS_figureProperties();
+                     
+           % GENERATE THE MEAN COMPUTATIONAL TIMES
+           obj.get_meanComputationTimeSeries(figureProperties,studyOutputPath,summaryData);
+           % GENERATE THE FIGURES COMPARING MEAN COMPUTATIONAL TIMES TO AGENT POPULATION
+           obj.get_meanComputationTimesVsPopulation(figureProperties,studyOutputPath,summaryData);
+           % GENERATE THE FIGURES COMPARING MEAN NUMBER OF COLLISIONS TO AGENT POPULATION
+           obj.get_meanCollisionsVsPopulation(figureProperties,studyOutputPath,summaryData);
+           % //////////////////////////////////////////////////////////////
+           
+           % KILL THE POOL WHEN ALL SESSIONS/STUDIES ARE COMPLETE
+           if obj.threadPool
+               obj.threadpoolInterface('KILL');
+           end
        end
-       % IMPORT A SESSION FROM PATH
-       function [sessionSample,isSuccessful] = importPathData(obj,sessionPath)
-           % This function is designed to import the OpenMAS session data
-           % structures from a provided path as a more lean way of
-           % importing data.          
+       % COMPUTE ANALYSIS OVER A SESSIONS - CYCLE SET
+       function [summaryData] = computeSessionAnalyitics(obj,sessionPath)
+           % This function executes a series of basic analyses based on the
+           % populated cycle directories. This is essentially the mean data
+           % from the cycles described by the session conditions.
            
-           sessionSample = [];
-           isSuccessful = 0;
+           % GET THE VALID SESSIONS CREATED
+           [cycleDirectories] = obj.getValidCycleDirectories(sessionPath);
+           totalSamples = numel(cycleDirectories);
            
-           % INPUT HANDLING
-           if iscell(sessionPath)
-               sessionPath = char(sessionPath);
-           elseif ~ischar(sessionPath)
-               warning('Please provide a valid path to the session directory');
-               return
-           end
-
-           % IMPORT THE SESSION .MAT FILES
-           sessionSample = cell2struct(cell(size(obj.OMASFileNames)),obj.OMASFileNames,2);
-           % FOR EACH KNOWN DATA OBJECT
-           for OMASfile = 1:numel(obj.OMASFileNames)
-               % PATH TO OMAS VARIABLES
-               filePath = strcat(sessionPath,'\',obj.OMASFileNames{OMASfile},'.mat');
-               try
-                   load(filePath,'-mat');
-                   % IMPORT FILE AS VARIABLE
-                   sessionSample.(obj.OMASFileNames{OMASfile}) = eval(obj.OMASFileNames{OMASfile});
-               catch
-                   warning('Unable to import data from:%s',filePath);
-               end
-           end
+           % CREATE THE SUMMARY CSV
+           fileName = [sessionPath,'\','summaryData.csv'];
+           headerList = {'collisions','waypoints','mean_dt','min_dt','max_dt','minSeparation','maxSeparation'};
+           obj.pushDataToCSV(fileName,1,headerList)
            
-           if ~isempty(sessionSample)
-               isSuccessful = 1;
-           end
+           % CREATE CONTAINER
+           summaryData = struct(...
+               'label',[],...
+               'agents',[],...
+               'waypoints',[],...
+               'mean_collisions',0,...
+               'mean_waypoints',0,...
+               'mean_minSeparation',0,...
+               'mean_maxSeparation',0,...
+               'mean_loopTime',0,...
+               'mean_minLoopTime',0,...
+               'mean_maxLoopTime',0,...
+               'mean_timeVector',0,...
+               'dt_timeSeries',0);
            
-           % SEPERATE THE DATA STREAMS
-           clearvars -except sessionSample isSuccessful
-       end
-       % IMPORT A SESSION FROM CYCLE NUMBER
-       function [sessionSample] = importCycleData(obj,cycle)
-           % This function extracts the DATA, META, EVENTS structures and
-           % return them collectively as a sample object.
+           % GET THE DATA FROM THE FIRST CYCLE
+           [cycleSample,~] = obj.importPathData(obj.systemFiles,[sessionPath,'\',cycleDirectories{1}]);          
+           % GET THE NUMBER OF AGENTS IN THE SIMULATION
+           % This is only valid if all cycles are computed with the same
+           % OMAS_settings, which they should be.
+           summaryData.agents = sum([cycleSample.META.OBJECTS(:).type] == OMAS_objectType.agent);
+           summaryData.waypoints = sum([cycleSample.META.OBJECTS(:).type] == OMAS_objectType.waypoint);
            
-           % INPUT HANDLING
-           if ~exist('cycle','var')
-               cycle = 1;
-           end
-           
-           % FETCH SESSION FOLDER SET
-           illegalPaths = {'.','..'};
-           rawDirectories = dir(obj.sessionPath);
-           % OMIT KNOWN BAD PATHS
-           sessionIndex = rawDirectories(~ismember({rawDirectories.name},illegalPaths));
-           % OMIT NON-FOLDERS ( JUST THE LIST OF SESSION DIRECTORIES )
-           sessionIndex = sessionIndex([sessionIndex.isdir] == 1);
-           
-           if isempty(sessionIndex(cycle).name)
-               warning('No cycle data available.');
-               sessionSample = [];
-               return
-           end
-           
-           % CYCLES/SESSIONS ARE ASSUMED IN FOLDER ORDER
-           cyclePath = strcat(obj.sessionPath,'\',sessionIndex(cycle).name);
-           % IMPORT THE SESSION .MAT FILES
-           sessionSample = cell2struct(cell(size(obj.OMASFileNames)),obj.OMASFileNames,2);
-           for OMASfile = 1:numel(obj.OMASFileNames)
-               filePath = strcat(cyclePath,'\',obj.OMASFileNames{OMASfile},'.mat');
-               try
-                   load(filePath,'-mat');
-                   % IMPORT FILE AS VARIABLE
-                   sessionSample.(obj.OMASFileNames{OMASfile}) = eval(obj.OMASFileNames{OMASfile});
-               catch
-                   warning('Unable to import data from:%s',filePath);
-               end
-           end
-           % SEPERATE THE DATA STREAMS
-           clearvars -except sessionSample
-       end
-       % GET THE COMPLETE SESSION DATA STRUCTURES 
-       function [allSamples] = importSession(obj,monteCarloPath)
-           % This function examines a generated session directory to
-           % extract data for data analysis and plot generation.
-           
-           % INPUT HANDLING
-           if ~exist('monteCarloPath','var')
-              monteCarloPath = obj.outputPath; 
-           end
-           
-           % FETCH SESSION FOLDER SET
-           illegalPaths = {'.','..'};
-           rawDirectories = dir(monteCarloPath);
-           totalSessions = numel(rawDirectories) - numel(illegalPaths);
-           % OMIT KNOWN BAD PATHS
-           sessionIndex = rawDirectories(~ismember({rawDirectories.name},illegalPaths));
-           
-           % BEGIN MOVING THROUGH THE VALID SESSION DIRECTORIES
-           allSamples = struct('DATA',[],'META',[],'EVENTS',[]);
-           for sessionID = 1:totalSessions
-               % PATH TO EACH OMAS SESSION DIRECTORY
-               tempSessionPath = strcat(monteCarloPath,'\',sessionIndex(sessionID).name);
+           clearvars cycleSample
+            
+           % /////////////// BEGIN RUNNING THROUGH CYCLES /////////////////
+           for i = 1:totalSamples
+               % THE PATH CYCLES
+               cyclePath = [sessionPath,'\',cycleDirectories{i}];
+               % IMPORT THE CYCLE SAMPLE
+               [cycleSample,~] = obj.importPathData(obj.systemFiles,cyclePath);
                
-               % IMPORT THE SESSION .MAT FILES
-               for OMASfile = 1:numel(obj.OMASFileNames)
-                   dataPath = strcat(tempSessionPath,'\',obj.OMASFileNames{OMASfile},'.mat');
-                   try
-                       load(dataPath,'-mat');
-                       % IMPORT FILE AS VARIABLE
-                       allSamples(sessionID).(obj.OMASFileNames{OMASfile}) = eval(obj.OMASFileNames{OMASfile});
-                   catch
-                       warning('Unable to import data from:%s',dataPath);
-                   end
-               end
+               % //////////////// COMPUTE CYCLE DATA //////////////////////
+               % COMPUTE THE AGENT-TIMING STATISTICS
+               [mean_dt,min_dt,max_dt,dt_timeSeries,timeVector] = obj.cycle_timingAnalytics(cycleSample.META,cycleSample.OBJECTS);
+               % COMPUTE THE AGENT-TRAJECTORY STATISTICS
+               [minSeparation,maxSeparation] = obj.cycle_trajectoryAnalytics(cycleSample.META,cycleSample.DATA);
+               % COMPUTE THE CYCLE - EVENT BASED STATISTICS 
+               [collisions,waypoints] = obj.cycle_eventAnalytics(cycleSample.DATA);
+               % //////////////////////////////////////////////////////////
+               
+               % PUSH CYCLE DATA TO .CSV (for reference)
+               obj.pushDataToCSV(fileName,0,[collisions,waypoints,mean_dt,min_dt,max_dt,minSeparation,maxSeparation])
+               
+               % //////////////// UPDATE MEAN VALUES //////////////////////
+               summaryData.mean_collisions     = summaryData.mean_collisions + collisions/totalSamples;
+               summaryData.mean_waypoints      = summaryData.mean_waypoints + waypoints/totalSamples;
+               summaryData.mean_minSeparation  = summaryData.mean_minSeparation + minSeparation/totalSamples;
+               summaryData.mean_maxSeparation  =  summaryData.mean_maxSeparation + maxSeparation/totalSamples;
+               % COMPUTE THE MEAN TIMING PARAMETERS
+               summaryData.mean_loopTime    = summaryData.mean_loopTime + mean_dt/totalSamples;
+               summaryData.mean_minLoopTime = summaryData.mean_minLoopTime + min_dt/totalSamples;
+               summaryData.mean_maxLoopTime = summaryData.mean_maxLoopTime + max_dt/totalSamples;
+               summaryData.mean_timeVector  = timeVector;
+               summaryData.dt_timeSeries    = summaryData.dt_timeSeries + dt_timeSeries/totalSamples;
+
+               % CLEAR REDUNDANT VARIABLES
+               clearvars -except obj sessionPath cycleDirectories totalSamples fileName summaryData
            end
-           
-           % SEPERATE THE DATA STREAMS
-           clearvars -except allSamples
+           % //////////// PUSH SESSION MEAN DATA TO .mat FILE /////////////
+           save([sessionPath,'\meanData.mat'], '-struct', 'summaryData');
+           clearvars -except summaryData;
        end
    end
-   % //////////////////// SAMPLE DATA INTERACTIONS ////////////////////////
+   
+    %% ////////////////////////// ANALYTICS /////////////////////////////// 
    methods (Static)
-       % GET TRAJECTORY STATISTICS
-       function [minSeparation,maxSeparation] = getTrajectoryStatistics(sample)
+       % COMPUTE THE CYCLE AGENT TRAJECTORY STATISTICS
+       function [minSeparation,maxSeparation] = cycle_trajectoryAnalytics(cycle_META,cycle_DATA)
            % This function is designed to recover relevant trajectory
            % statistics and return them as representative samples.
-%            DATA = sample.DATA;
-%            SIM  = sample.META;
-           
+
            % BUILD OBJECT SET FOR ALL NON-WAYPOINTS
-           objectMETA = sample.META.OBJECTS([sample.META.OBJECTS.type] ~= OMAS_objectType.waypoint);
-           [LIA,LOCB] = ismember(sample.META.globalIDvector,[objectMETA.objectID]);
+           objectMETA = cycle_META.OBJECTS([cycle_META.OBJECTS.type] ~= OMAS_objectType.waypoint);
+           [LIA,LOCB] = ismember(cycle_META.globalIDvector,[objectMETA.objectID]);
            collidableIDs = LOCB(LIA);
            
            % OUTPUT CONTAINER
-           separationTimeSeries = inf(numel(collidableIDs),numel(collidableIDs),sample.META.TIME.numSteps);
+           separationTimeSeries = inf(numel(collidableIDs),numel(collidableIDs),cycle_META.TIME.numSteps);
            for IDnumA = 1:numel(collidableIDs)
                % THE AGENT STATES
-               [objectStatesA] = OMAS_getTrajectoryData(sample.DATA,collidableIDs(IDnumA));
+               [objectStatesA] = OMAS_getTrajectoryData(cycle_DATA,collidableIDs(IDnumA));
                
                for IDnumB = 1:numel(collidableIDs)
                    if IDnumA == IDnumB
@@ -340,7 +262,7 @@ classdef OMAS_monteCarlo
                        continue
                    else
                        % GET THE AGENT STATE TIMESERIES
-                       objectStatesB = OMAS_getTrajectoryData(sample.DATA,collidableIDs(IDnumB));
+                       objectStatesB = OMAS_getTrajectoryData(cycle_DATA,collidableIDs(IDnumB));
                        centroidSeparations = objectStatesB(1:3,:) - objectStatesA(1:3,:);  % seperation of the centroids
                        centroidSeparations = sqrt(sum(centroidSeparations.^2,1));
                        % STORE IN SEPERATION TIMESERIES MATRIX
@@ -349,32 +271,32 @@ classdef OMAS_monteCarlo
                end
            end
            % MIN AND MAXIMUM SEPERATION MATRICES [IDA by IDB]
-           %                 minABAxes = collidableIDs;
-           minABMatrix = min(separationTimeSeries,[],3);              % Minimum agent-object separations over the timeseries
-           maxABMatrix = max(separationTimeSeries,[],3);              % Maximum agent-object separations over the timeseries
+           minABMatrix = min(separationTimeSeries,[],3);                   % Minimum agent-object separations over the timeseries
+           maxABMatrix = max(separationTimeSeries,[],3);                   % Maximum agent-object separations over the timeseries
            % GET THE MINIMUM SEPARATION FOR ALL COLLIDABLES FOR THE COMPLETE TIMESERIES
            minSeparation = min(minABMatrix(~isinf(minABMatrix)));
            maxSeparation = max(maxABMatrix(~isinf(maxABMatrix)));
        end
-       % GET AGENT COMPUTATION STATISTICS 
-       function [mean_dt,min_dt,max_dt,dt_timeSeries,timeVector] = getAgentTimingStatistics(sample)
+       % COMPUTE THE CYCLE AGENT TIMING STATISTICS
+       function [mean_dt,min_dt,max_dt,dt_timeSeries,timeVector] = cycle_timingAnalytics(cycle_META,cycle_OBJECTS)
+           % GET AGENT COMPUTATION STATISTICS
            % This function computes the agent statistics across all
            % Monte-Carlo cycles.
            
            % // CALCULATE THE AGENT COMPUTATION MEANS FOR EACH CYCLE //
-           metaObjects = sample.META.OBJECTS;
+           metaObjects = cycle_META.OBJECTS;
            agentMetaObjects = metaObjects([metaObjects.type] == OMAS_objectType.agent);
-           agentLogicals = ismember(sample.META.globalIDvector,[agentMetaObjects.objectID]);
+           agentLogicals = ismember(cycle_META.globalIDvector,[agentMetaObjects.objectID]);
            % GET THE AGENT-OBJECT SUBSET
-           agentIndex  = sample.DATA.objectIndex(agentLogicals);
-           agentNumber = sample.META.totalAgents;
-           cycleTimeVector = sample.META.TIME.timeVector;
+           agentNumber = cycle_META.totalAgents;
+           timeVector = cycle_META.TIME.timeVector;
+           agentIndex  = cycle_OBJECTS(agentLogicals);      
            
            % OUTPUTS
            mean_dt = 0;
            max_dt  = 0;
            min_dt  = 0;
-           dt_timeSeries = zeros(size(cycleTimeVector));
+           dt_timeSeries = zeros(size(timeVector));
            
            % CALCULATE THE AGENT MEANS
            for agentNum = 1:agentNumber
@@ -394,7 +316,7 @@ classdef OMAS_monteCarlo
                % PAD THE ALGORITHM TIMERS TO THE FULL TIMEVECTOR LENGTH
                %                    algIndicator = zeros(size(cycleTimeVector));
                %                    algIndicator(1:numel(agentDATA.algorithm_indicator)) = agentDATA.algorithm_indicator;
-               algCompTime = zeros(size(cycleTimeVector));
+               algCompTime = zeros(size(timeVector));
                algCompTime(1:numel(agentDATA.algorithm_indicator)) = agentDATA.algorithm_dt;
                
                % USE THE PADDED TIME-SERIES TO AVERAGE THE MEANS.
@@ -409,363 +331,625 @@ classdef OMAS_monteCarlo
            % COMPUTE MEAN TIME VECTOR
            % The 'meanLoopTimeSeries' is now padded to ensure it is of the
            % same length as TIME.timeVector to yield better manipulation.
-           timeVector = sample.DATA.timeVector;
        end
-       % GET COLLISION STATISTICS FOR THE GIVEN CYCLES
-       function [collisions,waypoints] = getEventStatistics(sample)
-           % This function computes the collision statistics across all
-           % Monte-Carlo cycles.
+       % COMPUTE THE CYCLE EVENT STATISTICS
+       function [collisions,waypoints] = cycle_eventAnalytics(cycle_DATA)
+           % This function extracts the 'EVENT' based data from a completed
+           % OpenMAS cycle. 
            
-           % CALCULATE THE MEAN NUMBER OF COLLISIONS
-           collisions = sample.DATA.collisions;
-           % CALCULATE THE MEAN NUMBER OF ACHIEVED WAYPOINTS
-           waypoints = sample.DATA.waypointsAchieved;
+           assert(isstruct(cycle_DATA),'The sample does not have a DATA sub-structure.');
+                          
+           % GET THE NUMBER OF CYCLE COLLISIONS
+           collisions = cycle_DATA.collisions;
+           % GET THE NUMBER OF CYCLE WAY-POINTS ACHIEVED
+           waypoints  = cycle_DATA.waypointsAchieved;
        end
    end
-   % //////////////////////// CYCLE FUNCTIONS /////////////////////////////
-   methods    
+   %% ///////////////////// DATA HANDLING UTILITIES ///////////////////////
+   methods (Static)
+       % ////////////////////// FIGURE GENERATION /////////////////////////
+       % GET THE COMPARISON OF COLLISIONS TO POPULATION
+       function [figureHandle] = get_meanCollisionsVsPopulation(figureProperties,figurePath,meanData)
+           % This function computes the mean number of collisions against
+           % on population.
+                      
+           % CONFIGURE THE PLOT ATTRIBUTES
+           titleString = 'Collisions with agent population';
+           figurePath = strcat(figurePath,'mean_collisionsVspopulation');
+           figureHandle = figure('Name','OpenMAS Collisions vs population');
+           set(figureHandle,'Position',figureProperties.windowSettings);         % [x y width height]
+           set(figureHandle,'Color',figureProperties.figureColor);               % Background colour
+           axisHandle = axes(figureHandle);
+           
+           % REORDER THE DATA BY NUMBER OF AGENTS
+           [~,orderIndices] = sort([meanData.agents]);
+           meanData = meanData(orderIndices);
+           invalidSessionLabels = {};
+           for i = 1:numel(meanData)
+               % IF THE LABEL HAS ALREADY BEEN COMPARED
+               if any(ismember(invalidSessionLabels,meanData(i).label))
+                   continue
+               end
+               % ADD THE LABEL TO PREVIOUSLY COMPARED LIST
+               invalidSessionLabels = horzcat(invalidSessionLabels,meanData(i).label);
+               % /////////////// COMPARATIVE MEAN DATAS ///////////////////
+               % THE LOGICALS FOR THAT LABEL
+               labelLogical = ismember({meanData.label},meanData(i).label);
+               labelSeries = meanData(labelLogical);
+               % PREPARE THE SERIES COMPUTATION TIMES SERIES             
+               collisionSeries = [labelSeries(:).mean_collisions];
+               populationSeries = [labelSeries(:).agents];
+               % DEFINE ERROR BAR PLOT
+               hold on;
+               plot(axisHandle,populationSeries,collisionSeries,...
+                        'LineWidth',figureProperties.LineWidth,...  
+                        'Color',rand(3,1),...
+                        'DisplayName',labelSeries(1).label,...
+                        'Marker','o',...
+                        'MarkerSize',10);
+           end
+           % FIGURE PROPERTIES
+           grid on; box on; grid minor;
+           title(titleString,'fontweight',figureProperties.fontWeight,'fontsize',figureProperties.titleFontSize,'FontSmoothing','on');
+           xlabel('Agent population (n)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
+           ylabel('Mean collisions (s)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
+           legend('Location','northeastoutside');
+           set(gca,'FontSize',figureProperties.axisFontSize,'FontWeight',figureProperties.fontWeight,'FontSmoothing','on');
+           set(gca,'Color',figureProperties.axesColor);
+           hold off;
+           % SAVE THE OUTPUT FIGURE
+           savefig(figureHandle,figurePath);
+           % PUBLISH TO PDF
+           if figureProperties.publish
+               set(figureHandle,'Units','Inches');
+               pos = get(figureHandle,'Position');
+               set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+               print(figureHandle,figurePath,'-dpdf','-r0');
+           end
+       end
+       % GET THE COMPARISON Of MEAN COMPUTATION TIME AND AGENT NUMBER
+       function [figureHandle] = get_meanComputationTimesVsPopulation(figureProperties,figurePath,meanData)
+           % This function computes the mean computation times of each
+           % session against the number of agents in its population.
+                      
+           % CONFIGURE THE PLOT ATTRIBUTES
+           titleString = 'Mean computational times against agent population';
+           figurePath = strcat(figurePath,'mean_computationTimeVspopulation');
+           figureHandle = figure('Name','OpenMAS computation time vs population');
+           set(figureHandle,'Position',figureProperties.windowSettings);         % [x y width height]
+           set(figureHandle,'Color',figureProperties.figureColor);               % Background colour
+           axisHandle = axes(figureHandle);
+           
+           % REORDER THE DATA BY NUMBER OF AGENTS
+           [~,orderIndices] = sort([meanData.agents]);
+           meanData = meanData(orderIndices);
+           invalidSessionLabels = {};
+           for i = 1:numel(meanData)
+               % IF THE LABEL HAS ALREADY BEEN COMPARED
+               if any(ismember(invalidSessionLabels,meanData(i).label))
+                   continue
+               end
+               % ADD THE LABEL TO PREVIOUSLY COMPARED LIST
+               invalidSessionLabels = horzcat(invalidSessionLabels,meanData(i).label);
+               % /////////////// COMPARATIVE MEAN DATAS ///////////////////
+               % THE LOGICALS FOR THAT LABEL
+               labelLogical = ismember({meanData.label},meanData(i).label);
+               labelSeries = meanData(labelLogical);
+               % PREPARE THE SERIES COMPUTATION TIMES SERIES             
+               minSeries = [labelSeries(:).mean_minLoopTime];
+               maxSeries = [labelSeries(:).mean_maxLoopTime];
+               meanSeries = [labelSeries(:).mean_loopTime];
+               populationSeries = [labelSeries(:).agents];
+               % DEFINE ERROR BAR PLOT
+               hold on;
+               errorbar(axisHandle,populationSeries,meanSeries,minSeries,maxSeries,...
+                        'LineWidth',figureProperties.LineWidth,...  
+                        'Color',rand(3,1),...
+                        'DisplayName',labelSeries(1).label,...
+                        'Marker','o',...
+                        'MarkerSize',10);
+           end
+           % FIGURE PROPERTIES
+           grid on; box on; grid minor;
+           title(titleString,'fontweight',figureProperties.fontWeight,'fontsize',figureProperties.titleFontSize,'FontSmoothing','on');
+           xlabel('Agent population (n)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
+           ylabel('Computation Time (s)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
+           legend('Location','northeastoutside');
+           set(gca,'FontSize',figureProperties.axisFontSize,'FontWeight',figureProperties.fontWeight,'FontSmoothing','on');
+           set(gca,'Color',figureProperties.axesColor);
+           hold off;
+           % SAVE THE OUTPUT FIGURE
+           savefig(figureHandle,figurePath);
+           % PUBLISH TO PDF
+           if figureProperties.publish
+               set(figureHandle,'Units','Inches');
+               pos = get(figureHandle,'Position');
+               set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+               print(figureHandle,figurePath,'-dpdf','-r0');
+           end
+       end
+       % GET THE COMPARISON OF MEAN COMPUTATION TIME-SERIES DATA
+       function [figureHandle] = get_meanComputationTimeSeries(figureProperties,figurePath,meanData)
+           % This function computes the mean computation time-series of all
+           % agents and compares them with each session.
+           
+           % ASSUMPTIONS:
+           % meanData - The mean times are given in seconds.
+           
+           
+           % CONFIGURE THE PLOT ATTRIBUTES
+           titleString = 'Mean computational time series.';
+           figurePath = strcat(figurePath,'mean_computationTimes');
+           figureHandle = figure('Name','OpenMAS mean computation timeseries');
+           set(figureHandle,'Position',figureProperties.windowSettings);         % [x y width height]
+           set(figureHandle,'Color',figureProperties.figureColor);               % Background colour
+           axisHandle = axes(figureHandle);
+                      
+           totalSamples = numel(meanData);
+           for sessionNum = 1:totalSamples
+               hold on;
+               % NAME BASED ON SESSION
+               displayName = ['-agents(',num2str(meanData(sessionNum).agents),...
+                              ')-label(',meanData(sessionNum).label,')'];
+               % PLOT THE MEAN TRACES FOR EACH SESSION
+               plot(axisHandle,...
+                    meanData(sessionNum).mean_timeVector',...
+                    meanData(sessionNum).dt_timeSeries',...
+                    'Color',rand(3,1),...
+                    'LineWidth',figureProperties.LineWidth,...
+                    'DisplayName',displayName);
+           end          
+           grid on; box on; grid minor;
+           title(titleString,'fontweight',figureProperties.fontWeight,'fontsize',figureProperties.titleFontSize,'FontSmoothing','on');
+           xlabel('t(s)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
+           ylabel('Computation Time(s)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
+           legend('Location','northeastoutside');
+           set(gca,'FontSize',figureProperties.axisFontSize,'FontWeight',figureProperties.fontWeight,'FontSmoothing','on');
+           set(gca,'Color',figureProperties.axesColor);
+           hold off;
+           % SAVE THE OUTPUT FIGURE
+           savefig(figureHandle,figurePath);
+           % PUBLISH TO PDF
+           if figureProperties.publish
+               set(figureHandle,'Units','Inches');
+               pos = get(figureHandle,'Position');
+               set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+               print(figureHandle,figurePath,'-dpdf','-r0');
+           end
+       end
+       
+       % ////////// EXPORTING //////////
+       % PUSH VALUES TO CSV FILE
+       function pushDataToCSV(filename,isHeaderLogical,rowData)
+           % This function is designed to provide a mechanism for entering
+           % values into a csv file with a designated header on the first
+           % row.
+           
+           if isHeaderLogical && iscell(rowData)
+                % //////// write the header string to the file ////////////
+                %turn the headers into a single comma seperated string if it is a cell
+                %array, 
+                r = 0;
+                header_string = rowData{1};
+                for i = 2:length(rowData)
+                    header_string = [header_string,',',rowData{i}];
+                end
+                %if the data has an offset shifting it right then blank commas must
+                %be inserted to match
+                if r>0
+                    for i=1:r
+                        header_string = [',',header_string];
+                    end
+                end
+
+                %write the string to a file
+                fid = fopen(filename,'w');
+                fprintf(fid,'%s\r\n',header_string);
+                fclose(fid);
+           else
+               % APPEND THE HEADER TO THE FILE
+%                fid = fopen(filename,'a');
+               % PUSH MESSAGE TO FILE
+%                fprintf(fid,rowData);
+               c = 0;
+               r = 0;
+               dlmwrite(filename, rowData,'-append','delimiter',',','roffset', r,'coffset',c);
+           
+           end
+%                 cycleData = [collisions,waypoints,mean_dt,min_dt,max_dt];
+%                dlmwrite(fileName,cycleData,'delimiter',',','-append');
+           
+       end
+       % ////////// IMPORTING //////////
+       % IMPORT OMAS FILES FROM A SPECIFIC SESSION DIRECTORY
+       function [cycleSample,isSuccessful] = importPathData(OMASFileNames,cyclePath)
+           % This function imports the specified ".mat" files from the
+           % specified path. This is typically the output path of a given
+           % OpenMAS cycle.
+           
+           cycleSample = [];
+           isSuccessful = 0;
+           
+           % INPUT HANDLING
+           if iscell(cyclePath)
+               cyclePath = char(cyclePath);
+           elseif ~ischar(cyclePath)
+               warning('Please provide a valid path to the session directory');
+               return
+           end
+
+           % IMPORT THE SESSION .MAT FILES
+           cycleSample = cell2struct(cell(size(OMASFileNames)),OMASFileNames,2);
+           
+           % FOR EACH KNOWN DATA OBJECT
+           for fileName = 1:numel(OMASFileNames)
+               % PATH TO OMAS VARIABLES
+               filePath = strcat(cyclePath,'\',OMASFileNames{fileName},'.mat');
+               try
+                   load(filePath,'-mat');
+                   % IMPORT FILE AS VARIABLE
+                   cycleSample.(OMASFileNames{fileName}) = eval(OMASFileNames{fileName});
+               catch importError
+                   warning('Unable to import data from:%s',filePath);
+                   warning(importError.message);
+               end
+           end
+           
+           % DATA HAS BEEN SUCCESSFULLY IMPORTED
+           if ~isempty(cycleSample)
+               isSuccessful = 1;
+           end
+           
+           % SEPERATE THE DATA STREAMS
+           clearvars -except cycleSample isSuccessful
+       end
+       % GET LIST OF ALL VALID SESSION DATAS IN A DIRECTORY
+       function [directorySet]    = getValidCycleDirectories(pathString)
+           % This function is used to infer an analysis parameters given
+           % the files in a provided path. It is assumed that the provided
+           % path contains an index of session data sets.
+           
+           % INPUT CHECKING
+           assert(ischar(pathString),'Please provide a valid path string.');
+           
+           % FETCH SESSION FOLDER SET
+           rawDirectories = dir(pathString);
+           % OMIT KNOWN BAD PATHS
+           directorySet = rawDirectories(~ismember({rawDirectories.name},{'.','..'}));
+           % OMIT NON-FOLDERS ( JUST THE LIST OF SESSION DIRECTORIES )
+           directorySet = directorySet([directorySet.isdir] == 1); 
+           % GET THE PATH STRINGS
+           % GET ONLY CORRECTLY LABELLED SESSION DIRECTORIES
+           directorySet = directorySet(strncmpi({directorySet.name},'cycledata',7));
+           % CONVERT TO lIST OF PATHS
+           directorySet = {directorySet.name}';
+       end
+       % GET LIST OF SUB-DIRECTORIES
+       function [pathDirectories] = getPathSubDirectories(pathString)
+           % INPUT CHECK
+           assert(ischar(pathString),'Please provide a valid path string.');
+           % FETCH SESSION FOLDER SET
+           rawDirectories = dir(pathString);
+           % OMIT KNOWN BAD PATHS
+           pathDirectories = rawDirectories(~ismember({rawDirectories.name},{'.','..'}));
+           % OMIT NON-FOLDERS ( JUST THE LIST OF SESSION DIRECTORIES )
+           pathDirectories = pathDirectories([pathDirectories.isdir] == 1); 
+           % GET THE PATH STRINGS
+           pathDirectories = {pathDirectories.name}';
+           % CLEAR VARIABLES
+           clearvars -except pathDirectories
+       end
+   end
+   
+   %% ///////////////////////// CYCLE FUNCTIONS ///////////////////////////
+   methods
+       % RUN A DEFINED NUMBER OF SEQUENCIAL CYCLES
+       function [obj] = sequentialCycles(obj,sessionPath,objectIndex)
+           % This function computes a monte-carlo sequence of OMAS
+           % instances.
+                     
+           % OPEN LOG (Only one handle is needed)
+           logPath = strcat(sessionPath,'\log.txt'); 
+           
+           % /////////////// BEGIN THE CYCLE ITERATIONS ///////////////////
+           fprintf('\n[%s]\tEXECUTING %d SEQUENTIAL MONTE-CARLO CYCLES...\n\n',obj.phase,obj.cycles);
+           for cycle = 1:obj.cycles
+               fprintf('\n[%s]\tCYCLE %d STARTING.\n\n',obj.phase,cycle);
+               [cycleMessage] = obj.singleCycle(sessionPath,obj.OMAS_settings,objectIndex);
+               fprintf('\n[%s]\tCYCLE %d COMPLETE\n\n',obj.phase,cycle);          
+               % MESSAGE
+               message = sprintf('(Cycle:%d)\t%s',cycle,cycleMessage);
+               % PUSH CYCLE SUMMARY TO LOG FILE
+               obj.pushMessageToLog(logPath,message)
+           end
+           fprintf('[%s]\t%d SEQUENTIAL CYCLES COMPLETE.\n',obj.phase,obj.cycles);
+           % //////////////////////////////////////////////////////////////
+                      
+           % ENSURE CLEARED
+           clearvars -except obj
+       end
        % RUN A DEFINED NUMBER OF PARALLEL CYCLES
-       function [obj,cycle,cycleMessage] = parallelCycles(obj)
-           % This function runs the specified number of cycles in parallel
-           % utilising the Matlab Parallel Toolbox.
+       function [obj] = parallelCycles(obj,sessionPath,objectIndex)
+           % Compute the proposed number of cycles in a parallel manner.
+           % The resulting data generated by each simulation instance is
+           % output to each session directory.
            
            fprintf('[%s]\tConfirming parallel worker pool...\n',obj.phase);
            
            % CHECK THE WORKER POOL IS INITIALISED
-           obj.threadpoolInterface('RENEW');
+           obj.threadpoolInterface('CONFIRM');                             % Confirm the pool
+            
+           % OPEN LOG (Only one handle is needed)
+           logPath = strcat(sessionPath,'\log.txt'); 
            
+           % /////////////// BEGIN THE CYCLE ITERATIONS ///////////////////
            fprintf('\n[%s]\tEXECUTING %s PARALLEL MONTE-CARLO CYCLES...\n\n',obj.phase,num2str(obj.cycles));
-           cycleMessage = cell(1,obj.cycles);
            parfor cycle = 1:obj.cycles
                fprintf('\n[%s]\tCYCLE %d STARTING.\n\n',obj.phase,cycle);
-               try
-                   obj.singleCycle();
-               catch cycleError
-                   warning('\n[%s]\t ...CYCLE %d FAILED.\n\n',obj.phase,cycle);
-                   cycleMessage{cycle} = strcat('\n',cycleError.message);
-               end
+               [cycleMessage] = obj.singleCycle(sessionPath,obj.OMAS_settings,objectIndex);
                fprintf('\n[%s]\tCYCLE %d COMPLETE.\n\n',obj.phase,cycle);
+               % MESSAGE
+               message = sprintf('(Cycle:%d)\t%s',cycle,cycleMessage);
+               % PUSH CYCLE SUMMARY TO LOG FILE
+               obj.pushMessageToLog(logPath,message)
            end
-           % PARSE MESSAGE LOG
-           messageBinary = cellfun('isempty',cycleMessage) ~= 1;           % Flags if message present
-           cycle = find(messageBinary,1, 'first');                         % Get the index of the first error
-           if isempty(cycle)
-               cycle = obj.cycles;
-           end
-           cycleMessage = cycleMessage(messageBinary);  % Build list of total errors
-           cycleMessage = strjoin(cycleMessage);
-           
-           % KILL THE CURRENT THREAD POOL (FREE MEMORY?)
-           obj.threadpoolInterface('KILL');
-           
-           clearvars -except obj cycle cycleMessage
-           
            fprintf('[%s]\t%d PARALLEL CYCLES COMPLETE.\n',obj.phase,obj.cycles);
+           % //////////////////////////////////////////////////////////////
+                                 
+           % ENSURE CLEARED
+           clearvars -except obj
        end
-       % RUN A DEFINED NUMBER OF SEQUENCIAL CYCLES
-       function [obj,cycle,cycleMessage] = sequentialCycles(obj)
-           % This function runs the specified number of cycles sequentially
-           % and returns the collective data for analysis.
-           
-           fprintf('\n[%s]\tEXECUTING %d SEQUENTIAL MONTE-CARLO CYCLES...\n\n',obj.phase,obj.cycles);
-           
-           cycleMessage = [];
-           for cycle = 1:obj.cycles
-               fprintf('\n[%s]\tCYCLE %d STARTING.\n\n',obj.phase,cycle);
-               try
-                   obj.singleCycle();
-               catch cycleError
-                   warning('\n[%s]\t ...CYCLE %d FAILED.\n\n',obj.phase,cycle);
-                   cycleMessage = cycleError.message;
-                   return
-               end
-               clearvars -except obj cycle cycleMessage
-               fprintf('\n[%s]\tCYCLE %d COMPLETE\n\n',obj.phase,cycle);
-           end
-           
-           clearvars -except obj cycle cycleMessage
-           
-           fprintf('[%s]\t%d SEQUENTIAL CYCLES COMPLETE.\n',obj.phase,obj.cycles);
-       end
+   end
+   methods (Static)
        % RUN ONE PARAMETERISED SIMULATION CYCLE
-       function [MC_DATA,MC_META] = singleCycle(obj)
+       function [cycleMessage] = singleCycle(sessionPath,SETTINGS,objectIndex)
            % This function computes a single monte-carlo simulation cycle
-           % using the monte-carlo defined simulation parameters.
+           % using the monte-carlo defined simulation parameters to create 
+           % an instance of the OpenMAS simulation.
+           % INPUTS:
+           % sessionPath - The output directory of the cycles data.
+           % SETTINGS    - The OpenMAS configurations.
+           % objectIndex - The objects defining the scenario.
            
-           % ASSUMPTIONS:
-           % - The parameters of the monte-carlo object are passed to
-           %   OpenMAS directly.
-           % - The local threadpool option must be disabled to allow the
-           %   threads to be used for parallel simulations.
-           
-           
-           % We must perturb the initial conditions of the simulations to
-           % allow variation to occur between cycles.
-           
-           % CREATE A LOCAL COPY OF THE OBJECT INDEX 
-           objectIndex = obj.SETTINGS.objects(obj.sessionNumber,:);
-           objectIndex = objectIndex(cellfun('isempty',objectIndex) == 0); % Omit empty cells
-           
-           % PERTURB THE INITIAL XY POSITIONS
+           % //////////////// PROCESS THE OBJECT INDEX ////////////////////  
+           % PERTURB THE INITIAL XY POSITIONS (VALID FOR 2D & 3D)
            for objectNum = 1:numel(objectIndex)
                try               
-                   % GET THE OBJECTS GLOBAL PROPERTIES
-                   globalParams = objectIndex{objectNum}.VIRTUAL;
-                   % PERTURBATE THE GLOBAL POSITIONS
-                   % globalParams.globalPosition = globalParams.globalPosition + obj.SETTINGS.positionSigma*randn(3,1);    % 3D perturbation
-                   globalParams.globalPosition = globalParams.globalPosition + [obj.SETTINGS.positionSigma*randn(2,1);0]; % 2D perturbation
-                   objectIndex{objectNum}.VIRTUAL = globalParams;
+                   % PERTURB THE GLOBAL POSITIONS
+                   objectIndex{objectNum}.VIRTUAL.globalPosition = ...
+                   + objectIndex{objectNum}.VIRTUAL.globalPosition ...
+                   + [SETTINGS.positionSigma*randn(2,1);0];                % 2D perturbation;
                catch
                    warning('Unable to perturb global position of object %s',num2str(objectNum));
                end
            end
+           clearvars -except sessionPath SETTINGS objectIndex
+           % //////////////////////////////////////////////////////////////
            
-           clearvars -except obj objectIndex
+           % ////// CREATE OpenMAS INSTANCE WITH THE DEFINED SETTINGS /////
+           try
+               OMAS_initialise(...
+                   'duration',SETTINGS.duration,...
+                   'dt',SETTINGS.dt,...                                        % Timing parameters
+                   'figures',SETTINGS.figures,...
+                   'warningDistance',SETTINGS.warningDistance,...
+                   'conditionTolerance',SETTINGS.conditionTolerance,...
+                   'visabilityModifier',SETTINGS.visabilityModifier,...
+                   'threadPool',SETTINGS.threadPool,...                        % Disable the agent-loop thread pool
+                   'verbosity',SETTINGS.verbosity,...
+                   'gui',SETTINGS.gui,...
+                   'monteCarloMode',SETTINGS.monteCarloMode,...
+                   'outputPath',sessionPath,...
+                   'objects',objectIndex);                                     % Enforce monte-carlo file creation
+               % COMPLETION MESSAGE
+               cycleMessage = 'Cycle completed successfully.';
+           catch cycleError
+               % FAILURE MESSAGE
+               warning('\n...cycle error.\n');
+               cycleMessage = cycleError.message;
+           end
+           clearvars -except cycleMessage;
+           % //////////////////////////////////////////////////////////////
            
-           % PASS THE INPUTS INTO THE OMAS INITIALISER
-           [MC_DATA,MC_META] = OMAS_initialise(...
-           'objects',objectIndex,...
-           'duration',obj.SETTINGS.duration,... 
-           'dt',obj.SETTINGS.dt,...                                        % Timing parameters
-           'figures',obj.SETTINGS.figures,...
-           'warningDistance',obj.SETTINGS.warningDistance,...
-           'conditionTolerance',obj.SETTINGS.conditionTolerance,...
-           'visabilityModifier',obj.SETTINGS.visabilityModifier,...
-           'outputPath',obj.sessionPath,...
-           'threadPool',logical(false),...                                 % Disable the agent-loop thread pool
-           'verbosity',obj.SETTINGS.verbosity,...
-           'gui',logical(false),...
-           'monteCarloMode',logical(true));                                % Enforce monte-carlo file creation
-       
-            clearvars -except MC_DATA MC_META
-       
            % PAUSE FOR STABILITY
            pause(0.1); % 0.1s delay
-       end
+       end    
    end
-   % ////////////////////// MONTE-CARLO FIGURES ///////////////////////////
-   methods
-       % PLOT THE MEAN COMPUTATION TIME TIME-SERIES 
-       function [figureHandle] = get_MC_timeSeries(obj,agentData)
-           % This function generates the mean computation time - time
-           % series. 
-           
-           % BRING UP THE FIRST SIMPLE
-           [cycleSample] = obj.importCycleData(1);
-           exampleMETA = cycleSample.META;
-           
-           % GET THE COMPLETE FIGURE PROPERTY SET
-           [figureProperties] = OMAS_figureProperties(exampleMETA.OBJECTS);
-           
-           % META FIGURE PROPERTIES
-           titleString = sprintf('Monte-Carlo (%s cycle) mean computation times',num2str(obj.cycles));
-           figurePath = strcat(obj.sessionPath,'\','computationTimeSeries');
-           figureHandle = figure('Name','Monte-Carlo Analysis: Agent mean computation times');
-           setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.1, 0.90, 0.88]);
-           set(figureHandle,'Position',figureProperties.windowSettings);        % [x y width height]
-           set(figureHandle,'Color',figureProperties.figureColor);          % Background colour 
 
-           % GENERATE THE FIGURE
-           axesHandle = gca;
-           displayData = agentData.meanLoopTimeSeries*100;                 % Convert s to ms
-           lineHandle = plot(axesHandle,agentData.meanTimeVector,displayData);
-           set(lineHandle,'LineWidth',figureProperties.LineWidth);
-       
-           % FIGURE PROPERTIES
-           title(titleString,'fontweight',figureProperties.fontWeight,'fontsize',figureProperties.titleFontSize,'FontSmoothing','on');
-           xlabel(axesHandle,'t (s)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
-           ylabel(axesHandle,'Computation Time (ms)','fontweight',figureProperties.fontWeight,'fontSize',figureProperties.axisFontSize,'FontSmoothing','on');
-           set(axesHandle,'FontSize',figureProperties.axisFontSize,'fontWeight',figureProperties.fontWeight,'FontSmoothing','on');
-           set(axesHandle,'GridAlpha',0.25,'GridColor','k');
-           xlim([ 0 exampleMETA.TIME.endTime]);
-           grid on; box on; hold off;
-           
-           % SAVE FIGURE TO OUTPUT DIRECTORY
-           savefig(figureHandle,figurePath);
-           
-           % SAVE AS PDF
-           set(figureHandle,'Units','Inches');
-           pos = get(figureHandle,'Position');
-           set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3),pos(4)]);
-           print(figureHandle,figurePath,'-dpdf','-r0');
-       end
-       % MONTE-CARLO SIMULATION
-       function writeSessionDescriptor(obj) 
-           % This function aims to write reference information to the study
-           % directory for quick reference.
-           
-           % WRITE THE OMAS CONFIGURATION TO THE CSV 
-           simParams = rmfield(obj.SETTINGS,'objects');
-           filePath = strcat(obj.sessionPath,'\OMAS_configuration.csv');
-           writetable(struct2table(simParams),filePath);
-           
-           % WRITE THE OBJECT SET TO THE CSV
-           objectIndex = obj.SETTINGS.objects(obj.sessionNumber,:);
-           objectIndex = objectIndex(cellfun('isempty',objectIndex) == 0); % Remove empty cells
-           
-           filePath = strcat(obj.sessionPath,'\OMAS_objectNames.csv');
-           fid = fopen(filePath, 'w');
-           fprintf(fid,'ObjectID,Name,Type\n');
-           for row = 1:numel(objectIndex)
-               fprintf(fid,'%d ,%s ,%s\n',(objectIndex{row}.objectID),char(objectIndex{row}.name),char(class(objectIndex{row}))); 
-           end
-           fclose(fid);
-       end
-   end
-   % //////////////////////// SETUP FUNCTIONS /////////////////////////////
+   %% //////////////////// MONTE-CARLO SETUP UTILITIES ////////////////////
    methods (Static)
-       % WRITE LOG-FILE
-       function writeLogFile(filePath,entryString)
-           % This function writes a time and dated entry to the log file.
+       % ////////////////////// FILE OPERATIONS ///////////////////////////
+       % PUSH MESSAGE TO LOG
+       function pushMessageToLog(sessionPath,message)
+           % This function takes a string resulting from a session and
+           % generates the corresponding entry in the specified file.
            
-           filePath = strcat(filePath,'\log.log');
-           % GET CURRENT DATE AND TIME
-           tString = datestr(datetime('now'),' yyyy-mm-dd @ HH-MM-SS');  
-           % WRITE ENTRY TO FILE
-           fid = fopen(filePath, 'a+');
-           fprintf(fid,'[%s]\t%s\n',tString,entryString); 
-           fclose(fid); 
-       end
-       % CONDITION OUTPUT DIRECTORY
-       function [sessionIndex]  = getValidSessionPaths(sessionPath)
-           % This function is used to infer an analysis parameters given
-           % the files in a provided path. It is assumed that the provided
-           % path contains an index of session data sets.
+           % OPEN LOG (Only one handle is needed)
+           log = fopen(sessionPath, 'a');
+           
+           timeStamp = datestr(datetime('now'),'HH-MM-SS');
+           entryString = sprintf('[%s]\t%s\n',timeStamp,char(message));
+           % PUSH MESSAGE TO FILE
+           fprintf(log,entryString);
 
-           assert(ischar(sessionPath),'Please provide a valid path string.');
-           
-           % FETCH SESSION FOLDER SET
-           illegalPaths = {'.','..'};
-           rawDirectories = dir(sessionPath);
-           % OMIT KNOWN BAD PATHS
-           sessionIndex = rawDirectories(~ismember({rawDirectories.name},illegalPaths));
-           % OMIT NON-FOLDERS ( JUST THE LIST OF SESSION DIRECTORIES )
-           sessionIndex = sessionIndex([sessionIndex.isdir] == 1); 
-           % GET ONLY CORRECTLY LABELLED SESSION DIRECTORIES
-           sessionIndex = sessionIndex(strncmpi({sessionIndex.name},'sessiondata',7));
-           % CONVERT TO lIST OF PATHS
-           sessionIndex = {sessionIndex.name};
+           % CLOSE LOG
+           fclose(log);     % For compatability 
        end
-       % BUILD THE RELATIVE MONTE-CARLO DIRECTORY
-       function [monteCarloPath] = getMonteCarloDirectory(outputPath,numObjects,numCycles)
-           % This function build the monte-carlo data output directory.
+       % BUILD THE RELATIVE SESSION DIRECTORY
+       function [sessionPath]    = createSessionDirectory(outputPath,fileLabel)
+           % This function build the monte-carlo data output directory. The
+           % naming of the file is of the form:
+           % 'sessiondata 2018-09-28 Aobjects Bcycles
+           
+           % INPUT CHECKING
+           if nargin < 2
+               fileLabel = [];
+           end 
            
            % CONFIRM PATH CONVENTION
            if ~strcmp(outputPath(end),'\')
                outputPath = strcat(outputPath,'\');
            end
-           
+                
            % GENERATE THE MONTE-CARLO SUBDIRECTORY
-           t = datestr(datetime('now'),' yyyy-mm-dd @ HH-MM-SS');          % Record current time
-           fileString = sprintf('monteCarlo sessiondata %s %dobjects %dcycles',t,numObjects,numCycles); % Build filestring
-           monteCarloPath = strcat(outputPath,fileString);
+           timeStamp = datestr(datetime('now'),'yyyy-mm-dd@HH-MM-SS');              % Record current time
+           fileString = sprintf('[%s] sessiondata%s',timeStamp,fileLabel);  % Build filestring
+           sessionPath = strcat(outputPath,fileString);
+           
            % CREATE OUTPUT DIRECTORY
-           assert(mkdir(monteCarloPath) == 1,'Unable to create Monte-Carlo output directory');
+           assert(mkdir(sessionPath) == 1,'Unable to create session directory.');
+       end
+       % BUILD THE RELATIVE MONTE-CARLO DIRECTORY
+       function [monteCarloPath] = createMonteCarloDirectory(outputPath,fileLabel)
+           % This function build the monte-carlo data output directory. The
+           % naming of the file is of the form:
+           % 'monteCarlo sessiondata 2018-09-28 Aobjects Bcycles
+           
+           % INPUT CHECKING
+           if nargin < 2
+               fileLabel = [];
+           end 
+           
+           % CONFIRM PATH CONVENTION
+           if ~strcmp(outputPath(end),'\')
+               outputPath = strcat(outputPath,'\');
+           end
+                
+           % GENERATE THE MONTE-CARLO SUBDIRECTORY
+           timeStamp = datestr(datetime('now'),'yyyy-mm-dd@HH-MM-SS');              % Record current time
+           fileString = sprintf('[%s] monteCarloInstance %s',timeStamp,fileLabel);   % Build filestring
+           monteCarloPath = strcat(outputPath,fileString);
+           
+           % CREATE OUTPUT DIRECTORY
+           assert(mkdir(monteCarloPath) == 1,'Unable to create Monte-Carlo output directory.');
        end
        
+       % ///////////////// MONTE-CARLO SETUP UTILITIES ////////////////////
        % CONFIGURE THE PARALLEL/MULTITHREADED WORKERS
-       function [poolObject] = threadpoolInterface(conf)
+       function [poolObject]    = threadpoolInterface(conf)
            % This function is designed to generate a threadpool for the forth comming
            % application if one does not already exist. This is only necessary if the
            % aagent loops are sufficiently complicated (i.e. dt > 1s)
            % OUTPUTS:
            % poolObj - The pool object
            
-           % PREPARE PARALLEL POOL
-           poolObject = gcp('nocreate'); % Get current pool status 
-           
            switch upper(char(conf))
                case 'CONFIRM'
-                    return
-               case 'RENEW'
-                   % TERMINATE THE POOL OBJECT
-                   delete(poolObject);
+                   fprintf('[MONTE-CARLO]\tConfirming parallel pool...\n');
+                   % If exists, dont recreate.
+                   poolObject = gcp('nocreate'); % Get current pool status
+                   if isempty(poolObject)
+                       % Open new pool for the monte-carlo simulations
+                       simCluster = parcluster('local');
+                       % CREATE THE PARALLEL POOL OBJECT
+                       poolObject = parpool(simCluster,'IdleTimeout',30,'SpmdEnabled',true); % Generate thread pool, 2hour timeout         
+                   end
+                case 'RENEW'
                    fprintf('[MONTE-CARLO]\tRenewing parallel pool...\n');
+                   % TERMINATE THE POOL OBJECT
+                   delete(gcp('nocreate'));
+                   
                    % Open new pool for the monte-carlo simulations
                    simCluster = parcluster('local');
                    % CREATE THE PARALLEL POOL OBJECT
-                   poolObject = parpool(simCluster,...
-                                        'IdleTimeout',30,...               % Generate thread pool, 2hour timeout
-                                        'SpmdEnabled',true);
-                                    
+                   poolObject = parpool(simCluster,'IdleTimeout',30,'SpmdEnabled',true); % Generate thread pool, 2hour timeout         
                    fprintf('[MONTE-CARLO]\t... Done.\n');                 
                case 'KILL'
                    fprintf('[MONTE-CARLO]\tDeleting current active pool...\n');
-                   delete(poolObject);
+                   delete(gcp('nocreate'));
                    fprintf('[MONTE-CARLO]\t... Done.\n');
+                   return
                otherwise
                    warning('Unrecognised threadpool interface command.');
                    return
            end
-           
            fprintf('[MONTE-CARLO]\t... parallel pool ready.\n');
-           
-%            % PREPARE PARALLEL POOL
-%            p = gcp('nocreate'); % Get current pool status
-%            if ~isempty(p)
-%                % A thread pool exists
-%                fprintf('[MONTE-CARLO]\t... Existing parallel pool found.\n');
-%                poolObject = p;
-%                return
-%            else
-%                fprintf('[MONTE-CARLO]\t... no active pool found.\n');
-%            end
-%            
-%            % Open new pool for the monte-carlo simulations
-%            fprintf('[MONTE-CARLO]\tOpening new parallel pool...\n');
-%            simCluster = parcluster('local');
-%            poolObject = parpool(simCluster,...
-%                                 'IdleTimeout', 30,...   % Generate thread pool, 2hour timeout
-%                                 'SpmdEnabled',true);
-           
-%            fprintf('[MONTE-CARLO]\t... parallel pool ready.\n');
        end
        % PARSE A GENERIC INPUT SET AGAINST A DEFAULT CONFIG STRUCTURE
-       function [config] = configurationParser(defaultConfig,inputParameters)
-            % This function is designed to parse a generic set of user
-            % inputs and allow them to be compared to a default input
-            % structure. This should be called in the class constructor
-             
-            % MOVE THROUGH THE PARAMETER PAIRS (i.e. ,'agents',agentIndex,)
-            for parameterIndex = 1:numel(inputParameters)
-                % FOR EACH USER-DEFINED PARAMETER
-                givenParameter = inputParameters{parameterIndex};
-                if ~ischar(givenParameter)
-                    continue
-                else
-                    % IF THE OBJECT HAS A PROPERTY BY THAT NAME
-                    if isstruct(defaultConfig) && isfield(defaultConfig,givenParameter)
-                        defaultConfig.(givenParameter) = inputParameters{parameterIndex + 1};  % Make a substitution
-                    end
-                    if ~isstruct(defaultConfig) && isprop(defaultConfig,givenParameter)
-                        defaultConfig.(givenParameter) = inputParameters{parameterIndex + 1};   % Make a substitution
-                    end
-                end
-            end 
-            % ERROR CHECKING //////////////////////////////////////////////
-            % CHECK AGENTS HAVE BEEN PROVIDED
-            if isfield(defaultConfig,'objects') && isempty(defaultConfig.objects)
-                error('You must specify and object cell array using the (objects) input parameter'); 
-            end
-            config = defaultConfig;
+       function [parsedConfig]  = configurationParser(defaultConfig,inputParameters)
+           % This function is designed to parse a generic set of user
+           % inputs and allow them to be compared to a default input
+           % structure. This should be called in the class constructor
+           
+           % IF THE INPUT PARAMETERS ARE PROVIDED AS A STRUCTURE
+           if isstruct(inputParameters)
+               fieldLabels = fieldnames(inputParameters);
+               parameterVector = cell(2*numel(fieldLabels),1);
+               for i = 1:numel(fieldLabels)
+                   parameterVector{2*i - 1} = fieldLabels{i};
+                   parameterVector{2*i} = inputParameters.(fieldLabels{i});
+               end
+               inputParameters = parameterVector;
+           end
+           
+           assert(mod(numel(inputParameters),2) == 0,'There are an uneven number of parameter-value pairs.');
+           
+           % ASSIGN CONFIG TEMPLATE
+           parsedConfig = defaultConfig;
+           pairNum = numel(inputParameters)/2;
+           for n = 1:pairNum
+               % PULL PARAMETER/VALUE PAIRS
+               parameterLabel = inputParameters{2*n - 1};
+               parameterValue = inputParameters{2*n};
+               
+               if isstruct(parsedConfig)
+                   % IF THE 'TIME' SUBSTRUCTURE HAS THAT PROPERTY
+                   if isfield(parsedConfig,parameterLabel)
+                       parsedConfig.(parameterLabel) = parameterValue;
+                   end
+               else
+                   % IF THE OBJECT HAS A PROPERTY BY THAT NAME
+                   if isprop(parsedConfig,parameterLabel)
+                       parsedConfig.(parameterLabel) = parameterValue;   % Make a substitution
+                   end
+               end
+           end
        end
-       % GET DEFAULT MONTE-CARLO SETTINGS
-       function [defaultConfig] = getDefaultConfig()
-           % DEFAULT MONTE-CARLO SETTINGS
-           defaultConfig = struct(...
-               'verbosity',0,...                                           % Append simulation parameters
-               'gui',logical(false),...
-               'figures',{{'none'}},...
-               'objects',[],...
-               'warningDistance',10,...
-               'conditionTolerance',1E-3,...
-               'visabilityModifier',1,...
-               'positionSigma',0,...
-               'startTime',0,...
-               'endTime',inf,...
-               'duration',10,...
-               'dt',0.1);
-           % RETURN THE INITIALISED SETTINGS
+       % GET THE DEFAULT MONTE-CARLO SETTINGS
+       function [defaultConfig] = getDefaultMCconfig()
+           % This function generates the default configuration for the
+           % Monte-Carlo instance and the META parameters for all
+           % subsequent OpenMAS instances.
+           
+           [~, userdir] = system('echo %USERPROFILE%');                    % Get desktop path
+           
+           % DEFAULT (GENERIC) MONTE-CARLO SETTINGS
+           defaultConfig = struct();
+           defaultConfig.outputPath = strcat(userdir,'\desktop\US18_data');  
+           % DEFAULT MONTE-CARLO PARAMETERS 
+           defaultConfig.objects = {};                                     % The object set
+           defaultConfig.cycles = 1;                                       % Default number of cycles
+           defaultConfig.phase = 'MONTE-CARLO';
+           defaultConfig.threadPool = logical(false);                      % Complete in a asynchronous way
+           defaultConfig.shutDownOnComplete = logical(false);              % Shutdown on completion
+           defaultConfig.outputPath = pwd;
+       end
+       % GET THE DEFAULT OMAS-INSTANCE SETTINGS
+       function [defaultConfig] = getDefaultOMASConfig()
+           % This function creates a default configuration for any OpenMAS
+           % configuration called by the OMAS_monteCarlo function.
+           % INFO:
+           % "agents/objects" - Not set initially.
+           
+           % DEFAULT (GENERIC) OpenMAS SETTINGS
+           defaultConfig = struct();
+           % HIGH-LEVEL I/O OPERATIONS
+           defaultConfig.monteCarloMode = logical(true);
+           defaultConfig.threadPool = logical(false);
+           defaultConfig.verbosity = 0;                                    % Append simulation parameters
+           defaultConfig.gui = logical(false);
+           defaultConfig.figures = {'none'};
+           % EVENT CONDITIONS
+           defaultConfig.warningDistance = 10;
+           defaultConfig.conditionTolerance = 1E-3;
+           defaultConfig.visabilityModifier = 1;
+           defaultConfig.positionSigma = 0;
+           % TIMING CONFIGURATIONS
+           defaultConfig.startTime = 0;
+           defaultConfig.endTime = 10;
+           defaultConfig.duration = defaultConfig.endTime - defaultConfig.startTime;
+           defaultConfig.dt = 0.1;
        end
    end
 end
+

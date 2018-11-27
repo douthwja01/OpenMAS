@@ -1,5 +1,5 @@
-function [ objectIndex ] = getScenario_obstacleTrack(varargin)
-
+function [ objectIndex ] = getScenario_obstacleCube(varargin)
+% This function is designed to generate a simple cube of obstacles 
 
 fprintf('[SCENARIO]\tGetting Simple thre obstacle, one waypoint scenario.\n');
 
@@ -9,7 +9,6 @@ defaultConfig = struct('file','scenario.mat',...
                        'agents',[],...   
                        'agentVelocity',0,...
                        'agentRadius',0.5,...    % Width of 1m
-                       'obstacles',3,...
                        'obstacleRadius',1,...
                        'waypoints',[],...
                        'waypointRadius',0.5,...
@@ -19,16 +18,8 @@ defaultConfig = struct('file','scenario.mat',...
 [inputConfig] = scenarioBuilder.configurationParser(defaultConfig,varargin);
 % AGENT CONDITIONS
 agentIndex = inputConfig.agents;                                           % Declare the agent set
-agentNumber = numel(agentIndex);                                           % Declare the number of agents
-assert(agentNumber == 1,'This scenario is intended to test an individual agent.');
-% GENERATE OBSTACLE OBJECTS
-if isnumeric(inputConfig.obstacles)
-    obstacleIndex = cell(inputConfig.obstacles,1);
-    for index = 1:inputConfig.obstacles
-       obstacleIndex{index} = obstacle();
-    end
-    inputConfig.obstacles = obstacleIndex;
-end
+
+
 % DECLARE THE NUMBER OF OBSTACLES
 obstacleNumber = numel(inputConfig.obstacles);  
 assert(obstacleNumber == 3,'This scenario is intended to use three obstacles only.');

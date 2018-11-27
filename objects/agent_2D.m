@@ -14,7 +14,7 @@ classdef agent_2D < agent
 %%   CLASS METHODS
     methods 
         % CONSTRUCTION METHOD
-        function obj = agent_2D(varargin)
+        function [obj] = agent_2D(varargin)
             % This function is to construct the agent object using the
             % object defintions held in the 'objectDefinition' base class.
             % INPUTS:
@@ -27,15 +27,14 @@ classdef agent_2D < agent
                 varargin = varargin{:};
             end 
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin); % Call the super class
-            % THE 2D STATE VECTOR
-            obj.localState = zeros(6,1);
-            
+            obj@agent(varargin);                        % Call the super class
+            % AGENT SENSES IN 3D
+            obj.VIRTUAL.is3D = logical(false);          % Indicate the agent is operating in 2d
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
         % ///////////////// AGENT MAIN CYCLE //////////////////////////////
-        function obj = processTimeCycle(obj,TIME,varargin)
+        function [obj] = main(obj,TIME,varargin)
             % INPUTS:
             % TIME     - The TIME simulations structure
             % varargin - Cell array of inputs
@@ -50,7 +49,7 @@ classdef agent_2D < agent
             end
             
             % DEFAULT BEHAVIOUR 
-            desiredSpeed = 2;
+            desiredSpeed = 1;
             desiredHeadingVector = [1;0];
             desiredVelocity = desiredHeadingVector*desiredSpeed;
             
@@ -72,198 +71,43 @@ classdef agent_2D < agent
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
             % ASSUME THERE ARE NO INERTIAL ACCELERATIONS
-            headingRate = 0.00;      % Constant +ve yaw rate
+            headingRate = 0.0;      % Constant +ve yaw rate
             speed = 1;              % Constant speed (m/s)
             
             if TIME.currentTime >= 0 && TIME.currentTime < 5
                 headingRate = 0.5;
-                fprintf('yawing...\n');
+                fprintf('right...\n');
             end
             
             if TIME.currentTime >= 5 && TIME.currentTime < 10
                 headingRate = -0.5;
-                fprintf('pitching...\n');
+                fprintf('left...\n');
             end
             
             if TIME.currentTime >= 10 && TIME.currentTime < 15
                 headingRate = 0.5;
-                fprintf('rolling...\n');
+                fprintf('right...\n');
             end   
             
             % GET THE NEW STATE VECTOR
-            newState = obj.stateDynamics_singleIntegrator(dt,[speed;0],headingRate);
-            % UPDATE THE CLASS GLOBAL PROPERTIES
-            obj = obj.updateGlobalProperties(dt,newState);
+            [dXdt] = obj.dynamics_singleIntegrator(obj.localState,[speed;0],headingRate);
+            newState = obj.localState + dXdt*dt;
+            % UPDATE THE CLASS GLOBAL PROPERTIES 
+            [obj] = obj.updateGlobalProperties_ENU(dt,newState);
         end
     end
     
     % ///////////////////// (2D) SENSORY FUNCTIONS ////////////////////////
     methods
-        % ALL IN ONE AGENT-INFORMATION UPDATE (FOR 2D STATES)
-        function [obj,obstacleSet,agentSet,waypointSet] = getAgentUpdate(obj,observedObjects)
-            % This function computes the agents process for updating its
-            % knowledge of the environment in 2D.
-            % INPUTS:
-            % dt              - The unit timstep
-            % observedObjects - The full observed object structure
-            % OUTPUTS:
-            % obj             - The updated object
-            % obstacleSet     - The list of obstacle structures
-            % waypointSet     - The list of waypoint structures
-            
-            agentSet = [];
-            obstacleSet = [];
-            waypointSet = [];   % No observed objects 
-            
-            % INPUT HANDLING
-            if isempty(observedObjects)
-                return
-            end
-            
-            % ONLY TAKE THE 2D STATES
-            linearIndicies = 1:2;
-            
-            for item = 1:length(observedObjects)
-                % DEFINE ITS APPARENT PRIORITY
-                if ~isnan(observedObjects(item).priority)
-                    objectPriority = observedObjects(item).priority;           % Assign priority to memory
-                else
-                    objectPriority = 1/observedObjects(item).timeToCollision; 
-                end
-                
-                % MEMORY ITEM CONSTRUCTIONS
-                memoryItem = struct('name',observedObjects(item).name,...
-                                'objectID',observedObjects(item).objectID,...
-                                    'type',observedObjects(item).type,...
-                                  'radius',observedObjects(item).radius,...
-                                'position',observedObjects(item).position(linearIndicies,1),...
-                                'velocity',observedObjects(item).velocity(linearIndicies,1),...
-                                     'TTC',observedObjects(item).timeToCollision,...
-                                'priority',objectPriority); 
-                
-                % UPDATE THE AGENTS KNOWLEDGE
-                obj = obj.updateAgentKnowledge(memoryItem);
-            end
-            
-            % SORT OBJECT SET BY PRIORITY
-            [~,ind] = sort([obj.memory.priority],2,'descend');             % Ordered indices of the object IDs
-            obj.memory = obj.memory(ind);
-            
-            % DECERN OBJECT TYPES
-            % obj.memory now contains an updated understanding of all the
-            % objects in its visual horizon. From this, the waypoints and
-            % obstacles must be parsed.
-            agentIndices    = [obj.memory.type] == OMAS_objectType.agent;
-            waypointIndices = [obj.memory.type] == OMAS_objectType.waypoint;  
-            obstacleIndices = [obj.memory.type] == OMAS_objectType.obstacle; % Differenciate between the different object types
-            
-            % PULL MEMORY ITEMS FOR LATER MANIPULATION
-            agentSet    = obj.memory(agentIndices);
-            waypointSet = obj.memory(waypointIndices);
-            obstacleSet = obj.memory(obstacleIndices); 
-            
-            % UPDATE THE TARGET WAYPOINT, PRIORTIES 
-            [obj,~] = obj.waypointUpdater(waypointSet);                    % Update the target waypoint and heading vector
-        end
-        % AGENT-SPECIFIC UPDATE FUNCTION (USING SPHERICAL DATA & SENSOR MODEL)
-        function [obj,obstacleSet,agentSet,waypointSet] = getSensorUpdate(obj,dt,observedObjects)
-            % This function computes the agents process for updating its
-            % knowledge of the environment.
-            % INPUTS:
-            % dt              - The unit timstep
-            % observationSet - The full observed object structure
-            % OUTPUTS:
-            % obj             - The updated object
-            % obstacleSet     - The list of obstacle structures
-            % waypointSet     - The list of waypoint structures
-            
-            agentSet = [];
-            obstacleSet = [];
-            waypointSet = [];   % No observed objects 
-            
-            % INPUT HANDLING
-            if isempty(observedObjects)
-                return
-            end
-                        
-            % UPDATE THE AGENT'S UNDERSTANDING OF THE ENIVIRONMENT
-            for item = 1:length(observedObjects)
-                % DEFINE THE SENSED VARIABLES
-                % EMULATE MEASURED POSITIONAL VARIABLES (measured = range(true) + distortion)
-                [measuredRange,measuredAzimuth,measuredElevation,measuredAlpha] = obj.getSensorMeasurments(observedObjects(item));
-                [measuredPosition] = obj.cartesianFromSpherical(measuredRange,measuredAzimuth,measuredElevation);    % Calculate new relative position
-                % MAP TO MEASURED POSITION
-                measuredPosition = measuredPosition(1:2,1);
-                
-                % CALCULATE THE RADIUS FROM THE ANGULAR WIDTH INTERVAL
-                measuredRadius = (sin(measuredAlpha/2)/(1-sin(measuredAlpha/2)))*measuredRange;                       % Calculate the apparent radius
-                
-                % STATE ESTIMATION FUNCTION 
-                [priorPosition,priorVelocity] = obj.getLastStateFromMemory(observedObjects(item).objectID);       % Get prior obstacle knowledge
-                
-                if isempty(priorPosition)
-                    % FIRST SIGHT OF OBSTACLE
-                    measuredVelocity = NaN(2,1);
-                else
-                    % CALCULATE THE STATE UPDATE
-                    [measuredPosition,measuredVelocity] = obj.linearStateEstimation(dt,...
-                    priorPosition,priorVelocity,measuredPosition);
-                end
-                                
-                % DEFINE ITS APPARENT PRIORITY
-                if ~isnan(observedObjects(item).priority)
-                    objectPriority = observedObjects(item).priority;       % Assign priority to memory
-                else
-                    objectPriority = 1/observedObjects(item).timeToCollision; 
-                end
-                
-                % MEMORY ITEM CONSTRUCTION
-                memoryItem = struct('name',observedObjects(item).name,...
-                    'objectID',observedObjects(item).objectID,...
-                    'type',observedObjects(item).type,...
-                    'radius',measuredRadius,...
-                    'position',measuredPosition,...
-                    'velocity',measuredVelocity,...
-                    'range',measuredRange,...
-                    'azimuth',measuredAzimuth,...
-                    'elevation',measuredElevation,...
-                    'alpha',measuredAlpha,...
-                    'TTC',observedObjects(item).timeToCollision,...
-                    'priority',objectPriority);
-                                
-                % UPDATE THE AGENTS KNOWLEDGE
-                obj = obj.updateAgentKnowledge(memoryItem);
-            end
-            % SORT OBJECT SET BY PRIORITY
-            [~,ind] = sort([obj.memory.priority],2,'descend');             % Ordered indices of the object IDs
-            obj.memory = obj.memory(ind);
-
-            % DECERN OBJECT TYPES
-            % obj.memory now contains an updated understanding of all the
-            % objects in its visual horizon. From this, the waypoints and
-            % obstacles must be parsed.
-            agentIndices    = [obj.memory.type] == OMAS_objectType.agent;
-            waypointIndices = [obj.memory.type] == OMAS_objectType.waypoint;  
-            obstacleIndices = [obj.memory.type] == OMAS_objectType.obstacle; % Differenciate between the different object types
-            
-            % PULL MEMORY ITEMS FOR LATER MANIPULATION
-            agentSet    = obj.memory(agentIndices);
-            waypointSet = obj.memory(waypointIndices);
-            obstacleSet = obj.memory(obstacleIndices); 
-            
-            % UPDATE THE TARGET WAYPOINT, PRIORTIES 
-            [obj,~] = obj.waypointUpdater(waypointSet);  % Update the target waypoint and heading vector
-        end
-        
-        % SENSOR MODEL - LOCAL GPS & PITOT TUBE
+        % 2D SENSOR MODEL - LOCAL GPS & PITOT TUBE
         function [position,velocity,radius] = getAgentMeasurements(obj)
             % This function makes estimates of the agent's current position
             % and velocity states (defined in obj.localState).
             positionIndices = 1:2;
             velocityIndices = 4:5;
             % GET THE LOCAL ABSOLUTE VARIABLES
-            position =  obj.localState(positionIndices,1) + obj.SENSORS.positionSigma*rand(2,1); % Get the absolute position measurement
-            velocity =  obj.localState(velocityIndices,1) + obj.SENSORS.velocitySigma*rand(2,1); % Get the absolute velocity measurement          
+            position =  obj.localState(positionIndices,1) + obj.SENSORS.sigma_position*rand(2,1); % Get the absolute position measurement
+            velocity =  obj.localState(velocityIndices,1) + obj.SENSORS.sigma_velocity*rand(2,1); % Get the absolute velocity measurement          
             % RADIUS IS ASSUMED KNOWN
             radius = obj.VIRTUAL.radius;
         end
@@ -271,6 +115,34 @@ classdef agent_2D < agent
     
     % //////////////////////// DYNAMICS & CONTROL //////////////////////////
     methods   
+        % 2D CONTROLLER
+        function [obj] = controller(obj,dt,desiredVelocity)
+            % This function computes the agents change in state as a result
+            % of the desired velocity vector
+            
+            % NUMERICAL SANITY CHECK ONE
+            assert(~any(isnan(desiredVelocity)) && isnumeric(desiredVelocity),'Requested velocity vector must be a 2D local vector');
+            % NUMERICAL SANITY CHECK TWO
+            [unitDirection,desiredSpeed] = obj.nullVelocityCheck(desiredVelocity);   
+            
+            % APPLY SPEED CONSTRAINT
+            if abs(desiredSpeed) > obj.maxSpeed
+                desiredSpeed = sign(desiredSpeed)*obj.maxSpeed; 
+            end  
+            
+            % GET THE EQUIVALENT HEADING ANGLE
+            [dHeading] = obj.getVectorHeadingAngles([1;0],unitDirection); % Relative heading angles   
+            omega = -dHeading/dt;
+            desiredVelocity = [desiredSpeed;0];
+            
+            % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////
+            [dX] = obj.dynamics_simple(obj.localState(1:3),desiredVelocity,omega);
+            obj.localState(1:3) = obj.localState(1:3) + dt*dX;
+            obj.localState(4:6) = dX;  
+            
+            % ///////////// UPDATE OBJECT GLOBAL PROPERTIES ///////////////
+            [obj] = obj.updateGlobalProperties_2DVelocities(dt,obj.localState);
+        end
         % IMPOSE 2D KINEMATIC LIMITS ON CONTROL INPUTS
         function [achievedHeading,achievedSpeed] = kinematicContraints(obj,dt,desiredHeading,desiredSpeed)
             % This function is designed to take a desired heading and
@@ -312,92 +184,77 @@ classdef agent_2D < agent
         end
     end
     
-    % //////////////////// SIMULATION & CORE INTERFACES ///////////////////
+    % /////////// AGENT/DERIVATES GLOBAL UPDATE/STATE FUNCTIONS ///////////
     methods
-        % THE DEFAULT 2D STATE INITIALISER
-        function [obj] = initialise_localState(obj,localENUVelocity,localENUrotations)
+        % DEFAULT 2D STATE - [x y psi]
+        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
             % object.
             % The default state vector:
-            % [x y phi dx dy dphi]
+            % [x y psi]
             
-            % Build the initial state vec
-            obj.localState = zeros(6,1);
-            obj.localState(3) = localENUrotations(3);     % The initial heading angle
-            obj.localState(4:5) = localENUVelocity(1:2);  % The initial 2D velocities
-        end
-        % UPDATE THE GLOBAL PROPERTIES ( LOCAL AXIS REMAINS STATIC )
-        function [obj] = updateGlobalProperties_fixedFrame(obj,dt,localENUState)
-            % This function computes the new global parameters for the given
-            % agent based on its new state.
-            
-            % CONSTANT PARAMETERS
-            linearIndices = 4:5;
-            
-            % IF ALL WAYPOINTS ARE ACHEIVED; FREEZE THE AGENT
-            if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                obj.VIRTUAL.idleStatus = 1;
-                localENUState(4:6) = zeros(3,1); % Freeze the agent
-            end
-            
-            % //////////////// DEFINE PREVIOUS PARAMETERS /////////////////
-            quaternion_k        = obj.VIRTUAL.quaternion;
-            velocity_ENU_k_plus = localENUState(linearIndices,1);
-            
-            % ////////////////// [WORKING: NON-ROTATED] ///////////////////
-            quaternion_k_plus = quaternion_k;
-            
-            %NEW ROTATION MATRIX
-            [R_update] = OMAS_axisTools.quaternionToRotationMatrix(quaternion_k_plus);
-            % THE VELOCITY VECTORS AT K & K+1
-            localVelocityUpdate = [velocity_ENU_k_plus;0];                 % 3D although locally 2D
-            
-            % ////////// UPDATE GLOBAL POSE ///////////////////////////////
-            globalVelocity_k_plus = R_update*localVelocityUpdate;
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*globalVelocity_k_plus;
-            
-            % ////////// REASSIGN K+1 PARAMETERS //////////////////////////
-            obj.VIRTUAL.globalVelocity = globalVelocity_k_plus;            % Reassign the global velocity
-            obj.VIRTUAL.globalPosition = globalPosition_k_plus;            % Reassign the global position
-            obj.VIRTUAL.quaternion = quaternion_k_plus;                    % Reassign the quaternion
-            obj.VIRTUAL.rotationMatrix = R_update;
-            obj.localState = localENUState;
-        end
-        % UPDATE THE GLOBAL REPRESENTATION ( FOR 2D AGENTS )    [CONFIRMED]
-        function [obj] = updateGlobalProperties(obj,dt,localNEDState)
-            % This function updates the agents global properties from
-            % X_global(@t=k] to X_global(@t=k+1) for a 2D agent defined by
-            % state vector: [x y lambda dx dy dlambda]
-            
-            % CONSTANT PARAMETERS
-            angularIndices = 3;
-            linearIndices = 4:5;
-            
-            % IF ALL WAYPOINTS ARE ACHEIVED; FREEZE THE AGENT
-            if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                obj.VIRTUAL.idleStatus = 1;
-                localNEDState(4:6) = zeros(3,1); % Freeze the agent
-            end
-            
-            % CALCULATE THE AXIS RATES FROM THE NEW STATE
-            yawRate = (localNEDState(angularIndices) - obj.localState(angularIndices))/dt;
-            
-            % //////// GET THE UPDATED QUATERNION /////////////////////////
-            globalRates = zeros(3,1);
-            globalRates(1) = -yawRate; % rates about the Z axis respectively
-            
-            [quaternion_k_plus] = OMAS_axisTools.updateQuaternion(obj.VIRTUAL.quaternion,globalRates,dt);
-            R_new = OMAS_axisTools.quaternionToRotationMatrix(quaternion_k_plus);
-            
-            % ////////// UPDATE GLOBAL POSE ///////////////////////////////
-            globalVelocity_k_plus = R_new*[localNEDState(linearIndices);0];
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*globalVelocity_k_plus;
-            % ////////// REASSIGN K+1 PARAMETERS //////////////////////////
-            obj.VIRTUAL.globalVelocity = globalVelocity_k_plus;            % Reassign the global velocity
-            obj.VIRTUAL.globalPosition = globalPosition_k_plus;            % Reassign the global position
-            obj.VIRTUAL.quaternion = quaternion_k_plus;                    % Reassign the quaternion
+            % BUILD STATE VECTOR
+            obj.localState = zeros(3,1);
+            obj.localState(3) = localXYZrotations(3);
+            % RETAIN THE PRIOR STATE FOR REFERENCE
             obj.VIRTUAL.priorState = obj.localState;
-            obj.localState = localNEDState;                                % Reassign the obj.localstate
         end
+        % INITIAL 2D STATE - [x y psi dx dy dpsi]
+        function [obj] = initialise_2DVelocities(obj,localXYZVelocity,localXYZrotations)
+            % This function calculates the intial state for a generic
+            % object.
+            % The default state vector:
+            % [x y psi dx dy dpsi]
+            
+            % BUILD STATE VECTOR
+            obj.localState = zeros(6,1);
+            obj.localState(3) = localXYZrotations(3);
+            obj.localState(4:5) = localXYZVelocity(1:2);
+            % RETAIN THE PRIOR STATE FOR REFERENCE
+            obj.VIRTUAL.priorState = obj.localState;
+        end
+        
+        % GLOBAL UPDATE - STATE VECTOR DEFINED AS: [x y psi dx dy dpsi]'
+        function [obj] = updateGlobalProperties_2DVelocities(obj,dt,eulerState)
+            % This function preforms the state update for a state vector
+            % defined as [x y psi dx dy dpsi].
+ 
+            velocityIndices = 4:5;
+            headingRateIndex = 6;
+            
+            % EQUIVALENT RATES
+            velocity_k_plus = eulerState(velocityIndices);                 % Use the linear velocity directly.
+            localAxisRates  = eulerState(headingRateIndex);                % Use the heading rate directly.
+                        
+            % MAP TO GLOBAL 3D REPRESENTATION
+            velocity_k_plus = [velocity_k_plus;0];  
+            localAxisRates  = [0;0;1]*localAxisRates;
+            
+            % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
+            % PREVIOUS QUATERNION                                          % [ IF THE QUATERNION DEFINES GB ]
+            quaternion_k = obj.VIRTUAL.quaternion;   
+            % PREVIOUS ROTATION-MATRIX
+            R_k_plus = quat2rotm(quaternion_k');
+            % THE GLOBAL AXIS RATES       
+            omega = R_k_plus'*localAxisRates;
+            % UPDATE THE QUATERNION POSE
+            quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt);
+            % REDEFINE THE ROTATION MATRIX
+            R_k_plus = quat2rotm(quaternion_k_plus');
+                        
+            % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
+            globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
+            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
+            % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
+            [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
+                                                      globalVelocity_k_plus,... % Global velocity at k plus
+                                                      quaternion_k_plus,...     % Quaternion at k plus
+                                                      eulerState);              % The new state for reference
+        end
+        % [DEFINED IN 'agent.m']
+        % GLOBAL UPDATE - EULER 6DOF(3DOF) [x y z phi theta psi],[x y psi]
+        %function: updateGlobalProperties_ENU(obj,dt,eulerState)
+        % GLOBAL UPDATE - EULER 6DOF(3DOF) (NO ROTATIONS)
+        %function: updateGlobalProperties_ENU_fixedFrame(obj,dt,eulerState)
     end
 end
