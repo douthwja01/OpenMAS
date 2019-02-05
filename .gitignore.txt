@@ -6,4 +6,4 @@
 !/.gitignore
 
 # Specific files are ok
-!/environment/*
+!/environment/**
