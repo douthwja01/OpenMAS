@@ -31,7 +31,16 @@ classdef earth < obstacle_spheroid
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end 
-        
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % SETUP - X = [x;x_dot]' 3D STATE VECTOR
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % The state initialiser must be called 'initialise_localState'
+            % and instead calls the 'initialise_3DVelocities' function in
+            % this case. 
+            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+            % ADD A ROTATIONAL RATE
+            obj.localState(12) = obj.axialRate; % The earth rotates a constant rate about its z interial axis
+        end
         % ///////////// UPDATE CYCLE FOR A MOVING OBSTACLE ////////////////
         function [obj] = main(obj,TIME,varargin)
             % SIMPLE UPDATE OF LOCAL STATE
@@ -44,18 +53,6 @@ classdef earth < obstacle_spheroid
             
             % UPDATE THE GLOBAL PROPERTIES
             [obj] = obj.updateGlobalProperties_3DVelocities(dt,eulerState);
-        end
-    end
-    % /////////////////////// AGENT/OMAS INTERFACES ///////////////////////
-    methods
-        % INITIALISE THE [x;x_dot]' 3D STATE VECTOR
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % The state initialiser must be called 'initialise_localState'
-            % and instead calls the 'initialise_3DVelocities' function in
-            % this case. 
-            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
-            % ADD A ROTATIONAL RATE
-            obj.localState(12) = obj.axialRate; % The earth rotates a constant rate about its z interial axis
         end
     end
 end

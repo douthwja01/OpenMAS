@@ -34,9 +34,9 @@ classdef waypoint < objectDefinition
             obj = obj@objectDefinition(varargin); % Call the super class
             
             % WAYPOINT VIRTUAL DEFINITION
-            obj.VIRTUAL.symbol = 'v';
-            obj.VIRTUAL.type = OMAS_objectType.waypoint;            
-            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin);  
+            obj.VIRTUAL.type       = OMAS_objectType.waypoint;            
+            obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.spherical;
+            obj.VIRTUAL.symbol     = 'v';
             
             % IMPORT THE GEOMETRY IF IT EXISTS
             [obj.GEOMETRY] = obj.getObjectGeometry(obj);
@@ -70,7 +70,8 @@ classdef waypoint < objectDefinition
             end
             
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
+            obj = obj.configurationParser(obj,varargin);
         end           
     end
     % /////////////////// WAYPOINT OWNERSHIP FUNCTIONS /////////////////////

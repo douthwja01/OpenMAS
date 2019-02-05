@@ -24,16 +24,18 @@ classdef obstacle_cuboid < obstacle
             obj = obj@obstacle(varargin); 
                         
             % ALLOCATE DEFAULT OBJECT-SPECIFIC CONSTANTS 
-            obj.VIRTUAL.type = OMAS_objectType.obstacle;
-            
-            % //////////////// CHECK FOR USER OVERRIDES ///////////////////
-            [obj] = obj.configurationParser(obj,varargin);            
+            obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.OBB;
             
             % CONSTRUCT THE GEOMETRY FROM DEFINITION INSTEAD
             [obj.GEOMETRY] = OMAS_graphics.defineCuboidFromRadius(zeros(3,1),obj.VIRTUAL.radius);
             [obj.GEOMETRY] = OMAS_graphics.scale(obj.GEOMETRY,[obj.Xscale;obj.Yscale;obj.Zscale]);
+            
             % CALCULATE EQUIVALENT RADII FOR CONTINUITY
-            obj.VIRTUAL.radius = sqrt(obj.Xscale^2 + obj.Yscale^2 + obj.Zscale^2); % Redefine the maximal radii
+            obj.VIRTUAL.radius = sqrt(obj.Xscale^2 + obj.Yscale^2 + obj.Zscale^2); % Redefine the maximal radii      
+            
+            % CHECK FOR USER OVERRIDES
+            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
+            obj = obj.configurationParser(obj,varargin);         
         end 
 
         % COMPUTE CLOSEST FACE TO POINT
@@ -56,11 +58,6 @@ classdef obstacle_cuboid < obstacle
         end
     end
     methods (Static)
-        % CALCULATE CLOSEST POINT ON THE STL TO A GIVEN POINT
-        function [point,distance] = closestPointOnGeometry(geometry,p)
-            % This function computes the point on the STL closest to 
-            % a given candidate point.
-        end
         % CALCULATE CLOSET POINT ON SEGMENT TO POINT
         function [pClosest] = closestPointOnSegment(pA,pB,q)
             % https://diego.assencio.com/?index=ec3d5dfdfc0b6a0d147a656f0af

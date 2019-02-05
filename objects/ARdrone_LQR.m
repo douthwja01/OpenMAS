@@ -111,12 +111,13 @@ classdef ARdrone_LQR < ARdrone
             if TIME.currentTime == TIME.timeVector(end)
                 X = X0;
                 return
-            else
-                % INTEGRATE THE DYNAMICS OVER THE TIME STEP 
-                opts = odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2);
-                [~,Xset] = ode45(@(t,X) obj.ARdrone_linear_closedLoop(X,X_desired),[0 TIME.dt],X0,opts);
-                X = Xset(end,:)';
             end
+            % INTEGRATE THE DYNAMICS OVER THE TIME STEP
+            [~,Xset] = ode45(@(t,X) obj.ARdrone_linear_closedLoop(X,X_desired),...
+                [0 TIME.dt],...
+                X0,...
+                odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
+            X = Xset(end,:)';
         end
         % CLOSED-LOOP NONLINEAR DYNAMICS
         function [dX] = ARdrone_nonLinear_closedLoop(obj,X,X_desired)

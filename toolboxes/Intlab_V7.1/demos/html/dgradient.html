@@ -1,0 +1,719 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>DEMOGRADIENT  Short demonstration of gradients</title><meta name="generator" content="MATLAB 7.11"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2012-10-16"><meta name="DC.source" content="dgradient.m"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><h1>DEMOGRADIENT  Short demonstration of gradients</h1><!--introduction--><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Some sample applications of the gradient toolbox</a></li><li><a href="#2">Initialization of gradients</a></li><li><a href="#4">Operations between gradients</a></li><li><a href="#6">Complex arguments</a></li><li><a href="#7">Access to the gradient</a></li><li><a href="#14">An example in one unknown: The Gamma function</a></li><li><a href="#15">The inverse Gamma function</a></li><li><a href="#17">The inverse Gamma function with complex arguments</a></li><li><a href="#19">Automatic differentiation with several unknowns</a></li><li><a href="#20">Solution of a nonlinear system</a></li><li><a href="#22">Verified solution of the nonlinear system</a></li><li><a href="#24">Real function evaluation</a></li><li><a href="#25">Interval function evaluation</a></li><li><a href="#27">Interval gradient function evaluation</a></li><li><a href="#29">Verified solution of the nonlinear system with Broyden's function</a></li><li><a href="#31">Verified solution of a nonlinear system with sparse gradients</a></li><li><a href="#33">Verified solution of a nonlinear system with full gradients</a></li><li><a href="#34">Verified solution of a nonlinear system with 5000 uknowns</a></li><li><a href="#35">Non-differentiable functions</a></li><li><a href="#36">Verified solution of non-differentiable functions</a></li><li><a href="#41">Enjoy INTLAB</a></li></ul></div><h2>Some sample applications of the gradient toolbox<a name="1"></a></h2><p>Gradients implement automatic differentiation in forward mode, which is conveniently to implement using the Matlab operator concept.</p><h2>Initialization of gradients<a name="2"></a></h2><p>In order to use automatic differentiation, the independent variables need to be identified and values have to be assigned. This is performed by the function "gradientinit", for example</p><pre class="codeinput">format <span class="string">compact</span> <span class="string">short</span> <span class="string">_</span>
+u = gradientinit([ -3.1 ; 4e-3 ])
+</pre><pre class="codeoutput">gradient value u.x = 
+   -3.1000
+    0.0040
+gradient derivative(s) u.dx = 
+   (1,1)        1
+   (2,2)        1
+</pre><p>The total size of the input is the number of independent variables, in the example 2, hence u represents a column vector of length 2 and defines two independent variables u(1) and u(2) with gradients [1 0] and [0 1], respectively.</p><h2>Operations between gradients<a name="4"></a></h2><p>If at least one operand is of type gradient, operations are executed as gradient operations. For example,</p><pre class="codeinput">x = gradientinit(3.5);
+y = exp(3*x-sqrt(x))
+</pre><pre class="codeoutput">gradient value y.x = 
+  5.5924e+003
+gradient derivative(s) y.dx = 
+  1.5283e+004
+</pre><p>For f(x):=exp(3*x-sqrt(x)), the result y contains in y.x the function value f(3.5) and in y.dx the derivative f'(3.5):</p><pre class="codeinput">y.x, y.dx
+</pre><pre class="codeoutput">ans =
+  5.5924e+003
+ans =
+  1.5283e+004
+</pre><h2>Complex arguments<a name="6"></a></h2><p>When evaluating the expression for another argument, use the same statement as before with new values.</p><pre class="codeinput">x = gradientinit(-3.5+.2i);
+y = exp(3*x-sqrt(x))
+</pre><pre class="codeoutput">gradient value y.x = 
+  7.6944e-006 -2.4944e-005i
+gradient derivative(s) y.dx = 
+  2.9683e-005 -7.2588e-005i
+</pre><h2>Access to the gradient<a name="7"></a></h2><p>The principle works for functions in several unknowns the same way. Define, for example, the following function from R^3-&gt;R^3 :</p><pre class="codeinput">f = @(x)( [ -2*x(1)*x(2)+4*x(3)^2 ; sin(x(2))/sqrt(pi-x(1)) ; atan(x(2)-x(3)) ] )
+f([1.5;-1;0.7])
+</pre><pre class="codeoutput">f = 
+    @(x)([-2*x(1)*x(2)+4*x(3)^2;sin(x(2))/sqrt(pi-x(1));atan(x(2)-x(3))])
+ans =
+    4.9600
+   -0.6568
+   -1.0391
+</pre><p>then the function value and gradient at [1.5;-1;0.7] is computed by</p><pre class="codeinput">y = f(gradientinit([1.5;-1;0.7]))
+</pre><pre class="codeoutput">gradient value y.x = 
+    4.9600
+   -0.6568
+   -1.0391
+gradient derivative(s) y.dx = 
+   (1,1)       2.0000
+   (2,1)      -0.2000
+   (1,2)      -3.0000
+   (2,2)       0.4217
+   (3,2)       0.2571
+   (1,3)       5.6000
+   (3,3)      -0.2571
+</pre><p>where y.x contains the function value and y.dx the gradient, which is in this case the Jacobian. The gradient with respect the third unknown x(3) can be accessed by</p><pre class="codeinput">y.dx(3,:)
+</pre><pre class="codeoutput">ans =
+   (1,2)       0.2571
+   (1,3)      -0.2571
+</pre><p>However, it is recommended to use</p><pre class="codeinput">y(3).dx
+</pre><pre class="codeoutput">ans =
+   (1,2)       0.2571
+   (1,3)      -0.2571
+</pre><p>that is not to access the components of the gradient (Jacobian) but the gradient of the component. The advantage is visible when redefining the input function as a row vector:</p><pre class="codeinput">f = @(x)( [ -2*x(1)*x(2)+4*x(3)^2  sin(x(2))/sqrt(pi-x(1))  atan(x(2)-x(3)) ] )
+f([1.5;-1;0.7])
+</pre><pre class="codeoutput">f = 
+    @(x)([-2*x(1)*x(2)+4*x(3)^2,sin(x(2))/sqrt(pi-x(1)),atan(x(2)-x(3))])
+ans =
+    4.9600   -0.6568   -1.0391
+</pre><p>Then the "Jacobian" is a three-dimensional array because the gradient is always stored in the "next" dimension:</p><pre class="codeinput">y = f(gradientinit([1.5;-1;0.7]))
+</pre><pre class="codeoutput">gradient value y.x = 
+    4.9600   -0.6568   -1.0391
+gradient derivative(s) y.dx = 
+y.dx(1,1,:) = 
+   (1,1)       2.0000
+   (1,2)      -3.0000
+   (1,3)       5.6000
+y.dx(1,2,:) = 
+   (1,1)      -0.2000
+   (1,2)       0.4217
+y.dx(1,3,:) = 
+   (1,2)       0.2571
+   (1,3)      -0.2571
+</pre><p>It is problematic to access the components of y.dx, while accessing the gradient of the component works as expected:</p><pre class="codeinput">y(3).dx
+</pre><pre class="codeoutput">ans =
+   (1,2)       0.2571
+   (1,3)      -0.2571
+</pre><h2>An example in one unknown: The Gamma function<a name="14"></a></h2><p>According to Stirling's formula it is for u -&gt; inf,</p><pre>                       1      1       139        571
+ Gamma(u) ~ C * ( 1 + --- + ----- - ------- - --------- + ... )
+                      12u       2         3           4
+                            288u    51840u    2488320u</pre><p>with</p><pre>      -u  u-0.5
+ C = e   u      sqrt(2*pi) .</pre><p>The following function evaluates Stirling's formula. It is also suited for vector input.</p><pre> function y = g(u)
+     C = exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ;
+     v = (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u ...
+          + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0;
+     y = C .* v;</pre><p>A corresponding inline function is</p><pre class="codeinput">format <span class="string">long</span> <span class="string">e</span>
+g = @(u) ( ( exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ) .* <span class="keyword">...</span>
+           ( (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u <span class="keyword">...</span>
+             + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0 ) )
+u = [ 3.5 61 5 ]
+g(u)
+</pre><pre class="codeoutput">g = 
+    @(u)((exp(-u).*(u.^(u-0.5))*sqrt(2.0*pi)).*(((((-571.0/2488320.0./u-139.0/51840.0)./u+1.0/288.0)./u)+1.0/12.0)./u+1.0))
+u =
+    3.500000000000000e+000    6.100000000000000e+001    5.000000000000000e+000
+ans =
+    3.323346278704310e+000    8.320987112733666e+081    2.399999414518977e+001
+</pre><h2>The inverse Gamma function<a name="15"></a></h2><p>Next we calculate the inverse Gamma function. For example, compute u such that g(u) = 100. Consider the following simple Newton procedure with starting value u=5.</p><pre class="codeinput">u = gradientinit(5);
+uold = u;
+k = 0;
+<span class="keyword">while</span> abs(u.x-uold.x) &gt; 1e-12*abs(u.x) | k &lt; 1
+  uold = u;
+  k = k+1;
+  y = g(u) - 100;
+  u = u - y.x/y.dx;
+<span class="keyword">end</span>
+k
+u.x
+g(u.x)
+</pre><pre class="codeoutput">k =
+     9
+ans =
+    5.892518760472736e+000
+ans =
+    9.999999999999997e+001
+</pre><p>Due to the approximation error in Stirling''s formula, about six figures are correct.</p><h2>The inverse Gamma function with complex arguments<a name="17"></a></h2><p>The same is possible for complex arguments. We use the same Gamma function and the same Newton procedure except that some u is searched with g(u) = 100 + 100i. We use the same starting value u=5.</p><pre class="codeinput"> u = gradientinit(5);
+ uold = u;
+ k = 0;
+ <span class="keyword">while</span> abs(u.x-uold.x) &gt; 1e-12*abs(u.x) | k &lt; 1
+  uold = u;
+  k = k+1;
+  y = g(u) - 100 - 100i;
+  u = u - y.x/y.dx;
+ <span class="keyword">end</span>
+ k
+ u.x
+ g(u.x)
+</pre><pre class="codeoutput">k =
+    10
+ans =
+     6.701615293582063e+000 +3.757828161591650e+000i
+ans =
+     1.000000000000003e+002 +1.000000000000002e+002i
+</pre><p>Due to approximation error in Stirling''s formula, about six figures are correct.</p><h2>Automatic differentiation with several unknowns<a name="19"></a></h2><p>Automatic differentiation with several unknowns works the same way. Consider the following example by Broyden:</p><pre>                             .5*sin(x1*x2) - x2/(4*pi) - x1/2  =  0
+(1-1/(4*pi))*(exp(2*x1)-exp(1)) + exp(1)*x2/pi - 2*exp(1)*x1 )  =  0</pre><p>with initial approximation [ .6 ; 3 ] and one solution [ .5 ; pi ]. The following inline function evaluates Broyden's function.</p><pre class="codeinput">f = @(x) ( [ .5*sin(x(1)*x(2)) - x(2)/(4*pi) - x(1)/2 ; <span class="keyword">...</span>
+             (1-1/(4*pi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/pi - 2*exp(1)*x(1) ] )
+</pre><pre class="codeoutput">f = 
+    @(x)([.5*sin(x(1)*x(2))-x(2)/(4*pi)-x(1)/2;(1-1/(4*pi))*(exp(2*x(1))-exp(1))+exp(1)*x(2)/pi-2*exp(1)*x(1)])
+</pre><h2>Solution of a nonlinear system<a name="20"></a></h2><p>The nonlinear system defined by Broyden's function is solved by Newton's procedure as follows:</p><pre class="codeinput"> x = gradientinit([ .6 ; 3 ]);
+ <span class="keyword">for</span> i=1:5
+  y = f(x);
+  x = x - y.dx\y.x;
+ <span class="keyword">end</span>
+ x
+</pre><pre class="codeoutput">gradient value x.x = 
+    4.999999999999999e-001
+    3.141592653589794e+000
+gradient derivative(s) x.dx = 
+   (1,1)        1
+   (2,2)        1
+</pre><p>For simplicity, we omitted the stopping criterion (see above). Here, y.dx is the Jacobian, y.x the function value at x.x, and -y.dx\y.x is the correction obtained by the (approximate) solution of a linear system.</p><h2>Verified solution of the nonlinear system<a name="22"></a></h2><p>For verified solution of the nonlinear system, we need a correct definition of the function. The main point is to make sure that a function evaluation with interval argument computes an inclusion of the function value. So first the transcendental number pi has to be replaced by an interval containing pi, for example</p><pre class="codeinput">cPi = midrad(3.141592653589793,1e-15)
+</pre><pre class="codeoutput">intval cPi = 
+  3.14159265358979_e+000
+</pre><p>Second, Broyden's function contains exp(1), which would be computed in pure floating-point without extra care. This can be cured using exp(intval(1)).</p><p>However, a new problem arises. When replacing "pi" in the function by "cPi" and 1 by intval(1), the function is <i>always</i> evaluated in interval arithmetic; a pure floating point iteration is no longer possible.</p><p>To solve this problem, we have to know the type of the incoming unknown "x". If "x" is double, replace "cPi" and intval(1) by its midpoint, if "x" is an interval, use "cPi" and intval(1) as is. This is done as follows.</p><pre>function  y = f(x)
+  y = x;
+  c1 = typeadj( 1 , typeof(x) );
+  cpi = typeadj( midrad(3.14159265358979323,1e-16) , typeof(x) );
+  y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*cpi) - x(1)/2;
+  y(2) = (1-1/(4*cpi))*(exp(2*x(1))-exp(c1)) + exp(c1)*x(2)/cpi - 2*exp(c1)*x(1);</pre><p>This code is implemented in the function test.m .</p><h2>Real function evaluation<a name="24"></a></h2><p>Consider the following two function evaluations. First, f(x) is evaluated for real argument:</p><pre class="codeinput">x = [ .6 ; 3 ];
+test(x)
+</pre><pre class="codeoutput">ans =
+    5.490000000000000e+000
+    2.254900000000000e+002
+</pre><h2>Interval function evaluation<a name="25"></a></h2><p>Second, f(x) is evaluated with interval argument:</p><pre class="codeinput">x = [intval(<span class="string">'.6'</span>) ; 3 ]
+y = test(x)
+</pre><pre class="codeoutput">intval x = 
+  6.00000000000000_e-001
+  3.000000000000000e+000
+intval y = 
+  5.490000000000000e+000
+  2.254900000000000e+002
+</pre><p>The mathematical statement is the following. First, x is an interval vector such that x(1) is an inclusion of 0.6 and x(2)=3. Second, cPi is an interval containg the transcendental number pi. Third, y is an interval vector containing the exact value of Broyden's function evaluated at [ .6 ; 3 ].</p><h2>Interval gradient function evaluation<a name="27"></a></h2><p>Finally, we may define the interval x to be of type gradient:</p><pre class="codeinput">x = gradientinit([intval(<span class="string">'.6'</span>) ; 3 ])
+Y = test(x)
+</pre><pre class="codeoutput">intval gradient value x.x = 
+  6.00000000000000_e-001
+  3.000000000000000e+000
+intval gradient derivative(s) x.dx = 
+  (1,1)               1.000000000000000e+000
+  (2,2)               1.000000000000000e+000
+intval gradient value Y.x = 
+  5.490000000000000e+000
+  2.254900000000000e+002
+intval gradient derivative(s) Y.dx = 
+  (1,1)               1.800000000000000e+000
+  (2,1)              -7.00000000000000_e-001
+  (1,2)               3.300000000000000e+000
+  (2,2)               2.580000000000000e+001
+</pre><p>The mathematical statement is that Y is an interval vector such that Y.x contains the exact value of Broyden's function evaluated at [ .6 ; 3 ], and Y.dx is an interval matrix containing the Jacobian of Broyden's function evaluated at [ .6 ; 3 ].</p><h2>Verified solution of the nonlinear system with Broyden's function<a name="29"></a></h2><p>The nonlinear system with Broyden's function and the given starting value [ .6 ; 3 ] can be solved with verification by</p><pre class="codeinput">Y = verifynlss(@test,[ .6 ; 3 ])
+</pre><pre class="codeoutput">intval Y = 
+  1.044442683608499e-001
+ -1.435687434101879e+000
+</pre><p>The first parameter gives the name of the function such that test(x) evaluates the function at "x". The result vector Y is verified to contain a real vector X such that f(X)=0. This solution X of the nonlinear system is proved to be unique within Y. This statement is mathematically true, it is taken care of all procedural, approximation and rounding errors.</p><p>It follows that an inclusion is not possible is roots are very close together: Since uniqueness of the root is proved, an inclusion is only possible if roots can be separated. An escape of that is described in DEMOSLOPE.</p><h2>Verified solution of a nonlinear system with sparse gradients<a name="31"></a></h2><p>Up to now we considered only toy examples to explain how the nonlinear system solver works. For a larger example consider the following example proposed by Abbot and Brent, which is implemented in the function test.</p><pre>function y = test(x);
+% Abbot/Brent     3 y" y + y'^2 = 0;    y(0)=0; y(1)=20;
+% approximation   10*ones(n,1)
+% solution        20*x^.75
+  y = x;
+  n = length(x); v=2:n-1;
+  y(1) = 3*x(1)*(x(2)-2*x(1)) + x(2)*x(2)/4;
+  y(v) = 3*x(v).*(x(v+1)-2*x(v)+x(v-1)) + (x(v+1)-x(v-1)).^2/4;
+  y(n) = 3*x(n).*(20-2*x(n)+x(n-1)) + (20-x(n-1)).^2/4;</pre><p>An inclusion of the solution for 1000 unknowns is computed by</p><pre class="codeinput">format <span class="string">short</span>
+sparsegradient(50)
+n = 1000;
+tic
+x = verifynlss(@test,10*ones(n,1));
+toc
+max(relerr(x))
+</pre><pre class="codeoutput">===&gt; Gradient derivative stored sparse for 50 and more unknowns
+ans =
+    50
+Elapsed time is 0.512876 seconds.
+ans =
+  4.5932e-016
+</pre><h2>Verified solution of a nonlinear system with full gradients<a name="33"></a></h2><p>Here we specified that gradients with 50 unknowns and more are stored in sparse mode. This is the defauls when calling "sparsegradient".</p><p>Forcing gradients to use full storage results in a significantly increase of computing time.</p><pre class="codeinput">sparsegradient(inf)
+n = 1000;
+tic
+x = verifynlss(@test,10*ones(n,1));
+toc
+max(relerr(x))
+</pre><pre class="codeoutput">===&gt; Gradient derivative always stored full
+ans =
+   Inf
+Elapsed time is 2.933115 seconds.
+ans =
+  4.5932e-016
+</pre><h2>Verified solution of a nonlinear system with 5000 uknowns<a name="34"></a></h2><p>Note that the inclusion is of high accuracy. The results for a larger nonlinear system with 5000 unknowns is as follows.</p><pre class="codeinput">sparsegradient(0)
+n = 5000;
+tic
+x = verifynlss(@test,10*ones(n,1));
+toc
+max(relerr(x))
+</pre><pre class="codeoutput">===&gt; Gradient derivative always stored sparse
+ans =
+     0
+Elapsed time is 6.380053 seconds.
+ans =
+  5.5869e-016
+</pre><h2>Non-differentiable functions<a name="35"></a></h2><p>The given function need not be differentiable everywhere. Consider, for example,</p><pre class="codeinput">f = inline(<span class="string">'abs(x)'</span>)
+f(gradientinit(infsup(-.1,2)))
+</pre><pre class="codeoutput">f =
+     Inline function:
+     f(x) = abs(x)
+intval gradient value ans.x = 
+[    0.0000,    2.0000] 
+intval gradient derivative(s) ans.dx = 
+[   -1.0000,    1.0000] 
+</pre><h2>Verified solution of non-differentiable functions<a name="36"></a></h2><p>The inclusion of a root is searched for near the given approximation. Consider</p><pre class="codeinput">f = vectorize(inline(<span class="string">'x*sinh(x)-3*exp(abs(x)-.5)+x*cos(x+1)+2*cosh(x)'</span>))
+close
+x=linspace(-1,2.3);
+plot(x,f(x),x,0*x)
+</pre><pre class="codeoutput">f =
+     Inline function:
+     f(x) = x.*sinh(x)-3.*exp(abs(x)-.5)+x.*cos(x+1)+2.*cosh(x)
+</pre><img vspace="5" hspace="5" src="dgradient_01.png" alt=""> <p>It seems there are three roots. Note that the function contains abs(x). Indeed,</p><pre class="codeinput">format <span class="string">long</span>
+verifynlss(f,-.5)
+verifynlss(f,.5)
+verifynlss(f,2)
+</pre><pre class="codeoutput">intval ans = 
+  -0.07707181827987
+intval ans = 
+   0.14381565238483
+intval ans = 
+   2.14372206306996
+</pre><p>there are three roots, and the inlcusions are of high accuracy. One can also calculate an inclusion of multiple roots. Since the problem is ill-posed, it has t be regularized. Consider</p><pre class="codeinput">X = verifynlss2(@(x)(sin(x)-1),1.5)
+</pre><pre class="codeoutput">intval X = 
+   1.57079632679489
+   0.00000000000000
+</pre><p>It is proved that there exists some parameter e in X(2) such that the function g(x):=f(x)-e has a truely double root in X(1). Note the accuracy of the inclusions. It looks like the inclusion of e is a true zero. However, this is due to the "_"-format: add +/-1 to the last visible digit produces a valid inclusion:</p><pre class="codeinput">format <span class="string">long</span> <span class="string">e</span> <span class="string">infsup</span>
+X
+</pre><pre class="codeoutput">intval X = 
+[  1.570796326794895e+000,  1.570796326794897e+000] 
+[ -1.110223024625157e-016,  2.220446049250315e-016] 
+</pre><p>The function "verifynlss2" is applicable to multivariate functions as well.</p><p>For more details, see "help verifynlss" or "help verifynlss2" or</p><pre>S.M. Rump: Verification methods: Rigorous results using floating-point arithmetic.
+  Acta Numerica, 19:287-449, 2010.</pre><p>to be downloaded from "www.ti3.tuhh.de/rump" and the literature cited over there.</p><h2>Enjoy INTLAB<a name="41"></a></h2><p>INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing, Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de</p><p class="footer"><br>
+      Published with MATLAB&reg; 7.11<br></p></div><!--
+##### SOURCE BEGIN #####
+%% DEMOGRADIENT  Short demonstration of gradients
+%
+
+%% Some sample applications of the gradient toolbox
+% Gradients implement automatic differentiation in forward mode, which is
+% conveniently to implement using the Matlab operator concept.
+%
+
+%% Initialization of gradients
+% In order to use automatic differentiation, the independent variables need
+% to be identified and values have to be assigned. This is performed by
+% the function "gradientinit", for example                            
+
+format compact short _
+u = gradientinit([ -3.1 ; 4e-3 ])
+
+%%
+% The total size of the input is the number of independent variables,   
+% in the example 2, hence u represents a column vector of length 2 and
+% defines two independent variables u(1) and u(2) with gradients [1 0]
+% and [0 1], respectively.
+
+%% Operations between gradients
+% If at least one operand is of type gradient, operations are executed as 
+% gradient operations.
+% For example,                                                          
+
+x = gradientinit(3.5);  
+y = exp(3*x-sqrt(x))
+
+%%
+% For f(x):=exp(3*x-sqrt(x)), the result y contains in y.x the function value f(3.5)
+% and in y.dx the derivative f'(3.5):
+% 
+
+y.x, y.dx
+
+%% Complex arguments
+% When evaluating the expression for another argument, use the same
+% statement as before with new values.                                                 
+
+x = gradientinit(-3.5+.2i);  
+y = exp(3*x-sqrt(x))
+
+%% Access to the gradient
+% The principle works for functions in several unknowns the same way. Define, for
+% example, the following function from R^3->R^3 :
+
+f = @(x)( [ -2*x(1)*x(2)+4*x(3)^2 ; sin(x(2))/sqrt(pi-x(1)) ; atan(x(2)-x(3)) ] )
+f([1.5;-1;0.7])
+
+%%
+% then the function value and gradient at [1.5;-1;0.7] is computed by
+
+y = f(gradientinit([1.5;-1;0.7]))
+
+%%
+% where y.x contains the function value and y.dx the gradient, which is
+% in this case the Jacobian. The gradient with respect the third unknown 
+% x(3) can be accessed by
+
+y.dx(3,:)
+
+%%
+% However, it is recommended to use
+
+y(3).dx
+
+%%
+% that is not to access the components of the gradient (Jacobian) but the
+% gradient of the component. The advantage is visible when redefining the input function
+% as a row vector:
+
+f = @(x)( [ -2*x(1)*x(2)+4*x(3)^2  sin(x(2))/sqrt(pi-x(1))  atan(x(2)-x(3)) ] )
+f([1.5;-1;0.7])
+
+%%
+% Then the "Jacobian" is a three-dimensional array
+% because the gradient is always stored in the "next" dimension: 
+
+y = f(gradientinit([1.5;-1;0.7]))
+
+%%
+% It is problematic to access the components of y.dx, while accessing the 
+% gradient of the component works as expected:
+
+y(3).dx
+
+%% An example in one unknown: The Gamma function                  
+% According to Stirling's formula it is for u -> inf,                    
+%
+%                         1      1       139        571                  
+%   Gamma(u) ~ C * ( 1 + REPLACE_WITH_DASH_DASH- + REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH- - REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH- - REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH- + ... )       
+%                        12u       2         3           4               
+%                              288u    51840u    2488320u    
+%
+% with
+%
+%        -u  u-0.5   
+%   C = e   u      sqrt(2*pi) .                                           
+%                                                                         
+% The following function evaluates Stirling's formula. It is also         
+% suited for vector input.                                                
+%                                                                                                                                             
+%   function y = g(u)                                                   
+%       C = exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ;                          
+%       v = (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u ...              
+%            + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0;                  
+%       y = C .* v;                                                             
+%                                                                        
+% A corresponding inline function is
+
+format long e
+g = @(u) ( ( exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ) .* ...
+           ( (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u ...           
+             + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0 ) )
+u = [ 3.5 61 5 ]
+g(u)
+
+
+%% The inverse Gamma function
+% Next we calculate the inverse Gamma function. For example, compute u such
+% that g(u) = 100. Consider the following simple Newton procedure with starting
+% value u=5.
+
+u = gradientinit(5);
+uold = u;
+k = 0;
+while abs(u.x-uold.x) > 1e-12*abs(u.x) | k < 1
+  uold = u;
+  k = k+1;
+  y = g(u) - 100;
+  u = u - y.x/y.dx;
+end
+k
+u.x
+g(u.x)
+
+%%
+% Due to the approximation error in Stirling''s formula, about six figures are correct.
+
+
+%% The inverse Gamma function with complex arguments
+% The same is possible for complex arguments. We use the same Gamma function  
+% and the same Newton procedure except that some u is searched with  
+% g(u) = 100 + 100i. We use the same starting value u=5.
+%                                                            
+
+ u = gradientinit(5);
+ uold = u;
+ k = 0;
+ while abs(u.x-uold.x) > 1e-12*abs(u.x) | k < 1
+  uold = u;
+  k = k+1;
+  y = g(u) - 100 - 100i;
+  u = u - y.x/y.dx;
+ end
+ k
+ u.x
+ g(u.x)
+
+%%
+% Due to approximation error in Stirling''s formula, about six figures are correct.
+
+%% Automatic differentiation with several unknowns
+% Automatic differentiation with several unknowns works the same way.  
+% Consider the following example by Broyden:
+%                                                                             
+%                               .5*sin(x1*x2) - x2/(4*pi) - x1/2  =  0         
+% (1-1/(4*pi))*(exp(2*x1)-exp(1)) + exp(1)*x2/pi - 2*exp(1)*x1 )  =  0         
+%                                                                              
+% with initial approximation [ .6 ; 3 ] and one solution [ .5 ; pi ].           
+% The following inline function evaluates Broyden's function.
+
+f = @(x) ( [ .5*sin(x(1)*x(2)) - x(2)/(4*pi) - x(1)/2 ; ...
+             (1-1/(4*pi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/pi - 2*exp(1)*x(1) ] )
+
+%% Solution of a nonlinear system
+% The nonlinear system defined by Broyden's function is solved by Newton's procedure as follows:                                                                           
+
+ x = gradientinit([ .6 ; 3 ]);
+ for i=1:5
+  y = f(x);
+  x = x - y.dx\y.x;
+ end
+ x
+
+%%                                                             
+% For simplicity, we omitted the stopping criterion (see above).   
+% Here, y.dx is the Jacobian, y.x the function value at x.x, and -y.dx\y.x  
+% is the correction obtained by the (approximate) solution of a linear system.                
+%                                                                           
+
+%% Verified solution of the nonlinear system
+% For verified solution of the nonlinear system, we need a correct definition  
+% of the function. The main point is to make sure that a function evaluation with
+% interval argument computes an inclusion of the function value. So first the
+% transcendental number pi has to be replaced by an interval containing pi, for example
+
+cPi = midrad(3.141592653589793,1e-15)
+
+%%
+% Second, Broyden's function contains exp(1), which would be computed in pure
+% floating-point without extra care. This can be cured using exp(intval(1)).
+%
+% However, a new problem arises. 
+% When replacing "pi" in the function by "cPi" and 1 by intval(1), the function is       
+% _always_ evaluated in interval arithmetic; a pure floating point iteration     
+% is no longer possible. 
+%
+% To solve this problem, we have to know the type of     
+% the incoming unknown "x". If "x" is double, replace "cPi" and intval(1) by its midpoint,   
+% if "x" is an interval, use "cPi" and intval(1) as is. This is done as follows.             
+%                                                                               
+%  function  y = f(x)                                                           
+%    y = x;
+%    c1 = typeadj( 1 , typeof(x) );
+%    cpi = typeadj( midrad(3.14159265358979323,1e-16) , typeof(x) );
+%    y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*cpi) - x(1)/2;
+%    y(2) = (1-1/(4*cpi))*(exp(2*x(1))-exp(c1)) + exp(c1)*x(2)/cpi - 2*exp(c1)*x(1);
+%                                                                               
+% This code is implemented in the function test.m .
+
+%% Real function evaluation
+% Consider the following two function evaluations. First, f(x) is evaluated
+% for real argument:
+
+x = [ .6 ; 3 ];  
+test(x)
+
+%% Interval function evaluation
+% Second, f(x) is evaluated with interval argument:
+
+x = [intval('.6') ; 3 ] 
+y = test(x)
+
+%%
+% The mathematical statement is the following. First, x is an interval vector
+% such that x(1) is an inclusion of 0.6 and x(2)=3. Second, cPi is an interval
+% containg the transcendental number pi. Third, y is an interval vector 
+% containing the exact value of Broyden's function evaluated at [ .6 ; 3 ].
+
+%% Interval gradient function evaluation
+% Finally, we may define the interval x to be of type gradient:
+
+x = gradientinit([intval('.6') ; 3 ])
+Y = test(x)
+
+%%
+% The mathematical statement is that Y is an interval vector such that Y.x
+% contains the exact value of Broyden's function evaluated at [ .6 ; 3 ], and
+% Y.dx is an interval matrix containing the Jacobian of Broyden's function
+% evaluated at [ .6 ; 3 ].
+                                                                          
+%% Verified solution of the nonlinear system with Broyden's function
+% The nonlinear system with Broyden's function and the given starting value
+% [ .6 ; 3 ] can be solved with verification by         
+
+Y = verifynlss(@test,[ .6 ; 3 ])
+                               
+%%
+% The first parameter gives the name of the function such that test(x) 
+% evaluates the function at "x". The result vector Y is verified to contain
+% a real vector X such that f(X)=0. This solution X of the nonlinear system
+% is proved to be unique within Y. This statement is mathematically true,
+% it is taken care of all procedural, approximation and rounding errors. 
+%
+% It follows that an inclusion is not possible is roots are very close together:
+% Since uniqueness of the root is proved, an inclusion is only possible if roots
+% can be separated. An escape of that is described in DEMOSLOPE.
+
+%% Verified solution of a nonlinear system with sparse gradients
+% Up to now we considered only toy examples to explain how the nonlinear
+% system solver works. For a larger example consider the following example
+% proposed by Abbot and Brent, which is implemented in the function test.
+%
+
+%%
+%  function y = test(x);
+%  % Abbot/Brent     3 y" y + y'^2 = 0;    y(0)=0; y(1)=20;
+%  % approximation   10*ones(n,1)
+%  % solution        20*x^.75
+%    y = x;
+%    n = length(x); v=2:n-1;
+%    y(1) = 3*x(1)*(x(2)-2*x(1)) + x(2)*x(2)/4;
+%    y(v) = 3*x(v).*(x(v+1)-2*x(v)+x(v-1)) + (x(v+1)-x(v-1)).^2/4;
+%    y(n) = 3*x(n).*(20-2*x(n)+x(n-1)) + (20-x(n-1)).^2/4;
+%
+% An inclusion of the solution for 1000 unknowns is computed by
+%
+
+format short
+sparsegradient(50)
+n = 1000; 
+tic
+x = verifynlss(@test,10*ones(n,1)); 
+toc
+max(relerr(x))
+
+%% Verified solution of a nonlinear system with full gradients
+% Here we specified that gradients with 50 unknowns and more are stored
+% in sparse mode. This is the defauls when calling "sparsegradient". 
+%
+% Forcing gradients to use full storage results in a significantly increase
+% of computing time. 
+
+sparsegradient(inf)
+n = 1000; 
+tic
+x = verifynlss(@test,10*ones(n,1)); 
+toc
+max(relerr(x))
+ 
+%% Verified solution of a nonlinear system with 5000 uknowns
+% Note that the inclusion is of high accuracy. The results for a larger
+% nonlinear system with 5000 unknowns is as follows.
+ 
+sparsegradient(0)
+n = 5000; 
+tic
+x = verifynlss(@test,10*ones(n,1)); 
+toc
+max(relerr(x))
+
+
+%% Non-differentiable functions
+% The given function need not be differentiable everywhere. Consider, for example,
+
+f = inline('abs(x)')
+f(gradientinit(infsup(-.1,2)))
+
+%% Verified solution of non-differentiable functions 
+% The inclusion of a root is searched for near the given approximation. Consider
+
+f = vectorize(inline('x*sinh(x)-3*exp(abs(x)-.5)+x*cos(x+1)+2*cosh(x)'))
+close
+x=linspace(-1,2.3);
+plot(x,f(x),x,0*x)
+
+%%
+% It seems there are three roots. Note that the function contains abs(x). Indeed,
+
+format long
+verifynlss(f,-.5)
+verifynlss(f,.5)
+verifynlss(f,2)
+
+%%
+% there are three roots, and the inlcusions are of high accuracy. One can
+% also calculate an inclusion of multiple roots. Since the problem is ill-posed,
+% it has t be regularized. Consider
+
+X = verifynlss2(@(x)(sin(x)-1),1.5)
+
+%%
+% It is proved that there exists some parameter e in X(2) such that the function 
+% g(x):=f(x)-e has a truely double root in X(1). Note the accuracy of the inclusions.
+% It looks like the inclusion of e is a true zero. However, this is due to the "_"-format:
+% add +/-1 to the last visible digit produces a valid inclusion:
+
+format long e infsup
+X
+
+%%
+% The function "verifynlss2" is applicable to multivariate functions as well.
+%
+% For more details, see "help verifynlss" or "help verifynlss2" or
+%
+%  S.M. Rump: Verification methods: Rigorous results using floating-point arithmetic.
+%    Acta Numerica, 19:287-449, 2010. 
+%
+% to be downloaded from "www.ti3.tuhh.de/rump" and the literature cited over there.
+
+%% Enjoy INTLAB
+% INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing,
+% Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de
+
+##### SOURCE END #####
+--></body></html>

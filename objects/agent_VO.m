@@ -42,6 +42,11 @@ classdef agent_VO < agent
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % SETUP - X = [x;x_dot]' 3D STATE VECTOR
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+        end
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
         function [obj] = main(obj,TIME,varargin)
             % INPUTS:
@@ -666,19 +671,6 @@ classdef agent_VO < agent
             if coneLines == 0
                 set(Cone,'EdgeAlpha',0)
             end
-        end
-    end
-    
-    % /////////////////////// AGENT/OMAS INTERFACES ///////////////////////
-    methods
-        % INITIALISE THE [x;x_dot]' 3D STATE VECTOR
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % The state initialiser must be called 'initialise_localState'
-            % and instead calls the 'initialise_3DVelocities' function in
-            % this case. 
-            
-            % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
-            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end
     end
 end

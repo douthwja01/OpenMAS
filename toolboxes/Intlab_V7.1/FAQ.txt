@@ -1,0 +1,466 @@
+Frequently asked questions (see also file Readme.txt):
+======================================================
+
+>>> The system comes to a hard stop and/or core dump.
+
+    The fastest way to change the rounding mode is chosen. This may be
+    by the built-in Matlab function "feature" or by some of the assembly
+    routines. In very rare cases it happened what should be blocked by
+    Matlab, namely the system goes to a hard stop and/or core dump.
+    In that case go to intvalinit.m in the directory intval and change
+    the value of the variable TESTROUNDING from 0 to 1. 
+    If you are an expert you see which of the assembly routines caused
+    the problem; remove it and it should work.
+    Otherwise please send me the screen shot and I will try to help.
+    Sorry for the inconvenience; it happened only two or three times
+    in several thousand installations.
+
+
+>>> Solving nonlinear systems with verifynlss does not work
+
+    Often a nonlinear system has paramaters which vary in a certain interval.
+    For example, an INTLAB user asked me, why verifynlss(@g,ones(2,1)) always
+    gives NaN as answer for the following simple function:
+
+       function y=g(x)
+       y=x;
+       k=infsup(0.5,1);
+       y(1)=x(1)*x(2)-k;
+       y(2)=x(1)^2-x(2)-2;
+       end
+
+    The problem is that calling the function g with a real, non-interval argument
+    always gives an interval result. Please use instead:
+
+       function y = g(x)
+       y = x;
+       k = typeadj( infsup(0.5,1) , typeof(x) );
+       y(1) = x(1)*x(2)-k;
+       y(2) = x(1)^2-x(2)-2;
+       end
+
+    This adjusts the type of "k" to the type of the input "x". It is necessary 
+    because verifynlss first performs a Newton iteration, which converges only
+    for point  (non-interval) data. 
+    When calling the new function we obtain:
+
+       >> verifynlss(@testverifynlss,ones(2,1))
+       intval ans = 
+       [    1.5232,    1.6243] 
+       [    0.3218,    0.6314] 
+
+    so that the nonlinear system [ x1*x2-p ; x1^2-x2-2 ] = 0 has a solution
+    within the computed bounds for all p in the interval [0.5,1].
+
+
+
+>>> What about the overestimation in the 'FastIVMult'-mode
+
+    The multiplication of interval matrices is much faster when first converting
+    to mid-rad mode than in inf-sup mode. However, with the faster mid-rad mode
+    there is a worst case overestimation of the result of a factor 1.5 in radius.
+
+    Note that this overestimation is the worst case. For not too wide intervals
+    the overestimation is marginal. Consider 
+
+    >> a=reshape(1:4,2,2); A=midrad(a,1e-2)
+    intval A =
+    [    0.9899,    1.0101] [    2.9899,    3.0101]
+    [    1.9899,    2.0101] [    3.9899,    4.0101]
+
+    This matrix has an input tolerance of 1e-2. Multiplication in inf-sup mode yields
+    >> intvalinit('sharpivmult'); S=A*A
+    ===> Slow but sharp interval matrix multiplication in use
+    intval S =
+    [    6.9301,    7.0703] [   14.8901,   15.1103]
+    [    9.9101,   10.0903] [   21.8701,   22.1303]
+
+    Multiplication in mid-rad mode yields
+    >> intvalinit('fastivmult'); F=A*A
+    ===> Fast interval matrix multiplication in use (maximum overestimation
+             maximally factor 1.5 in radius)
+    intval F =
+    [    6.9297,    7.0703] [   14.8897,   15.1103]
+    [    9.9097,   10.0903] [   21.8697,   22.1303]
+
+    The difference is negligible: 
+    >> relerr(S), relerr(S,F)
+    ans =
+         0.0100    0.0073
+         0.0090    0.0059
+    ans =
+       1.0e-004 *
+         0.2886    0.1343
+         0.2018    0.0914
+
+
+>>> Rounding problems
+
+    In older Matlab versions, a system variable BLAS_VERSION had to be set to 
+      some atlas version or to refblas. This changed with newer Matlab versions.
+    If, in particular, if Matlab R2008a does not start at all but an error window
+       "csrot" with text "The specified procedure could not be found"
+    appears, you may have used INTLAB before and set the environment variable 
+      BLAS_VERSION.
+    Please delete this environment variable, and INTLAB should work.
+    With new routines for changing the rounding mode INTLAB should work on any
+      operating system with the default Intel Math Kernel Library (IMKL).
+    Many thanks to Dr. Takeshi Ogita from Tokyo for that!
+
+
+>>> Rounding problems with Intel Math Kernel library
+
+    In newer versions of Matlab IMKL works without problems.
+    In older versions, Matlab choose to use IMKL as default for BLAS operations.
+    The IMKL library takes full control over the control word forcing internal
+    computation to be done in extended and setting the rounding mode to nearest.
+    After return to Matlab the control word is reset to its previous value.
+
+    This has peculiar consequences. For example, the results res1 and res2 in
+
+       x = randn(3,1), res1 = x'*x, res2 = x(1)*x(1)+x(2)*x(2)+x(3)*x(3)
+
+    should mathematically be equal. However, res1 is a dot product and computed
+    by IMKL, so the intermediate sums are accumulated in extended precision, whereas
+    the second result res2 is computed by conventional multiplication and addition
+    in Matlab, so intermediate sums are accumulated in double precision. Note
+    this peculiarity occurs in ordinary Matlab and has nothing to do with INTLAB.
+
+    Even worse, in older versions of Matlab the switching of the rounding mode
+    does not work with IMKL. Therefore, INTLAB cannot work with IMKL. Consider, 
+    for example,
+    
+       x = 0.1*ones(2,1); d = diam(x'*intval(x))
+
+    The diamater d should not be zero due to rounding errors in the computation of
+    diam(x'*intval(x)). If d==0, then you have a older version of Matlab and use
+    the IMKL. 
+    Fortunately, there is no problem with newer versions of Matlab. 
+    In order to make INTLAB work properly with an older version of Matlab, you have 
+    to change to another BLAS library, for instance to the Atlas library which was 
+    used in previous Matlab versions.
+    Unfortunately, I cannot do that from Matlab but the user has to do that outside
+    Matlab as a system configuration. 
+
+    For that you have to change the environment variable BLAS_VERSION. From Matlab 
+    release notes:
+
+       "If you want to take advantage of the potential performance enhancements 
+        provided by the Intel BLAS, you can set the value of the environment 
+        variable BLAS_VERSION to the name of the MKL library, mkl.dll. 
+        MATLAB uses the BLAS specified by this environment variable, if it exists. 
+        To set the BLAS_VERSION environment variable, follow this procedure: Click 
+        the Start button, go to the Settings menu, and select Control Panel. On the 
+        Control Panel menu, select System. In the System Properties dialog box, 
+        click the Advanced tab. On the Advanced panel, click the Environment Variables 
+        button. In the Environment Variables dialog box, click the New button in the 
+        User variables section. In the New User Variable dialog box, enter the name 
+        of the variable as BLAS_VERSION and set the value of the variable to the name 
+        of the MKL library: mkl.dll. "
+
+    Please consult 
+ 
+       http://www.mathworks.com/access/helpdesk/help/techdoc/rn/r14sp1_math_new.html
+ 
+    and "Overriding the Default BLAS Library on Sun/Solaris Systems". 
+
+    So change the system variable BLAS_VERSION to atlas*** choosing '***' according to 
+    your processor. You find the atlas files in matlab/bin/win32 . I can't do that from
+    INTLAB, sorry for inconvenience.
+
+    To get visual feedback that the BLAS version has changed, also type at the UNIX prompt
+ 
+       % setenv LAPACK_VERBOSITY 1
+ 
+    before starting MATLAB to display diagnostic information while MATLAB is starting 
+    up.
+ 
+
+
+>>> Strange behaviour when converting numbers (Thanks to Georgios E. Fainekos for 
+       pointing to this problem).
+
+    Note that it is not safe to change the rounding mode and use Matlab's
+    conversion of decimal numbers into floating-point. In rounding to 
+    nearest, we can expect that the result of, for example,
+
+       x = 0.33
+
+    to be a floating-point number x near the decimal number 0.33 (note that
+    decimal 0.33 is not representable as a finite binary number). However,
+    when changing the rounding mode, Matlab's behaviour is not defined and
+    is unpredictable. For example, start Matlab afresh and compute
+
+       >> setround(-1), x=0.33
+       x =
+           0.3300
+       >> setround(-1), y=0.33
+       y =
+           0.3300
+
+     Everything looks as expected. However, 
+
+        >> setround(0), x-y
+        ans =
+          5.5511e-017
+
+    Instead, please use 
+
+       X = intval('0.33')
+
+    or alike, this is safe in any rounding mode and does what you may expect.       
+
+
+
+>>> Erroneous inclusion when using Brouwer's Fixed Point Theorem
+
+    There is an option intvalinit('RealStdFctsExcptnIgnore') which may 
+    have been set. With this option input arguments out of range are ignored,
+    see Readme.txt and the demo on interval arithmetic. For example,
+       X = infsup(-3,4); Y = sqrt(X)
+    yields 
+       Y = [0,2] 
+    as result ignoring the fact that part of X, namely [-2,0) is not in the 
+    (real) range of definition of sqrt. 
+    For a continuous function f:R^n->R^n and a nonempty, compact and convex set 
+    X in R^n we know by Brouwer's Fixed Point Theorem that f has a fixed point 
+    in X provided X is mapped into itself by f. 
+    Now consider f(x):=sqrt(x)-2. Obviously, there is no real x such that f(x)=x.
+    However, f(X)=[-2,0] when ignoring input arguments out of range, so that
+    one might falsely conclude that f(X) is contained X !
+    The additional check
+       flag = intvalinit('RealStdFctsExcptnOccurred')
+    will yield flag=1 in the example, revealing that f(X) need only contain the
+    set of f(x) for x in X _and_ in the range of definition of f. 
+    For more details, see Readme.txt and the demo on interval arithmetic.
+
+
+
+>>> Peculiar messages involving 'numel' or even core dump
+
+    There is a known bug in Matlab 7.0.1 and 7.0.4. Try
+        feature accel off
+    for cure.
+
+
+
+>>> Peculiar behaviour when debugging
+
+    Note that rounding is reset to nearest when setting breakpoints.
+
+
+
+>>> Wrong inclusion?
+
+    This would be about the worst what could happen for a verification routine.
+    Recently I was trapped in my test programs by the following. The test was for
+    the sum of intervals.
+    It seems natural to generate some vector x of dimension n, sum up the elements
+    in a for-loop and check against sum(x). However, the for-loop uses the Matlab-
+    commands, rounding the intermediate results to double precision, whereas sum(x)
+    uses the IMKL-library, on PCs summing up in extended precision. So the results
+    need to coincide. Even worse, for a vector x of floating-point numbers, it may
+    happen that the for-loop sum is not included in sum(intval(x)).
+
+
+
+>>> Interval matrix multiplication seems not correct
+
+Consider
+
+
+A=infsup([-1,-5;2,3],[1,-4;2,5]), B=A*A, A(1,1)*A(1,2)+A(1,2)*A(2,2) 
+
+intval A =
+[   -1.0000,    1.0000] [   -5.0000,   -4.0000]
+[    2.0000,    2.0000] [    3.0000,    5.0000]
+intval B =
+[  -11.0000,   -7.0000] [  -30.0000,   -6.0000]
+[    4.0000,   12.0000] [   -3.0000,   17.0000]
+intval ans =
+[  -30.0000,   -7.0000]
+
+
+Here the (1,2)-component of B=A*A is too wide. The default is 
+
+intvalinit('FastIVmult')
+===> Fast interval matrix multiplication in use (maximum overestimation
+          factor 1.5 in radius)
+
+for fast matrix multiplication of two interval matrices. For sharp results,
+try
+
+intvalinit('SharpIVmult')
+A=infsup([-1,-5;2,3],[1,-4;2,5]), B=A*A, A(1,1)*A(1,2)+A(1,2)*A(2,2)
+
+===> Slow but sharp interval matrix multiplication in use
+intval A =
+[   -1.0000,    1.0000] [   -5.0000,   -4.0000]
+[    2.0000,    2.0000] [    3.0000,    5.0000]
+intval B =
+[  -11.0000,   -7.0000] [  -30.0000,   -7.0000]
+[    4.0000,   12.0000] [   -1.0000,   17.0000]
+intval ans =
+[  -30.0000,   -7.0000]
+
+There is only a difference if both factors are of nonzero diameter. In that case,
+however, 'sharp' multiplication is pretty slow for larger dimensions:
+
+Time in seconds for multiplication of full interval matrices, almost all entries
+zero intervals, on an Intel i7, 2.8 GHz Laptop:
+
+       n       FastIVmult     SharpIVmult
+    ----------------------------------------
+      500         0.108           3.8   
+     2000         3.6           278     
+     5000        54            4193     
+
+For sparse matrices with 5 % density, all entries zero intervals:
+
+       n       FastIVmult     SharpIVmult
+    ----------------------------------------
+      500         0.063          0.18  
+     2000         1.5            9.1   
+     5000        14            227   
+
+For details and error estimations see
+  S.M. Rump: Fast and Parallel Interval Arithmetic,
+       BIT 39(3), 539-560 (1999)
+and the comments in mtimes.
+
+
+
+>>> Intervals are not working correctly
+
+    You might have used the following:
+
+    >> Z=[1,2]+i*[-1,1]
+    Z =
+      1.0000 - 1.0000i   2.0000 + 1.0000i
+  
+    The brackets in the definition of Z might lead to the conclusion that Z is a 
+    complex interval (rectangle) with lower left endpoint 1-i and upper right 
+    endpoint 2+i. This is not the case. The above statement is a standard Matlab
+    statement defining a (row) vector of length 2. It cannot be an interval:
+    Otherwise Z would be preceded in the output by "intval".
+
+
+
+>>> slope does not work for matrices
+
+    This has been fixed in the new release
+
+
+
+>>> How to handle the warning
+
+       Warning: **** Subscripted assignment  real(...) = complex
+       > In C:\MATLAB\TOOLBOX\RUMP\intval\@intval\subsasgn.m at line 39
+    check intvalinit
+
+
+
+>>> Problems with gradient
+
+    Matlab version 7 has its own function 'gradient' for approximating derivatives.
+    This creates a conflict with our toolbox. Of course, one may rename or copy the
+    Matlab routine, but then functions are not compatible with Matlab without INTLAB.
+    If anybody knows a clue, please let me know.
+
+
+
+>>> SparseInfNanFlag problems
+
+    This has been fixed in the new release
+
+
+
+>>> Interval output too wide
+
+    We claim that INTLAB output of intervals is correct in any format, that means,
+    the displayed (decimal) numbers form an inclusion of the computed interval.
+    For example,
+
+    >> format short; X = intval(2)/3;
+    >> infsup(X), midrad(X), disp_(X)
+    intval X = 
+    [    0.6666,    0.6667] 
+    intval X = 
+    <    0.6667,   0.0001>   
+    intval X = 
+        0.6666
+
+    In short format, the displayed [ 0.6666 , 0.6667 ] is the best possible. For
+    display with "_" see "help disp_". 
+    
+    The next example may seem strange:
+    >> format short e, midrad(X), diam(X)
+    intval X = 
+    <  6.6667e-001, 3.3334e-006> 
+    ans =
+      1.1102e-016
+
+    So the displayed radius 3.3334e-006 seems much to big. However, it is about
+    best possible for the _displayed_ midpoint! 
+
+    But the displayed results are not always best (i.e. as narrow as) possible.
+    Consider (thanks to John Pryce for pointing to this)
+    
+    >> format short, intvalinit('Displayinfsup'), m=succ(0), M=realmax, infsup(m,M)
+    ===> Default display of intervals by infimum/supremum (e.g. [ 3.14 , 3.15 ])
+    m =
+      4.9407e-324
+    M =
+      1.7977e+308
+    intval ans = 
+      1.0e+308 *
+    [    0.0000,       Inf] 
+
+    This is improvable. Even worse
+
+    >> m8=8*m, infsup(m8,M)
+    m8 =
+      3.9525e-323
+    intval ans = 
+      1.0e+308 *
+    [    0.0000,       Inf]
+
+    Well, a conversion always accurate to the last digit is a nontrivial task. We used
+    a very simple way of conversion, poor men's conversion so to speak. To display some 
+    number we convert it into a decimal string using the built-in Matlab routine. Then
+    the displayed result is rounded back into floating point. Then correctness with 
+    respect to the intended rounding is checked. If not correct, the same procedure is
+    performed for a value slightly larger (or smaller) than the given number [see
+    S.M. Rump: INTLAB - INTerval LABoratory, in "Developments in Reliable Computing", 
+    ed. T. Csendes, Kluwer Academic Publishers, 77-104 (1999)].
+
+    In many if not most cases the displayed result is indeed best possible. For bounds
+    near to the underflow or overflow range this is not true. However, at least the
+    displayed bounds are correct. So in such cases please check the individual bounds.
+
+    We know that this approach may not be completely satisfactory. Volunteers having a
+    better solution, written in Matlab, are very welcome.
+
+
+
+
+>>> Changes from previous INTLAB versions to the current one:
+
+    isempty_        -->  isempty
+    isempty         -->  isempty_
+    abss            -->  mag
+    midradcmplx     -->  cintval
+    tocmplx         -->  cintval
+    initvar         -->  gradientinit 
+    SetRoundDown    -->  setround(rnd)
+    SetRoundUp      -->  setround(rnd)
+    SetRoundNear    -->  setround(rnd)
+    iabs            -->  abs
+
+
+>>> INTSOLVER: An interval based solver for Global Optimization
+
+    This package based on INTLAB is written by Tiago Montanher; in case
+    of questions, please ask him  montanhe@gmail.com
+
+ 

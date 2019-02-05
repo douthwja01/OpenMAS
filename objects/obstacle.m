@@ -28,12 +28,14 @@ classdef obstacle < objectDefinition
             obj = obj@objectDefinition(varargin); % Call the super class
             
             % ALLOCATE DEFAULT OBJECT-SPECIFIC CONSTANTS 
-            obj.VIRTUAL.type = OMAS_objectType.obstacle;
+            obj.VIRTUAL.type       = OMAS_objectType.obstacle;
+            obj.VIRTUAL.hitboxType = OMAS_hitBoxType.spherical; 
             obj.VIRTUAL.symbol = 'o';
             obj.VIRTUAL.radius = 1;
-                        
+                      
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
+            obj = obj.configurationParser(obj,varargin);
         end      
     end
 end

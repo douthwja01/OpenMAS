@@ -24,7 +24,16 @@ classdef quadcopter < agent
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
-        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % QUADCOPTER STATE VECTOR [pn;vn;etn;omega]
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % This function calculates the intial state for a quadrotor
+            % object.
+
+            % CALL THE STANDARD [x_t;x_dot} INITIALISER
+            obj = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+        end
+        % //////////////////// OBJEC MAIN CYCLE ///////////////////////////
         function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
@@ -179,11 +188,6 @@ classdef quadcopter < agent
                 X = Xset(end,:)';
             end
         end    
-        % INTIALISE - QUADCOPTER STATE VECTOR [pn;vn;etn;omega]
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % CALL THE STANDARD [x_t;x_dot} INITIALISER
-            obj = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
-        end
     end
     % STATIC FUNCTIONS
     methods (Static)

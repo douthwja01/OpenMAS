@@ -50,6 +50,30 @@ classdef ARdrone < agent
             % VIRTUAL DEFINITIONS
             obj.VIRTUAL.radius = obj.DYNAMICS.length/2;                    % Body just used to determine the size parameter        
         end
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % INTIALISE A LOCAL STATE [x;x_dot]'
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % This function generates the initial state vector for the
+            % ARdrone model from the global parameters provided from the
+            % scenario.
+            
+            eulerIndices = 4:6;
+            velocityIndices = 7:9;
+            
+            % MAPPING FROM XYZ CONVENTION TO THE NED CONVENTION
+            mapAngle = pi;
+            XYZ2NED = [ 1             0              0;
+                        0 cos(mapAngle) -sin(mapAngle);
+                        0 sin(mapAngle)  cos(mapAngle)];
+            
+            % DEFINE THE INITIAL STATE
+            X = zeros(12,1);
+            X(eulerIndices) = XYZ2NED*localXYZrotations;
+            X(velocityIndices) = XYZ2NED*localXYZVelocity;
+            % APPEND TO VIRTUAL PROPERTIES
+            obj.VIRTUAL.priorState = X;                                    % Record the previous state
+            obj.localState = X;  
+        end
         
         % THIS CLASS HAS NO 'main' CYCLE
         % The ARdrone class is designed to simply provide the dynamics of a
@@ -344,29 +368,6 @@ classdef ARdrone < agent
                                                       globalVelocity_k_plus,... % Global velocity at k plus
                                                       quaternion_k_plus,...     % Quaternion at k plus
                                                       eulerState);              % The new state for reference
-        end
-        % INTIALISE A LOCAL STATE [x;x_dot]'
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % This function generates the initial state vector for the
-            % ARdrone model from the global parameters provided from the
-            % scenario.
-            
-            eulerIndices = 4:6;
-            velocityIndices = 7:9;
-            
-            % MAPPING FROM XYZ CONVENTION TO THE NED CONVENTION
-            mapAngle = pi;
-            XYZ2NED = [ 1             0              0;
-                        0 cos(mapAngle) -sin(mapAngle);
-                        0 sin(mapAngle)  cos(mapAngle)];
-            
-            % DEFINE THE INITIAL STATE
-            X = zeros(12,1);
-            X(eulerIndices) = XYZ2NED*localXYZrotations;
-            X(velocityIndices) = XYZ2NED*localXYZVelocity;
-            % APPEND TO VIRTUAL PROPERTIES
-            obj.VIRTUAL.priorState = X;                                    % Record the previous state
-            obj.localState = X;  
         end
     end
 end

@@ -23,12 +23,20 @@ classdef agent_2D_VO < agent_2D & agent_VO
             obj@agent_2D(varargin); 
             
             obj.feasabliltyMatrix = []; % Omit parent field
-             
             % VIRTUAL DEFINITION (SIMULATOR PARAMETERS)
             obj.VIRTUAL.radius = 0.5; 
-            
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
+        end
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % SETUP - x = [x y psi dx dy dpsi]
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % This function calculates the intial state for a generic
+            % object.
+            % The default state vector:
+            % [x y psi dx dy dpsi]
+            % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
+            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
         function [obj] = main(obj,TIME,varargin)
@@ -66,7 +74,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             % Design the current desired trajectory from the waypoint.
             if ~isempty(obj.targetWaypoint)
                 desiredHeadingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
-                desiredVelocity = desiredHeadingVector*desiredSpeed; % Desired relative velocity
+                desiredVelocity = desiredHeadingVector*desiredSpeed;            % Desired relative velocity
             end
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
@@ -452,18 +460,6 @@ classdef agent_2D_VO < agent_2D & agent_VO
             if projDiff > VOtolerance   
                 flag = 1;
             end
-        end
-    end
-    % ////////////////////// 2D VO STATE INITIALISER //////////////////////
-    methods
-        % INITIALISE A STATE VECTOR AS [x y psi dx dy dpsi]
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % This function calculates the intial state for a generic
-            % object.
-            % The default state vector:
-            % [x y psi dx dy dpsi]
-            % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
-            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
     end
 end

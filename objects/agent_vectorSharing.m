@@ -37,6 +37,16 @@ classdef agent_vectorSharing < agent
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % SETUP - X = [x;x_dot]' 3D STATE VECTOR
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % The state initialiser must be called 'initialise_localState'
+            % and instead calls the 'initialise_3DVelocities' function in
+            % this case. 
+            
+            % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
+            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+        end        
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
         function [obj] = main(obj,TIME,varargin)
             % This function is designed to house a generic agent process
@@ -297,18 +307,6 @@ classdef agent_vectorSharing < agent
                 q = quiver3(Uatangent(1),Uatangent(2),Uatangent(3),r_m(1),r_m(2),r_m(3),'k'); q.AutoScaleFactor = 1;
                 q = quiver3(Ubtangent(1),Ubtangent(2),Ubtangent(3),-r_m(1),-r_m(2),-r_m(3),'k'); q.AutoScaleFactor = 1;
             end
-        end
-    end
-    % //////////////////// CONTROLLER/ PLANT OPERATIONS ///////////////////
-    methods
-        % INITIALISE THE [x;x_dot]' 3D STATE VECTOR
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % The state initialiser must be called 'initialise_localState'
-            % and instead calls the 'initialise_3DVelocities' function in
-            % this case. 
-            
-            % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
-            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end
     end
 end

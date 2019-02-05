@@ -26,6 +26,16 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % SETUP - X = [x y psi dx dy dpsi]
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % This function calculates the intial state for a generic
+            % object.
+            % The default state vector:
+            % [x y psi dx dy dpsi]
+            % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
+            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
+        end
         % ///////////////////// AGENT MAIN CYCLE //////////////////////////
         function [obj] = main(obj,TIME,varargin)
             % This function is designed to house a generic agent process
@@ -98,8 +108,10 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
                 close(overHandle);
             end
         end
-    
-        % GET THE AVOIDANCE CORRECTION
+    end
+    % ///////////////////// THE VECTOR SHARING METHODS ////////////////////
+    methods (Access = public)
+         % GET THE AVOIDANCE CORRECTION
         function [headingVector,speed] = getAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the collision avoidance velocity in
             % light of the current obstacles
@@ -148,9 +160,6 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
                 headingVector = avoidanceVelocity/speed;
             end
         end
-    end
-    % ///////////////////// THE VECTOR SHARING METHODS ////////////////////
-    methods (Access = public)
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
         function [U_a] = defineOptimalVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
             % This function calculates the avoidance vectors based on the
@@ -287,18 +296,5 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
     end
     % The function uses the same sensor characteristics from the parent
     % class "agent_vectorSharing.m".
-    
-     % ////////////////////// 2D VS STATE INITIALISER //////////////////////
-    methods
-        % INITIALISE A STATE VECTOR AS [x y psi dx dy dpsi]
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % This function calculates the intial state for a generic
-            % object.
-            % The default state vector:
-            % [x y psi dx dy dpsi]
-            % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
-            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
-        end
-    end
 end
 % AGENT STATE VECTOR [x;y;phi;xdot;ydot;phidot]

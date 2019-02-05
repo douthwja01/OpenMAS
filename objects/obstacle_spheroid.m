@@ -20,14 +20,10 @@ classdef obstacle_spheroid < obstacle
                         
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj = obj@obstacle(varargin); 
-                        
-            % ALLOCATE DEFAULT OBJECT-SPECIFIC CONSTANTS 
-            obj.VIRTUAL.type = OMAS_objectType.obstacle;
-            obj.VIRTUAL.symbol = 'o';
-            obj.VIRTUAL.radius = 1;
-            
+                                    
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);  
+            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
+            obj = obj.configurationParser(obj,varargin);
             
             % CONSTRUCT THE GEOMETRY FROM DEFINITION INSTEAD
             [obj.GEOMETRY] = OMAS_graphics.defineSphere(zeros(3,1),obj.VIRTUAL.radius,20);

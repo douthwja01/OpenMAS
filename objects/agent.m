@@ -50,14 +50,15 @@ classdef agent < objectDefinition
             obj.localState = zeros(12,1);
                         
             % OVERRIDE VIRTUAL DEFINITION
-            obj.VIRTUAL.type = OMAS_objectType.agent;
+            obj.VIRTUAL.type       = OMAS_objectType.agent;
+            obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.spherical;
             obj.VIRTUAL.symbol = 'diamond';
             obj.VIRTUAL.detectionRadius = obj.SENSORS.range;  
             obj.VIRTUAL.idleStatus = logical(false);
-            % Assume the agent has perfect environmental knowledge (m)
             
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
+            obj = obj.configurationParser(obj,varargin);
         end
         % ///////////////////// AGENT MAIN CYCLE //////////////////////////
         function obj = main(obj,TIME,varargin)
@@ -917,10 +918,10 @@ classdef agent < objectDefinition
             % .DATA structure to allow it to be easily interpretted.
                         
             % THE AGENT COMPUTATION TIMES
-            obj.DATA.algorithm_indicator(TIME.currentStep) = loopIndicator;
-            obj.DATA.algorithm_dt(TIME.currentStep) = loopDuration;
-            obj.DATA.algorithm_steps(TIME.currentStep) = TIME.currentStep;
-            obj.DATA.algorithm_time(TIME.currentStep) = TIME.currentTime;
+            obj.DATA.indicator(TIME.currentStep) = loopIndicator;
+            obj.DATA.dt(TIME.currentStep) = loopDuration;
+            obj.DATA.steps(TIME.currentStep) = TIME.currentStep;
+            obj.DATA.time(TIME.currentStep) = TIME.currentTime;
         end 
     end
 end

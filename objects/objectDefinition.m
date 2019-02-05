@@ -11,24 +11,16 @@ classdef objectDefinition
         objectID;
         name;
         % KINEMATIC PROPERTIES
-        localState  = zeros(12,1);   % Other properties derived from the state.
+        localState  = zeros(12,1);                                         % Other properties derived from the state.
         % GEOMETRIC PROPERTIES
         GEOMETRY = struct('vertices',[],...
                           'faces',[],...
                           'normals',[],...
                           'centroid',zeros(3,1));                          % If the object is something other than a point.
         % VIRTUAL PROPERTIES (Virtual (SIMULATION) data container)
-        VIRTUAL = struct('type',OMAS_objectType.misc,...
-                         'radius',0.5,...                                  % Diameter of 1m
-                         'colour',rand(1,3,'single'),...                   % Virtual colour (for plotting)
-                         'symbol','square',...                             % Representative symbol
-                         'globalPosition',[0;0;0],...                      % Global Cartesian position
-                         'globalVelocity',[0;0;0],...                      % Global Cartesian velocity
-                         'quaternion',[1;0;0;0],...                        % Global quaternion pose
-                         'idleStatus',logical(true),...                    % Object idle logical
-                         'is3D',logical(true));                            % Object operates in 3D logical
+        VIRTUAL = struct();                                                % Object operates in 3D logical
     end
-%   CLASS METHODS
+    % CLASS METHODS
     methods (Access = public)
         % CONSTRUCTOR METHOD
         function obj = objectDefinition(varargin)
@@ -40,38 +32,52 @@ classdef objectDefinition
             % OUTPUTS:
             % obj     - The generated object
             
+            % ///////////////////// OBJECT SETUP //////////////////////////
+            % ASSIGN VIRTUAL PROPERTIES
+            [obj.VIRTUAL] = obj.getObjectVIRTUAL();
+            % GET GEOMETRY IF POSSIBLE (FOR ALL CLASS SIBLINGS)
+            [obj.GEOMETRY] = obj.getObjectGeometry(obj);                   % Get the geometry of the object
+            % ALLOCATE OBJECT ID
+            spawnNewObject = 0;
+            if isempty(obj.objectID)                                       % Generate objectID if not allocated by a super class
+                spawnNewObject = 1;
+                [obj.objectID] = obj.getObjectID();                        % Assign the number as an ID tag
+            end
+            % GENERATE OBJECT NAME IF REQUIRED
+            if isempty(obj.name) || numel(obj.name) < 1   
+                obj.name = obj.getObjectName(obj.objectID);                % No input name string specified, use greek naming scheme
+            end            
+            
+            % ////////// HANDLING THE USERS INPUTS AS OVERRIDES ///////////
             % INPUT HANDLING (Clean up nested loops)
             [varargin] = obj.inputHandler(varargin);
-            
-            
-            % //////////////// OBJECT CREATION LOGIC //////////////////////
-            % GENERATE OBJECT-ID (If NOT ALLOCATED BY A SUPERCLASS)
-            spawnNewObject = 0;
-            if isempty(obj.objectID)
-                spawnNewObject = 1;
-                [obj.objectID] = objectDefinition.getObjectID();           % Assign the number as an ID tag
-            end
-            
-            % GENERATE OBJECT NAME
-            if isempty(obj.name) || strcmp(obj.name,'')
-                % No input name string specified, use greek naming scheme
-                obj.name = obj.getObjectName(obj.objectID);
-            end
-            % DISPLAY THE CURRENT AGENT PROPERTIES
-            if spawnNewObject
-                fprintf('objectcount: %d\tname: %s\ttype: %s\n',obj.objectID,obj.name,class(obj));
-            end
-            % /////////////////////////////////////////////////////////////
-            
-            % ///// GET GEOMETRY IF POSSIBLE (FOR ALL CLASS SIBLINGS) /////
-            [obj.GEOMETRY] = obj.getObjectGeometry(obj);
-            % /////////////////////////////////////////////////////////////
-            
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
+            
+            % ////////// DISPLAY THE CURRENT OBJECT PROPERTIES ////////////
+            if spawnNewObject
+                fprintf('Objectcount: %d\tname: %s\ttype: %s\n',obj.objectID,obj.name,class(obj));
+            end            
         end 
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        function [obj] = setup(obj,localXYZvelocity,localXYZrotations)     % [x y z phi theta psi]
+            % This function is called in order to build the initial state
+            % vector for the generic agent class 'objectDefinition'.
+            % INPUTS:
+            
+            % ASSUMPTIONS:
+            % - The designed state is described in the ENU axes.
+            % - The state is of the form:
+            % - [x y z phi theta psi]
+            
+            % BUILD STATE VECTOR
+            obj.localState = zeros(6,1);
+            obj.localState(4:6) = localXYZrotations;
+            % RETAIN THE PRIOR STATE FOR REFERENCE
+            obj.VIRTUAL.priorState = obj.localState;
+        end
         % ////////////////// THE DEFAULT OBJECT CYCLE /////////////////////
-        function obj = main(obj,TIME,varargin)
+        function [obj] = main(obj,TIME,varargin)
             % This is a generic process cycle of an object that accepts no
             % input commands/feedback and simply updates its states based
             % on its current attributes
@@ -95,9 +101,6 @@ classdef objectDefinition
             
             % UPDATE THE CLASS GLOBAL PROPERTIES
             obj = obj.updateGlobalProperties_ENU(dt,newState);
-            
-%             globalVelocity = zeros(3,1);
-%             [obj] = updateGlobalProperties_direct(obj,globalPosition,globalVelocity,quaternion,eulerState)
         end
     end
     %% ///////////////// BASIC STATE UPDATE FUNCTIONS /////////////////////
@@ -151,6 +154,7 @@ classdef objectDefinition
             dXdt = obj.dynamics_NIntegrator(X,systemOrder,linearRates,headingRates);
         end
     end
+    
     methods (Static)
 %         % DYNAMICS - DOUBLE INTEGRATOR
 %         function [dXdt] = dynamics_doubleIntegrator(X,a_linear,a_angular)
@@ -286,23 +290,6 @@ classdef objectDefinition
     
     %% ////////////////// SIMULATION & CORE INTERFACES ////////////////////
     methods
-        % DEFAULT STATE INITIALISER FOR A 3D OBJECT: [x y z phi theta psi]
-        function [obj] = initialise_localState(obj,localXYZvelocity,localXYZrotations)
-            % This function is called in order to build the initial state
-            % vector for the generic agent class 'objectDefinition'.
-            % INPUTS:
-            
-            % ASSUMPTIONS:
-            % - The designed state is described in the ENU axes.
-            % - The state is of the form:
-            % - [x y z phi theta psi]
-            
-            % BUILD STATE VECTOR
-            obj.localState = zeros(6,1);
-            obj.localState(4:6) = localXYZrotations;
-            % RETAIN THE PRIOR STATE FOR REFERENCE
-            obj.VIRTUAL.priorState = obj.localState;
-        end
         % INITIAL 3D STATE - [x y z phi theta psi dx dy dz dphi dtheta dpsi]
         function [obj] = initialise_3DVelocities(obj,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
@@ -479,7 +466,7 @@ classdef objectDefinition
             assert(numel(p) == 3 && size(p,2) == 1,'Global position must be a 3D column vector [3x1].');
             assert(numel(v) == 3 && size(v,2) == 1,'Global velocity must be a 3D column vector [3x1].');
             assert(numel(q) == 4 && size(q,2) == 1,'Global pose must be a 4D quaternion vector [4x1].');
-            assert(numel(X) == numel(obj.localState) && size(obj.localState,2) == 1,'The length of the objects state update must match the its local state.');
+%             assert(numel(X) == numel(obj.localState) && size(obj.localState,2) == 1,'The length of the objects state update must match the its local state.');
             
             % ///////////////// REASSIGN K+1 PARAMETERS //////////////////////////
             obj.VIRTUAL.globalPosition = p;                                % Reassign the global position
@@ -559,6 +546,23 @@ classdef objectDefinition
                 end
             end
             config = defaultConfig;
+        end
+        % APPLY OMAS CONVENTION
+        function [VIRTUAL]  = getObjectVIRTUAL()
+            % This is function that assembles the template desciption of an
+            % object
+            % DEFINE THE VIRTUAL STRUCTURE
+            VIRTUAL = struct(...
+                         'type',OMAS_objectType.misc,...
+                         'hitBoxType',OMAS_hitBoxType.none,...
+                         'radius',0.5,...                                  % Diameter of 1m
+                         'colour',rand(1,3,'single'),...                   % Virtual colour (for plotting)
+                         'symbol','square',...                             % Representative symbol
+                         'globalPosition',[0;0;0],...                      % Global Cartesian position
+                         'globalVelocity',[0;0;0],...                      % Global Cartesian velocity
+                         'quaternion',[1;0;0;0],...                        % Global quaternion pose
+                         'idleStatus',logical(true),...                    % Object idle logical
+                         'is3D',logical(true));                            % Object operates in 3D logical
         end
         % IMPORT THE CLASS GEOMETRY FILE
         function [geometry] = getObjectGeometry(obj)

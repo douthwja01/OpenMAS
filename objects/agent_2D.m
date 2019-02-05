@@ -33,6 +33,20 @@ classdef agent_2D < agent
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
+        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % DEFAULT 2D STATE - [x y psi]
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % This function calculates the intial state for a generic
+            % object.
+            % The default state vector:
+            % [x y psi]
+            
+            % BUILD STATE VECTOR
+            obj.localState = zeros(3,1);
+            obj.localState(3) = localXYZrotations(3);
+            % RETAIN THE PRIOR STATE FOR REFERENCE
+            obj.VIRTUAL.priorState = obj.localState;
+        end
         % ///////////////// AGENT MAIN CYCLE //////////////////////////////
         function [obj] = main(obj,TIME,varargin)
             % INPUTS:
@@ -186,19 +200,6 @@ classdef agent_2D < agent
     
     % /////////// AGENT/DERIVATES GLOBAL UPDATE/STATE FUNCTIONS ///////////
     methods
-        % DEFAULT 2D STATE - [x y psi]
-        function [obj] = initialise_localState(obj,localXYZVelocity,localXYZrotations)
-            % This function calculates the intial state for a generic
-            % object.
-            % The default state vector:
-            % [x y psi]
-            
-            % BUILD STATE VECTOR
-            obj.localState = zeros(3,1);
-            obj.localState(3) = localXYZrotations(3);
-            % RETAIN THE PRIOR STATE FOR REFERENCE
-            obj.VIRTUAL.priorState = obj.localState;
-        end
         % INITIAL 2D STATE - [x y psi dx dy dpsi]
         function [obj] = initialise_2DVelocities(obj,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
@@ -213,7 +214,6 @@ classdef agent_2D < agent
             % RETAIN THE PRIOR STATE FOR REFERENCE
             obj.VIRTUAL.priorState = obj.localState;
         end
-        
         % GLOBAL UPDATE - STATE VECTOR DEFINED AS: [x y psi dx dy dpsi]'
         function [obj] = updateGlobalProperties_2DVelocities(obj,dt,eulerState)
             % This function preforms the state update for a state vector
