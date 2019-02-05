@@ -1,0 +1,468 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>DEMOSLOPE  Short demonstration of slopes</title><meta name="generator" content="MATLAB 7.11"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2012-10-16"><meta name="DC.source" content="dslope.m"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><h1>DEMOSLOPE  Short demonstration of slopes</h1><!--introduction--><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Some sample applications of the Hessian toolbox</a></li><li><a href="#2">Slope expansions</a></li><li><a href="#4">Computing with slopes</a></li><li><a href="#7">Graphical illustration of slopes</a></li><li><a href="#9">Non-differentiable functions</a></li><li><a href="#11">Computation of the Gamma function with slopes</a></li><li><a href="#12">Computation of the range of the function g</a></li><li><a href="#16">Slopes in several unknowns</a></li><li><a href="#17">Solution of a nonlinear system</a></li><li><a href="#19">Verified solution of a nonlinear system</a></li><li><a href="#20">Verified solution using verifynlss</a></li><li><a href="#22">Nonlinear systems with uncertain parameters</a></li><li><a href="#24">A demo nonlinear function with large uncertainty</a></li><li><a href="#26">Enjoy INTLAB</a></li></ul></div><h2>Some sample applications of the Hessian toolbox<a name="1"></a></h2><p>Hessians implement second order automatic differentiation in forward mode, which is conveniently to implement using the Matlab operator concept.</p><p>For a demonstration of the slope toolbox, intervals are wide; therefore, output is switched to infimum/supremum representation (see demointval):</p><pre class="codeinput">setround(0)                           <span class="comment">% set rounding to nearest</span>
+format <span class="string">compact</span> <span class="string">short</span> <span class="string">infsup</span>
+</pre><h2>Slope expansions<a name="2"></a></h2><p>In order to use slope expansions, the expansion range and expansion point (interval) need to be identified and values have to be assigned. This is performed by the function "slopeinit", for example</p><pre class="codeinput">u = slopeinit( [1;2] , infsup([1;2],[1.1;2.1]) )
+</pre><pre class="codeoutput">slope intval center u.c = 
+[    1.0000,    1.0000] 
+[    2.0000,    2.0000] 
+slope intval range u.r = 
+[    1.0000,    1.1001] 
+[    2.0000,    2.1001] 
+slope intval slope u.s = 
+[    1.0000,    1.0000] [    0.0000,    0.0000] 
+[    0.0000,    0.0000] [    1.0000,    1.0000] 
+</pre><p>The length (number of rows) is the number of independent variables, in the example above two. Slopes are always of type intval. For definition and use of slopes cf. Neumaier's book on interval analysis.</p><h2>Computing with slopes<a name="4"></a></h2><p>Automatic slope expansion is performed by operations with slope variables. For example,</p><pre class="codeinput">x = slopeinit(3.5,midrad(3.5,1e-4));
+y = exp(3*x-sqrt(x))
+</pre><pre class="codeoutput">slope intval center y.c = 
+  1.0e+003 *
+[    5.5924,    5.5925] 
+slope intval range y.r = 
+  1.0e+003 *
+[    5.5909,    5.5940] 
+slope intval slope y.s = 
+  1.0e+004 *
+[    1.5280,    1.5285] 
+</pre><p>evaluates the expression using slopes with expansion point 3.5 and expansion interval 3.5+/-1e-4.</p><p>There is access to the center value, the range and the slope of y:</p><pre class="codeinput">y.c
+y.r
+y.s
+</pre><pre class="codeoutput">intval ans = 
+  1.0e+003 *
+[    5.5924,    5.5925] 
+intval ans = 
+  1.0e+003 *
+[    5.5909,    5.5940] 
+intval ans = 
+  1.0e+004 *
+[    1.5280,    1.5285] 
+</pre><p>When evaluating the expression for another argument, e.g. a vector argument, use the same statement as before with new values.</p><pre class="codeinput">xs = [2;3];
+x = slopeinit(xs,midrad(xs,1e-4));
+y = exp(3*x-sqrt(x))
+</pre><pre class="codeoutput">slope intval center y.c = 
+  1.0e+003 *
+[    0.0980,    0.0981] 
+[    1.4336,    1.4337] 
+slope intval range y.r = 
+  1.0e+003 *
+[    0.0980,    0.0982] 
+[    1.4332,    1.4340] 
+slope intval slope y.s = 
+  1.0e+003 *
+[    0.2595,    0.2596] [    0.0000,    0.0000] 
+[    0.0000,    0.0000] [    3.8864,    3.8876] 
+</pre><h2>Graphical illustration of slopes<a name="7"></a></h2><p>There is a simple graphic to demonstrate the behaviour of slope expansions for one-dimensional functions. The routine "slopeplot" assumes a function in one variable which can be evaluated for vectors, the expansion point and the expansion interval. For example,</p><pre class="codeinput">format <span class="string">short</span>
+slopeplot(<span class="string">'(x-2).*exp(x)-sqrt(abs(x))'</span>,1,infsup(1,2))
+</pre><img vspace="5" hspace="5" src="dslope_01.png" alt=""> <p>shows a best possible upper slope, but an underestimated lower slope.</p><h2>Non-differentiable functions<a name="9"></a></h2><p>Functions to be handled by slopes need not be differentiable. An example is sqrt(abs(x)). Consider</p><pre class="codeinput">slopeplot(<span class="string">'sqrt(abs(x))'</span>,-2,infsup(-1,1))
+</pre><img vspace="5" hspace="5" src="dslope_02.png" alt=""> <p>The slope is best possible, but the grid is not fine enough to catch the extreme point at zero. For some 10000 grid points the picture looks as follows:</p><pre class="codeinput">slopeplot(<span class="string">'sqrt(abs(x))'</span>,-2,infsup(-1,1),[],10000)
+</pre><img vspace="5" hspace="5" src="dslope_03.png" alt=""> <h2>Computation of the Gamma function with slopes<a name="11"></a></h2><p>Consider the following example in one unknown. According to Stirling's formula it is for u -&gt; inf,</p><pre>                        1      1       139        571
+  Gamma(u) ~ C * ( 1 + --- + ----- - ------- - --------- + ... )
+                       12u       2         3           4
+                             288u    51840u    2488320u
+with</pre><pre>       -u  u-0.5
+  C = e   u      sqrt(2*pi) .</pre><p>The following function evaluates Stirling's formula. It is also suited for vector input.</p><pre> function y = g(u)
+     C = exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ;
+     v = (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u ...
+               + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0;
+     y = C .* v;</pre><p>A corresponding inline function is</p><pre class="codeinput">format <span class="string">long</span> <span class="string">e</span>
+g = @(u) ( ( exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ) .* <span class="keyword">...</span>
+           ( (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u <span class="keyword">...</span>
+             + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0 ) )
+u = [ 3.5 61 5 ]
+g(u)
+</pre><pre class="codeoutput">g = 
+    @(u)((exp(-u).*(u.^(u-0.5))*sqrt(2.0*pi)).*(((((-571.0/2488320.0./u-139.0/51840.0)./u+1.0/288.0)./u)+1.0/12.0)./u+1.0))
+u =
+    3.500000000000000e+000    6.100000000000000e+001    5.000000000000000e+000
+ans =
+    3.323346278704310e+000    8.320987112733666e+081    2.399999414518977e+001
+</pre><h2>Computation of the range of the function g<a name="12"></a></h2><p>Next calculate the range of the function g within a certain interval. This can be performed, for example, by straightforward interval evluation (naive interval arithmetic)</p><pre class="codeinput">format <span class="string">long</span>
+X = infsup(4.1,4.2);
+Y = g(X)
+</pre><pre class="codeoutput">intval Y = 
+[   6.16134144515091,   8.57659626209615] 
+</pre><p>or by slopes:</p><pre class="codeinput">xs = 4.1;
+X = infsup(4.1,4.2);
+Ys = g(slopeinit(xs,X))
+</pre><pre class="codeoutput">slope intval center Ys.c = 
+[   6.81261843908868,   6.81261843908872] 
+slope intval range Ys.r = 
+[   6.81261843908868,   7.93307713769863] 
+slope intval slope Ys.s = 
+[   7.19570649775071,  11.20458698609909] 
+</pre><p>The range computed by the slope expansion is better by a factor 2 than naive interval arithmetic and less than 20 % overestimation of the true range:</p><pre class="codeinput">diam(Y)
+diam(Ys.r)
+g(4.2)-g(4.1)
+</pre><pre class="codeoutput">ans =
+   2.415254816945224
+ans =
+   1.120458698609945
+ans =
+   0.944066623111491
+</pre><p>Note that Y or Ys.r is an inclusion of the range of g; for an inclusion of the range of the Gamma function an error term has to be added.</p><h2>Slopes in several unknowns<a name="16"></a></h2><p>Automatic slope expansion with several unknowns works the same way. Consider the following example by Broyden.</p><pre>                              .5*sin(x1*x2) - x2/(4*pi) - x1/2  =  0
+(1-1/(4*pi))*(exp(2*x1)-exp(1)) + exp(1)*x2/pi - 2*exp(1)*x1 )  =  0</pre><p>with initial approximation [ .6 ; 3 ] and one solution [ .5 ; pi ]. The following function evaluates Broyden's function.</p><pre>function  y = f1(x)
+   y = x;
+   y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*pi) - x(1)/2;
+   y(2) = (1-1/(4*pi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/pi - 2*exp(1)*x(1);</pre><p>The first statement is for efficiency. It is generally better to fix the size of an array before assigning values to the components. An inline function is as follows (cf. demogradient):</p><pre class="codeinput">f = @(x) ( [ .5*sin(x(1)*x(2)) - x(2)/(4*pi) - x(1)/2 ; <span class="keyword">...</span>
+             (1-1/(4*pi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/pi - 2*exp(1)*x(1) ] )
+</pre><pre class="codeoutput">f = 
+    @(x)([.5*sin(x(1)*x(2))-x(2)/(4*pi)-x(1)/2;(1-1/(4*pi))*(exp(2*x(1))-exp(1))+exp(1)*x(2)/pi-2*exp(1)*x(1)])
+</pre><h2>Solution of a nonlinear system<a name="17"></a></h2><p>The nonlinear system defined by Broyden's function can solved by Newton's procedure as follows (cf. demogradient):</p><pre class="codeinput">x = gradientinit([ .6 ; 3 ]);
+<span class="keyword">for</span> i=1:5
+  y = f1(x);
+  x = x - y.dx\y.x;
+<span class="keyword">end</span>
+x
+</pre><pre class="codeoutput">gradient value x.x = 
+   0.500000000000000
+   3.141592653589794
+gradient derivative(s) x.dx = 
+     1     0
+     0     1
+</pre><p>For simplicity, we omitted the stopping criterion. Here, y.dx is the Jacobian, y.x the function value at x.x, and -y.dx\y.x is the correction obtained by solution of a linear system.</p><h2>Verified solution of a nonlinear system<a name="19"></a></h2><p>For verified solution of the nonlinear system, we need a correct definition of the function, see demogradient:</p><pre>function  y = f(x)
+  y = x;
+  c1 = typeadj( 1 , typeof(x) );
+  cpi = typeadj( midrad(3.14159265358979323,1e-16) , typeof(x) );
+  y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*cpi) - x(1)/2;
+  y(2) = (1-1/(4*cpi))*(exp(2*x(1))-exp(c1)) + exp(c1)*x(2)/cpi - 2*exp(c1)*x(1);</pre><p>This code is implemented in the function demotest.m .</p><h2>Verified solution using verifynlss<a name="20"></a></h2><p>The nonlinear system defined by Broyden's function can be solved with verification and using slopes by:</p><pre class="codeinput">y = verifynlss(<span class="string">'demotest'</span>,[ .6 ; 3 ],<span class="string">'s'</span>)
+</pre><pre class="codeoutput">intval y = 
+[   0.49999999999999,   0.50000000000001] 
+[   3.14159265358979,   3.14159265358980] 
+</pre><p>The first parameter gives the name of the function, in this case "demotest", such that "demotest(x)" evaluates the function at "x". For the last parameter being 's', slopes are used, otherwise gradients (the default).</p><p>We used slopes. However, the inclusion of the error with respect to an approximate is computed; therefore, the results for gradient and slope inclusion are identical. Note that use of gradients guarantees uniqueness of the zero within the computed interval, use of slope does not.</p><h2>Nonlinear systems with uncertain parameters<a name="22"></a></h2><p>Next we artificially introduce an interval parameter of large diameter in Broyden's function:</p><pre>function  y = demotest(x,radius)
+  y = x;
+  if nargin==1
+    radius = 1e-15;
+  end
+  cPi = typeadj( midrad(3.141592653589793,radius) , typeof(x) );
+  y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*cPi) - x(1)/2;
+  y(2) = (1-1/(4*cPi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/cPi - 2*exp(1)*x(1);</pre><p>This is to show that the range of applicability is larger for slopes than for gradients. For radius .04, both gradient expansion and slope expansion compute an inclusion (the extra parameter is passed to demotest):</p><pre class="codeinput">radius = 4e-2; y1 = verifynlss(<span class="string">'demotest'</span>,[ .6 ; 3 ],<span class="string">'g'</span>,[],radius)
+radius = 4e-2; y2 = verifynlss(<span class="string">'demotest'</span>,[ .6 ; 3 ],<span class="string">'s'</span>,[],radius)
+</pre><pre class="codeoutput">intval y1 = 
+[   0.47663634293605,   0.52336418066145] 
+[   3.08766772975346,   3.19449990477195] 
+intval y2 = 
+[   0.48357031337071,   0.51642994096401] 
+[   3.09679418617083,   3.18537265636477] 
+</pre><p>The inclusion using slopes is better by 10 to 20 % in radius:</p><pre class="codeinput">[ rad(y1) rad(y2) ]
+</pre><pre class="codeoutput">ans =
+   0.023363918862694   0.016429813796645
+   0.053416087509232   0.044289235096965
+</pre><h2>A demo nonlinear function with large uncertainty<a name="24"></a></h2><p>Finally, we enlarge the radius of the parameter cPi to 0.05 and try to calculate an inclusion:</p><pre class="codeinput">radius = 5e-2; y1 = verifynlss(<span class="string">'demotest'</span>,[ .6 ; 3 ],<span class="string">'g'</span>,[],radius)
+radius = 5e-2; y2 = verifynlss(<span class="string">'demotest'</span>,[ .6 ; 3 ],<span class="string">'s'</span>,[],radius)
+</pre><pre class="codeoutput">intval y1 = 
+[                NaN,                NaN] 
+[                NaN,                NaN] 
+intval y2 = 
+[   0.47535671910065,   0.52464417656521] 
+[   3.08170069728529,   3.19989350650554] 
+</pre><p>Now, only the slope expansion is able to compute an inclusion.</p><h2>Enjoy INTLAB<a name="26"></a></h2><p>INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing, Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de</p><p class="footer"><br>
+      Published with MATLAB&reg; 7.11<br></p></div><!--
+##### SOURCE BEGIN #####
+%% DEMOSLOPE  Short demonstration of slopes
+%
+
+%% Some sample applications of the Hessian toolbox
+% Hessians implement second order automatic differentiation in forward mode, which is
+% conveniently to implement using the Matlab operator concept.
+%
+% For a demonstration of the slope toolbox, intervals are wide; therefore, output 
+% is switched to infimum/supremum representation (see demointval):
+                           
+setround(0)                           % set rounding to nearest
+format compact short infsup
+        
+%% Slope expansions
+% In order to use slope expansions, the expansion range and expansion 
+% point (interval) need to be identified and values have to be assigned. 
+% This is performed by the function "slopeinit", for example        
+        
+u = slopeinit( [1;2] , infsup([1;2],[1.1;2.1]) )
+        
+%% 
+% The length (number of rows) is the number 
+% of independent variables, in the example above two. Slopes are always 
+% of type intval. For definition and use of slopes cf. Neumaier's book
+% on interval analysis.
+        
+%% Computing with slopes 
+% Automatic slope expansion is performed by operations with slope variables. 
+% For example,                                                                                                                                            
+        
+x = slopeinit(3.5,midrad(3.5,1e-4));  
+y = exp(3*x-sqrt(x))
+        
+%%
+% evaluates the expression using slopes with expansion point 3.5 and expansion
+% interval 3.5+/-1e-4. 
+%
+% There is access to the center value, the range and 
+% the slope of y:
+        
+y.c
+y.r
+y.s
+        
+%%
+% When evaluating the expression for another argument, e.g. a vector argument,
+% use the same statement as before with new values.
+        
+xs = [2;3];  
+x = slopeinit(xs,midrad(xs,1e-4));  
+y = exp(3*x-sqrt(x))
+
+%% Graphical illustration of slopes
+% There is a simple graphic to demonstrate the behaviour of slope expansions for 
+% one-dimensional functions. The routine "slopeplot" assumes a function
+% in one variable which can be evaluated for vectors, the expansion
+% point and the expansion interval.
+% For example, 
+  
+format short
+slopeplot('(x-2).*exp(x)-sqrt(abs(x))',1,infsup(1,2))
+        
+%%
+% shows a best possible upper slope, but an underestimated lower slope.
+
+%% Non-differentiable functions
+% Functions to be handled by slopes need not be differentiable. 
+% An example is sqrt(abs(x)). Consider 
+        
+slopeplot('sqrt(abs(x))',-2,infsup(-1,1))
+        
+%% 
+% The slope is best possible, but the grid is not fine enough to catch the
+% extreme point at zero. For some 10000 grid points the picture looks
+% as follows:
+        
+slopeplot('sqrt(abs(x))',-2,infsup(-1,1),[],10000)
+    
+%% Computation of the Gamma function with slopes
+% Consider the following example in one unknown.                            
+% According to Stirling's formula it is for u -> inf,                       
+%                                                                           
+%                          1      1       139        571                    
+%    Gamma(u) ~ C * ( 1 + REPLACE_WITH_DASH_DASH- + REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH- - REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH- - REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH- + ... )         
+%                         12u       2         3           4                 
+%                               288u    51840u    2488320u                  
+% with 
+%
+%         -u  u-0.5                                                         
+%    C = e   u      sqrt(2*pi) .                                            
+%                                                                           
+% The following function evaluates Stirling's formula. It is also           
+% suited for vector input.                                                  
+%                                                                           
+%                                                                           
+%   function y = g(u)                                                     
+%       C = exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ;                          
+%       v = (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u ...               
+%                 + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0;                  
+%       y = C .* v;                                                             
+%        
+% A corresponding inline function is
+
+format long e
+g = @(u) ( ( exp(-u) .* ( u.^(u-0.5) ) * sqrt(2.0*pi) ) .* ...
+           ( (((( -571.0/2488320.0 ./ u - 139.0/51840.0 ) ./ u ...           
+             + 1.0/288.0) ./ u ) + 1.0/12.0 ) ./ u + 1.0 ) )
+u = [ 3.5 61 5 ]
+g(u)
+        
+%% Computation of the range of the function g
+% Next calculate the range of the function g within 
+% a certain interval. This can be performed, for example, by straightforward 
+% interval evluation (naive interval arithmetic) 
+
+format long
+X = infsup(4.1,4.2);  
+Y = g(X)
+
+%%
+% or by slopes:
+        
+xs = 4.1;  
+X = infsup(4.1,4.2);  
+Ys = g(slopeinit(xs,X))
+   
+%%
+% The range computed by the slope expansion is better by a factor 2 than 
+% naive interval arithmetic and less than 20 % overestimation of the true range:
+      
+diam(Y)
+diam(Ys.r)
+g(4.2)-g(4.1)
+
+%%
+% Note that Y or Ys.r is an inclusion of the range of g; for an inclusion 
+% of the range of the Gamma function an error
+% term has to be added.
+
+%% Slopes in several unknowns
+% Automatic slope expansion with several unknowns works the same way.  
+% Consider the following example by Broyden. 
+%                                                                               
+%                                .5*sin(x1*x2) - x2/(4*pi) - x1/2  =  0         
+%  (1-1/(4*pi))*(exp(2*x1)-exp(1)) + exp(1)*x2/pi - 2*exp(1)*x1 )  =  0         
+%                                                                               
+% with initial approximation [ .6 ; 3 ] and one solution [ .5 ; pi ].           
+% The following function evaluates Broyden's function.                         
+%                                                                               
+%  function  y = f1(x)                                                           
+%     y = x;                                                                     
+%     y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*pi) - x(1)/2;                           
+%     y(2) = (1-1/(4*pi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/pi - 2*exp(1)*x(1); 
+%                                                                               
+% The first statement is for efficiency. It is generally better to fix the size 
+% of an array before assigning values to the components. An inline function
+% is as follows (cf. demogradient):                
+
+f = @(x) ( [ .5*sin(x(1)*x(2)) - x(2)/(4*pi) - x(1)/2 ; ...
+             (1-1/(4*pi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/pi - 2*exp(1)*x(1) ] )        
+
+%% Solution of a nonlinear system
+% The nonlinear system defined by Broyden's function can solved by Newton's procedure 
+% as follows (cf. demogradient):
+ 
+x = gradientinit([ .6 ; 3 ]);
+for i=1:5
+  y = f1(x);
+  x = x - y.dx\y.x;
+end
+x
+        
+%%                                                                           
+% For simplicity, we omitted the stopping criterion. 
+% Here, y.dx is the Jacobian, y.x the function value at x.x, and -y.dx\y.x  
+% is the correction obtained by solution of a linear system.                                                                                        
+        
+%% Verified solution of a nonlinear system 
+% For verified solution of the nonlinear system, we need a correct definition  
+% of the function, see demogradient:                     
+%                                                                               
+%  function  y = f(x)                                                           
+%    y = x;
+%    c1 = typeadj( 1 , typeof(x) );
+%    cpi = typeadj( midrad(3.14159265358979323,1e-16) , typeof(x) );
+%    y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*cpi) - x(1)/2;
+%    y(2) = (1-1/(4*cpi))*(exp(2*x(1))-exp(c1)) + exp(c1)*x(2)/cpi - 2*exp(c1)*x(1);
+%                                                                               
+% This code is implemented in the function demotest.m .
+
+%% Verified solution using verifynlss        
+% The nonlinear system defined by Broyden's function can be 
+% solved with verification and using slopes by:              
+        
+y = verifynlss('demotest',[ .6 ; 3 ],'s')
+                           
+%%
+% The first parameter gives the name of the function, in this case "demotest",     
+% such that "demotest(x)" evaluates the function at "x".                         
+% For the last parameter being 's', slopes are used, otherwise gradients (the default).    
+%                                                                                 
+% We used slopes. However, the inclusion of the error with respect to an approximate
+% is computed; therefore, the results for gradient and slope inclusion are identical.
+% Note that use of gradients guarantees uniqueness of the zero within the computed
+% interval, use of slope does not.                                                                             
+        
+%% Nonlinear systems with uncertain parameters 
+% Next we artificially introduce an interval parameter of large diameter
+% in Broyden's function: 
+%                                                                               
+%  function  y = demotest(x,radius)                                                    
+%    y = x;                                                                     
+%    if nargin==1                                                               
+%      radius = 1e-15; 
+%    end
+%    cPi = typeadj( midrad(3.141592653589793,radius) , typeof(x) );          
+%    y(1) = .5*sin(x(1)*x(2)) - x(2)/(4*cPi) - x(1)/2;                           
+%    y(2) = (1-1/(4*cPi))*(exp(2*x(1))-exp(1)) + exp(1)*x(2)/cPi - 2*exp(1)*x(1); 
+%                                                                             
+% This is to show that the range of applicability is larger for slopes than
+% for gradients. For radius .04, both gradient expansion and slope expansion 
+% compute an inclusion (the extra parameter is passed to demotest):       
+
+radius = 4e-2; y1 = verifynlss('demotest',[ .6 ; 3 ],'g',[],radius)
+radius = 4e-2; y2 = verifynlss('demotest',[ .6 ; 3 ],'s',[],radius)
+    
+%%
+% The inclusion using slopes is better by 10 to 20 % in radius:
+
+[ rad(y1) rad(y2) ]
+
+%% A demo nonlinear function with large uncertainty
+% Finally, we enlarge the radius of the parameter cPi to 0.05 and try to 
+% calculate an inclusion:
+       
+radius = 5e-2; y1 = verifynlss('demotest',[ .6 ; 3 ],'g',[],radius)
+radius = 5e-2; y2 = verifynlss('demotest',[ .6 ; 3 ],'s',[],radius)
+       
+%%
+% Now, only the slope expansion is able to compute an inclusion.                                                                                                                                                          
+        
+%% Enjoy INTLAB
+% INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing,
+% Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de
+
+##### SOURCE END #####
+--></body></html>

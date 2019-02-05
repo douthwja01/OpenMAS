@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<demos>
+
+<name>INTLAB - INTerval LABoratory</name>
+<type>other</type>
+<icon>$toolbox/matlab/icons/matlabicon.gif</icon>
+<description>
+    <p>INTLAB is the Matlab toolbox for Reliable Computing.</p>
+</description>
+<website>
+<a href="http://www.ti3.tuhh.de">
+For more information, see my homepage.</a></website>
+
+   <demoitem>
+  	   <label>Solving larger problems with INTLAB</label>
+	   <type>M-file</type>
+	   <source>dintlab_larger</source>
+   </demoitem>
+
+   <demoitem>
+  	   <label>A little demonstration of INTLAB</label>
+	   <type>M-file</type>
+	   <source>dintlab</source>
+   </demoitem>
+
+   <demoitem>
+	   <label>Interval computations</label>
+	   <type>M-file</type>
+	   <source>dintval</source>
+   </demoitem>   
+
+   <demoitem>
+	   <label>Interval arithmetic in INTLAB</label>
+	   <type>M-file</type>
+	   <source>darithmetic</source>
+   </demoitem>
+
+   <demoitem>
+	   <label>Interval standard functions in INTLAB</label>
+	   <type>M-file</type>
+	   <source>dstdfcts</source>
+   </demoitem>
+
+   <demoitem>
+	   <label>Accurate summation and dot products</label>
+	   <type>M-file</type>
+	   <source>daccsumdot</source>
+   </demoitem>
+
+   <demoitem>
+	   <label>Gradients: automatic differentiation</label>
+	   <type>M-file</type>
+	   <source>dgradient</source>
+   </demoitem>
+   
+   <demoitem>
+	   <label>Hessians: automatic differentiation with second derivative</label>
+	   <type>M-file</type>
+	   <source>dhessian</source>
+   </demoitem>
+   
+   <demoitem>
+	   <label>Slopes: automatic slope generation</label>
+	   <type>M-file</type>
+	   <source>dslope</source>
+   </demoitem>
+
+   <demoitem>
+	   <label>Taylor series: automatic Taylor coefficients</label>
+	   <type>M-file</type>
+	   <source>dtaylor</source>
+   </demoitem>
+   
+   <demoitem>
+	   <label>Polynom: real and complex (interval) polynomials</label>
+	   <type>M-file</type>
+	   <source>dpolynom</source>
+   </demoitem>
+ 
+   <demoitem>
+	   <label>Long numbers: a non-optimal multiple precision package</label>
+	   <type>M-file</type>
+	   <source>dlong</source>
+   </demoitem>
+      
+</demos>

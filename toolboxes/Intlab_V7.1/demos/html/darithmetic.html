@@ -1,0 +1,389 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>Interval arithmetic in INTLAB</title><meta name="generator" content="MATLAB 7.11"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2012-10-16"><meta name="DC.source" content="darithmetic.m"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><h1>Interval arithmetic in INTLAB</h1><!--introduction--><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Redefinition of the interval arithmetic</a></li><li><a href="#2">Definition of interval arithmetic</a></li><li><a href="#4">Input out of range for real standard functions</a></li><li><a href="#6">Why is a flag necessary?</a></li><li><a href="#10">Why two modes?</a></li><li><a href="#11">How to use the NaN-mode?</a></li><li><a href="#12">How to use the ignore-mode?</a></li><li><a href="#15">What is the difference between the two modes?</a></li><li><a href="#19">Complex standard functions</a></li><li><a href="#20">The empty set</a></li><li><a href="#21">Enjoy INTLAB</a></li></ul></div><h2>Redefinition of the interval arithmetic<a name="1"></a></h2><p>With Version 6 of INTLAB I redefined the interval arithmetic in INTLAB. Formerly, the empty set was represented by NaN. It turned out that a consistent definition of all interval operations avoiding NaN-results slows down EVERY interval operation in INTLAB. Therefore I choose to interpret a NaN-component as "no information".</p><p>Although infinity- or NaN-components are usually rare, taking care of them slows down simply the addition by up to a factor 3. I found this hardly acceptable.</p><p>Most users won't recognize any change. I recommend to visit the demo</p><pre>  " Interval computations "</pre><p>first before continuing with this demo.</p><h2>Definition of interval arithmetic<a name="2"></a></h2><p>An interval component with value NaN is not empty but no information is available on that component. For example,</p><pre class="codeinput">     format <span class="string">compact</span> <span class="string">short</span> <span class="string">infsup</span>
+     X = [ infsup(3,inf) ; infsup(-1,2) ]
+     X0 = 0 * X
+</pre><pre class="codeoutput">intval X = 
+[    3.0000,       Inf] 
+[   -1.0000,    2.0000] 
+intval X0 = 
+[    0.0000,    0.0000] 
+[    0.0000,    0.0000] 
+</pre><p>has one component "NaN" due to the multiplication 0*inf. Any operation with this component will result in a "NaN" component, such as</p><pre class="codeinput">     contains_0 = in(0,X0)
+     intersect( infsup(-1,4) , X0 )
+</pre><pre class="codeoutput">contains_0 =
+     1
+     1
+intval ans = 
+[    0.0000,    0.0000] 
+[    0.0000,    0.0000] 
+</pre><h2>Input out of range for real standard functions<a name="4"></a></h2><p>If for real standard functions part of the input is out of range, the result of the corresponding component will be NaN:</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnNaN'</span>)
+     X = [ infsup(-2,9) ; infsup(0,4) ]
+     Y = sqrt(X)
+</pre><pre class="codeoutput">===&gt; Result NaN for real interval input out of range 
+intval X = 
+[   -2.0000,    9.0000] 
+[    0.0000,    4.0000] 
+intval Y = 
+[       NaN,       NaN] 
+[    0.0000,    2.0000] 
+</pre><p>This is the default. However, one may choose to ignore input out of range. In this case a flag will be set:</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnIgnore'</span>)
+     X = [ infsup(-2,9) ; infsup(0,4) ]
+     Y = sqrt(X)
+     exception = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+</pre><pre class="codeoutput">===&gt; !!! Caution: Input arguments out of range are ignored !!!
+intval X = 
+[   -2.0000,    9.0000] 
+[    0.0000,    4.0000] 
+intval Y = 
+[    0.0000,    3.0000] 
+[    0.0000,    2.0000] 
+exception =
+     1
+</pre><h2>Why is a flag necessary?<a name="6"></a></h2><p>In a number of applications it is useful to ignore input out of range. Although this definition is nice and clean, it needs some care. Mathematical assertions may only be true if no input out-of-range appeared during the calculation: A number of verification methods use Brouwer's fixed point theorem. It says that a continuous self-mapping of a non-empty, compact and convex subset of the R^n has a fixed point. Consider</p><pre>  f(x) = sqrt(x) - 1 .</pre><p>There is no real x with f(x)=x. Ignoring input out of range, we obtain</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnIgnore'</span>)
+     X = infsup(-2,9)
+     Y = sqrt(X)-1
+</pre><pre class="codeoutput">===&gt; !!! Caution: Input arguments out of range are ignored !!!
+intval X = 
+[   -2.0000,    9.0000] 
+intval Y = 
+[   -1.0000,    2.0000] 
+</pre><p>and Y is contained in X, pretending f(X) is contained in X. No error message occurred. Hence we might conclude that f has a fixed point in X.</p><p>For a safe mathematical assertion, Y in X is not enough: We also need to check that X is non-empty and no input out-of-range occurred. Since the latter may have happened anywhere in a complicated computation, an out-of-range flag is mandatory.</p><p>Note that the flag is set independent of the mode. Checking the flag resets the flag.</p><h2>Why two modes?<a name="10"></a></h2><p>A casual user may forget to check the out-of-range flag (or might not even know of it). Therefore I found it necessary to define a safe default mode. This is the NaN-mode. Any operation with NaN produces a NaN. Also a NaN can never be enclosed in some interval, hence in(Y,X) is false in the example above.</p><h2>How to use the NaN-mode?<a name="11"></a></h2><p>The default NaN-mode can be used without any precautions. If during the computation of a result all operations are well-defined, the computed result is a true inclusion of the correct result.</p><p>If during the computation the input of some operation was out-of-range, the computed result will be NaN. More precisely, the corresponding components will be NaN, as in</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnNaN'</span>)
+     X = intval(-1:1)
+     Y = log(X)
+</pre><pre class="codeoutput">===&gt; Result NaN for real interval input out of range 
+intval X = 
+[   -1.0000,   -1.0000] [    0.0000,    0.0000] [    1.0000,    1.0000] 
+intval Y = 
+[       NaN,       NaN] [     - Inf,     - Inf] [    0.0000,    0.0000] 
+</pre><h2>How to use the ignore-mode?<a name="12"></a></h2><p>First switch to the ignore-mode and reset the out-of-range flag.</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnIgnore'</span>)
+     intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>);
+</pre><pre class="codeoutput">===&gt; !!! Caution: Input arguments out of range are ignored !!!
+</pre><p>If during a computation some input was out of range and therefore ignored, the flag will be set. For example,</p><pre class="codeinput">     format <span class="string">_</span>
+     X = intval(1:2:5)
+     Y = X-2
+     flag1 = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+     Z = asin(Y)
+     flag2 = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+</pre><pre class="codeoutput">intval X = 
+    1.0000    3.0000    5.0000
+intval Y = 
+   -1.0000    1.0000    3.0000
+flag1 =
+     0
+intval Z = 
+   -1.5708    1.5708       NaN
+flag2 =
+     1
+</pre><p>If the flag is not set, then no out-of-range operation occurred in the whole computation. Again note that the flag is set both in the NaN- and the ignore-mode. For example,</p><pre class="codeinput">     format <span class="string">infsup</span>
+     intvalinit(<span class="string">'RealStdFctsExcptnNaN'</span>)
+     flag1 = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+     X = midrad( -1:1 , 5e-5 )
+     Y = log(X)
+     flag2 = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+</pre><pre class="codeoutput">===&gt; Result NaN for real interval input out of range 
+flag1 =
+     0
+intval X = 
+[   -1.0001,   -0.9999] [   -0.0001,    0.0001] [    0.9999,    1.0001] 
+intval Y = 
+  1.0e-004 *
+[       NaN,       NaN] [       NaN,       NaN] [   -0.5001,    0.5000] 
+flag2 =
+     1
+</pre><h2>What is the difference between the two modes?<a name="15"></a></h2><p>In the NaN-mode, the default and safe mode, the <i>individual</i> interval components carry the information whether or not some input out-of-range was ignored.</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnNaN'</span>,0);
+     X = [ infsup(2,3) infsup(-1,4) -2 ]
+     sqrt(X)
+</pre><pre class="codeoutput">intval X = 
+[    2.0000,    3.0000] [   -1.0000,    4.0000] [   -2.0000,   -2.0000] 
+intval ans = 
+[    1.4142,    1.7321] [       NaN,       NaN] [       NaN,       NaN] 
+</pre><p>In the ignore-mode, the expert mode, only the global information whether or not <i>somewhere</i> an input out-of-range occurred is available. However, the individual components show the result for all input inside-range.</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnIgnore'</span>,0);
+     X = [ infsup(2,3) infsup(-1,4) -2 ]
+     sqrt(X)
+     flag = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+</pre><pre class="codeoutput">intval X = 
+[    2.0000,    3.0000] [   -1.0000,    4.0000] [   -2.0000,   -2.0000] 
+intval ans = 
+[    1.4142,    1.7321] [    0.0000,    2.0000] [       NaN,       NaN] 
+flag =
+     1
+</pre><p>Note, however, that real standard functions can be switched automatically to their complex pendant as follows:</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnWarn'</span>)
+     X = [ infsup(2,3) infsup(-1,4) ]
+     midrad(sqrt(X))
+     flag = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+</pre><pre class="codeoutput">===&gt; Complex interval stdfct used automatically for real interval input 
+         out of range, but with warning
+intval X = 
+[    2.0000,    3.0000] [   -1.0000,    4.0000] 
+intval  = 
+&lt;   1.5731 +  0.0000i,  0.1590&gt; &lt;   1.2247 +  0.0000i,  1.5812&gt; 
+flag =
+     0
+</pre><p>The warning may be suppressed using "intvalinit('RealStdFctsExcptnAuto')".</p><pre class="codeinput">     intvalinit(<span class="string">'RealStdFctsExcptnAuto'</span>)
+     X = [ infsup(2,3) infsup(-1,4) ]
+     midrad(sqrt(X))
+     flag = intvalinit(<span class="string">'RealStdFctsExcptnOccurred'</span>)
+</pre><pre class="codeoutput">===&gt; Complex interval stdfct used automatically for real interval input 
+         out of range (without warning)
+intval X = 
+[    2.0000,    3.0000] [   -1.0000,    4.0000] 
+intval  = 
+&lt;   1.5731 +  0.0000i,  0.1590&gt; &lt;   1.2247 +  0.0000i,  1.5812&gt; 
+flag =
+     0
+</pre><h2>Complex standard functions<a name="19"></a></h2><p>It seems difficult to find a consistent definition when to set the out-of-range flag for complex standard functions. In particular, how should it be interpreted when the input interval covers the branch cut, or is at its boundary. Therefore I choose not to set the out-of-range flag for complex standard functions, independent of the input.</p><h2>The empty set<a name="20"></a></h2><p>In contrast to the ignore-mode, the empty set does not exist in the NaN-mode. This is a necessary compromise. Since NaN is interpreted as Not-an-Interval, another representation of the empty set would have been necessary.</p><p>However, the only operation in the NaN-mode, the result of which may be the empty set is intersection. However, numerous case distinctions in many programs would have been necessary to distinguish between NaN and the empty set - whatever the representation of the latter may be. All operations would be slowed down by that.</p><p>I think this is not worth it. If in some application computations with the empty set are important, please use the ignore-mode.</p><h2>Enjoy INTLAB<a name="21"></a></h2><p>INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing, Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de</p><pre class="codeinput">     intlablogo(35)
+</pre><img vspace="5" hspace="5" src="darithmetic_01.png" alt=""> <p class="footer"><br>
+      Published with MATLAB&reg; 7.11<br></p></div><!--
+##### SOURCE BEGIN #####
+%% Interval arithmetic in INTLAB
+%
+
+%% Redefinition of the interval arithmetic
+% With Version 6 of INTLAB I redefined the interval arithmetic in INTLAB. Formerly,
+% the empty set was represented by NaN. It turned out that a consistent definition
+% of all interval operations avoiding NaN-results slows down EVERY interval operation
+% in INTLAB. Therefore I choose to interpret a NaN-component as "no information".
+%
+% Although infinity- or NaN-components are usually rare, taking care of them slows
+% down simply the addition by up to a factor 3. I found this hardly acceptable.
+%
+% Most users won't recognize any change. I recommend to visit the demo
+%
+%    " Interval computations "
+%
+% first before continuing with this demo.                  
+
+%% Definition of interval arithmetic
+% An interval component with value NaN is not empty but no information is available
+% on that component. For example,
+
+     format compact short infsup
+     X = [ infsup(3,inf) ; infsup(-1,2) ]
+     X0 = 0 * X
+     
+%% 
+% has one component "NaN" due to the multiplication 0*inf. Any operation with this
+% component will result in a "NaN" component, such as
+
+     contains_0 = in(0,X0)
+     intersect( infsup(-1,4) , X0 )
+
+%% Input out of range for real standard functions
+% If for real standard functions part of the input is out of range, the result
+% of the corresponding component will be NaN:
+
+     intvalinit('RealStdFctsExcptnNaN')
+     X = [ infsup(-2,9) ; infsup(0,4) ]
+     Y = sqrt(X)
+
+%%
+% This is the default. However, one may choose to ignore input out of range. In this case
+% a flag will be set:
+     
+     intvalinit('RealStdFctsExcptnIgnore')
+     X = [ infsup(-2,9) ; infsup(0,4) ]
+     Y = sqrt(X)
+     exception = intvalinit('RealStdFctsExcptnOccurred')
+
+%% Why is a flag necessary?
+% In a number of applications it is useful to ignore input out of range. Although this
+% definition is nice and clean, it needs some care. Mathematical assertions may only be
+% true if no input out-of-range appeared during the calculation:
+% A number of verification methods use Brouwer's fixed point theorem. It says that a
+% continuous self-mapping of a non-empty, compact and convex subset of the R^n has a fixed point.
+% Consider
+%
+%    f(x) = sqrt(x) - 1 .
+%
+%%     
+% There is no real x with f(x)=x. Ignoring input out of range, we obtain 
+
+     intvalinit('RealStdFctsExcptnIgnore')
+     X = infsup(-2,9)
+     Y = sqrt(X)-1
+          
+%%
+% and Y is contained in X, pretending f(X) is contained in X. No error message occurred. Hence 
+% we might conclude that f has a fixed point in X. 
+
+%%
+% For a safe
+% mathematical assertion, Y in X is not enough: We also need to check that X is non-empty
+% and no input out-of-range occurred. Since the latter may have happened anywhere in a 
+% complicated computation, an out-of-range flag is mandatory.
+%
+% Note that the flag is set independent of the mode. Checking the flag resets the flag.
+
+%% Why two modes?
+% A casual user may forget to check the out-of-range flag (or might not even know of it). 
+% Therefore I found it necessary to define a safe default mode. This is the NaN-mode.
+% Any operation with NaN produces a NaN. Also a NaN can never be enclosed in some
+% interval, hence in(Y,X) is false in the example above. 
+
+%% How to use the NaN-mode?
+% The default NaN-mode can be used without any precautions. If during the computation of
+% a result all operations are well-defined, the computed result is a true inclusion of the
+% correct result.
+%
+% If during the computation the input of some operation was out-of-range, the computed
+% result will be NaN. More precisely, the corresponding components will be NaN, as in
+
+     intvalinit('RealStdFctsExcptnNaN')
+     X = intval(-1:1)
+     Y = log(X)
+     
+%% How to use the ignore-mode?
+% First switch to the ignore-mode and reset the out-of-range flag.
+
+     intvalinit('RealStdFctsExcptnIgnore')
+     intvalinit('RealStdFctsExcptnOccurred');
+  
+%%     
+% If during a computation some input was out of range and therefore ignored, the flag will be set.
+% For example,
+
+     format _
+     X = intval(1:2:5)
+     Y = X-2
+     flag1 = intvalinit('RealStdFctsExcptnOccurred')
+     Z = asin(Y)
+     flag2 = intvalinit('RealStdFctsExcptnOccurred')
+     
+%%     
+% If the flag is not set, then no out-of-range operation occurred in the whole computation.
+% Again note that the flag is set both in the NaN- and the ignore-mode. For example,
+
+     format infsup
+     intvalinit('RealStdFctsExcptnNaN')
+     flag1 = intvalinit('RealStdFctsExcptnOccurred')
+     X = midrad( -1:1 , 5e-5 )
+     Y = log(X)
+     flag2 = intvalinit('RealStdFctsExcptnOccurred')
+
+
+%% What is the difference between the two modes?
+% In the NaN-mode, the default and safe mode, the _individual_ interval components carry
+% the information whether or not some input out-of-range was ignored. 
+
+     intvalinit('RealStdFctsExcptnNaN',0);
+     X = [ infsup(2,3) infsup(-1,4) -2 ]
+     sqrt(X)
+
+%%
+% In the ignore-mode, the expert mode, only the global information whether or not _somewhere_
+% an input out-of-range occurred is available. However, the individual components show the
+% result for all input inside-range.
+
+     intvalinit('RealStdFctsExcptnIgnore',0);
+     X = [ infsup(2,3) infsup(-1,4) -2 ]
+     sqrt(X)
+     flag = intvalinit('RealStdFctsExcptnOccurred')
+     
+%%
+% Note, however, that real standard functions can be switched automatically to their complex
+% pendant as follows:
+
+     intvalinit('RealStdFctsExcptnWarn')
+     X = [ infsup(2,3) infsup(-1,4) ]
+     midrad(sqrt(X))
+     flag = intvalinit('RealStdFctsExcptnOccurred')
+     
+%%
+% The warning may be suppressed using "intvalinit('RealStdFctsExcptnAuto')".
+
+     intvalinit('RealStdFctsExcptnAuto')
+     X = [ infsup(2,3) infsup(-1,4) ]
+     midrad(sqrt(X))
+     flag = intvalinit('RealStdFctsExcptnOccurred')
+
+%% Complex standard functions
+% It seems difficult to find a consistent definition when to set the out-of-range flag
+% for complex standard functions. In particular, how should it be interpreted when the
+% input interval covers the branch cut, or is at its boundary. Therefore I choose not to
+% set the out-of-range flag for complex standard functions, independent of the input.
+     
+%% The empty set
+% In contrast to the ignore-mode, the empty set does not exist in the NaN-mode. This is a
+% necessary compromise. Since NaN is interpreted as Not-an-Interval, another representation
+% of the empty set would have been necessary.
+%
+% However, the only operation in the NaN-mode, the result of which may be the empty
+% set is intersection. However, numerous case distinctions in many programs would have
+% been necessary to distinguish between NaN and the empty set - whatever the representation
+% of the latter may be. All operations would be slowed down by that.
+%
+% I think this is not worth it. If in some application computations with the empty set are
+% important, please use the ignore-mode. 
+%
+
+%% Enjoy INTLAB
+% INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing,
+% Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de
+
+     intlablogo(35)
+     
+##### SOURCE END #####
+--></body></html>

@@ -1,11 +1,16 @@
 # Ignore everything
 /*
+
 !/environment/
 /environment/*
-!/scenarios/
-/scenarios/*
+!/examples/
+/examples/*
 !/objects/
 /objects/*
+!/scenarios/
+/scenarios/*
+
 
 !/setup_example.m
+
 !/.gitignore

@@ -1,0 +1,12 @@
+function k = find(p)
+%NNZ          Number of nonzero coefficients
+%
+%   k = nnz(p)
+%
+
+% written  10/04/02     S.M. Rump 
+% modified 04/04/04     S.M. Rump  set round to nearest for safety
+% modified 04/06/05     S.M. Rump  rounding unchanged
+%
+
+  k = nnz(p.c);
