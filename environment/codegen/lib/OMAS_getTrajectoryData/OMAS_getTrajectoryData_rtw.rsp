@@ -1,8 +1,0 @@
-OMAS_getTrajectoryData.obj
-OMAS_getTrajectoryData_emxAPI.obj
-OMAS_getTrajectoryData_emxutil.obj
-OMAS_getTrajectoryData_initialize.obj
-OMAS_getTrajectoryData_terminate.obj
-rtGetInf.obj
-rtGetNaN.obj
-rt_nonfinite.obj
