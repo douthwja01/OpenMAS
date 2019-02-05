@@ -4,7 +4,6 @@
 # Whitelist some files
 !.gitignore
 !README.md
-!.readme.txt
 
 # But not these files..
 !environment/
@@ -12,6 +11,7 @@
 !objects/
 !scenarios/
 !setup_example.m
+!.readme.txt
 
 # Directories to be neglected
 #resources/
