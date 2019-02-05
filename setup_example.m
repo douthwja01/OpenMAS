@@ -24,8 +24,8 @@ sim_vebosity   = 1;
 sim_warningDistance = 2;
 sim_maxDuration = 10; 
 sim_timeStep   =  0.1;           
-sim_figureSet = {'all'};         % SEE 'OMAS_figureGenerator.m' for options
-% sim_figureSet = {'events','plan','gif'};
+% sim_figureSet = {'collisions'};         % SEE 'OMAS_figureGenerator.m' for options
+sim_figureSet = {'events','plan','gif'};
 
 %% SCENARIO PARAMETERS 
 sim_agentNumber = 2;                   % TOTAL NUMBER OF AGENTS
@@ -35,7 +35,7 @@ sim_offsetAngle = 0;
 sim_agentVelocity = 0;
 sim_obstacleNumber = 4;
 sim_noiseSigma = 0.2;
-sim_plotScenario = logical(false);
+sim_plotScenario = logical(true);
 
 %% GENERATE SCENARIO/OBSTACLE SET
 fprintf('|| Assigning agent definitions:\n');
@@ -44,8 +44,8 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_2D();
 
 %     agentIndex{index} = agent_test();
-    agentIndex{index} = agent_example();
-
+%     agentIndex{index} = agent_example();
+    agentIndex{index} = agent_VO();
 % 3D COLLISION AVOIDANCE
 %     agentIndex{index} = agent_VO();
 %     agentIndex{index} = agent_RVO();
