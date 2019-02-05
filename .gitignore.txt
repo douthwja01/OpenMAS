@@ -1,8 +1,10 @@
 # Ignore everything
-*/
+/*
+/*/
 
 # Whitelist some files
 !/.gitignore
+!/readme.txt
 
 # Specific files are ok
-!/environment/**
+!/environment/
