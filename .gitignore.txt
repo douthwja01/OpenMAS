@@ -1,6 +1,5 @@
 # Ignore everything
-*
-!*/
+*/
 
 # Whitelist some files
 !/.gitignore
