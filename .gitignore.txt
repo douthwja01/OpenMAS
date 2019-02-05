@@ -1,8 +1,8 @@
 # Ignore everything
-/*
+*
 
 # Whitelist some files
-!.gitignore
+!.gitignore.txt
 !README.md
 
 # But not these files..
