@@ -1,2 +1,0 @@
-getScenario_US_twoLines
-getScenario_waypoint_90Degrees

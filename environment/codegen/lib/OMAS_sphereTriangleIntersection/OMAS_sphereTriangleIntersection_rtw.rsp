@@ -1,6 +1,0 @@
-OMAS_sphereTriangleIntersection.obj
-OMAS_sphereTriangleIntersection_initialize.obj
-OMAS_sphereTriangleIntersection_terminate.obj
-rtGetInf.obj
-rtGetNaN.obj
-rt_nonfinite.obj
