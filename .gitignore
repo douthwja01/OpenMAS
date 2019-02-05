@@ -1,4 +1,3 @@
-
 *
 
 # Ignore directories
@@ -11,7 +10,8 @@
 !objects/*
 !scenarios/*
 !setup_example.m
-
 !readme.txt
+
+# Github files
 !README.md
 !.gitignore
