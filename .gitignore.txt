@@ -1,7 +1,5 @@
-# Ignore everything
 
 # Ignore directories
 resources
 studies
 toolboxes
-
