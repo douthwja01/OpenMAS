@@ -1,17 +1,17 @@
 # Ignore everything
-/*
+*
 
 # Whitelist some files
-!.gitignore.txt
-!README.md
+!.gitignore
+#!README.md
 
 # But not these files..
-!/environment/
-!/examples/
-!/objects/
-!/scenarios/
-!/setup_example.m
-!.readme.txt
+#!/environment/
+#!/examples/
+#!/objects/
+#!/scenarios/
+#!/setup_example.m
+#!.readme.txt
 
 # Directories to be neglected
 #resources/
