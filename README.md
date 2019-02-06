@@ -15,10 +15,6 @@ Inside this directory:
 	+ The directory containing the simulation functions and utilities.
 		[it is advised you do not change anything within this folder]
 
-- events    
-	+ The simulations event set which are triggered throughout the runtime.
-	  [it is advised you do not change anything within this folder]
-
 - objects   
 	+ The directory of user/default object definitions.
 
@@ -26,9 +22,6 @@ Inside this directory:
 	+ A directory of scenario definitions. Functions within here are 
 	  designed to generate the object initial conditions in the global
 	  coordinate system. Scenario.fig, scenario.mat may be auto generated.
-- data 
-	+ The outputted simulation data and figures, ordered by simulation date 
-	 and time of execution.
 
 IMPORTANT: Please ensure that all these directories are on the system path when 
 	   creating a simulation setup function (see setup_example.m).
