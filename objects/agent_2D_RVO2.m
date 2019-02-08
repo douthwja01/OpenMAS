@@ -7,8 +7,6 @@
 classdef agent_2D_RVO2 < agent_2D_RVO
 %% INITIALISE THE AGENT SPECIFIC PARAMETERS
     properties
-        %nominalSpeed = 1;
-%         maxSpeed  = 2;       % Defined in the example defaults
         % AGENT PARAMETERS
 %         radius = 2;          % Declare (independant of the VO varients)
 %         neighbourDist = 15;  %(s)
@@ -48,14 +46,12 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             % 'agent_VO' unless explictly overridden here.
             
             % OVERRIDE CLASS PARAMETERS
-            obj.maxSpeed = 2;  
-            obj.radius = 2;
-            obj.neighbourDist = 10;
-            obj.maxNeighbours = 10;  
+%             obj.maxSpeed = 2;  
+%             obj.neighbourDist = 10;
+%             obj.maxNeighbours = 10;  
             % OVERRIDE SENSOR DESCRIPTION
             obj.SENSORS.range = obj.neighbourDist;                         % Define the sensor range by the neighbour distance
             % ASSOCIATED GLOBAL PARAMETERS
-            obj.VIRTUAL.radius = obj.radius;                               % Re-establish the representative radius
             obj.VIRTUAL.detectionRadius = obj.SENSORS.range;               % Re-establish the new detection radius
             
             % CHECK FOR USER OVERRIDES
@@ -212,7 +208,6 @@ classdef agent_2D_RVO2 < agent_2D_RVO
 %             avoidanceVelocity = optimalVelocity;
             avoidanceVelocity = -optimalVelocity;
         end
-        
         % PROCESS THE VERTEX SET
         function [vertexSet] = createRVOobstacleVertexList(obj,observedObject)
             % The obstacle consideration expects the obstacles to be of
@@ -246,8 +241,6 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             % BUILD THE RVO POLY-GONAL OSTACLE DESCRIPTION  
             [vertexSet] = obj.defineRVOVertexObstacleSet(verticesCCW);
         end
-        
-        
         % GET THE OBSTACLE ORCA-LINE VECTOR % <<<<<<<<< THE FINAL PROBLEM
         function [obst_orcalines] = getObstacleORCAlines(obj,pa,va,ra,timeHorizonObst,obstacleNeighbours)
             % This function calculates the the orca-lines for static
@@ -587,7 +580,7 @@ classdef agent_2D_RVO2 < agent_2D_RVO
                 agnt_orcalines = [agnt_orcalines;lineObj];
             end
         end
-         
+        
         % LINEAR PROGRAM ONE (CORRECT)
         function [obj,flag,result_LP1] = linearProgram1(obj,lineVector,lineNo,constraintRadius,optVelocity,directionOpt,currentResult)
             % Solves a one-dimensional lineObjar program on a specified lineObj

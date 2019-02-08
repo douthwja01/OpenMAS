@@ -45,6 +45,7 @@ classdef agent_VO < agent
         % ///////////////////// SETUP FUNCTION ////////////////////////////
         % SETUP - X = [x;x_dot]' 3D STATE VECTOR
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
             [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
@@ -73,11 +74,6 @@ classdef agent_VO < agent
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
             end 
             
-
-            % DEFAULT BEHAVIOUR 
-            desiredSpeed = obj.nominalSpeed;
-            desiredHeadingVector = [1;0;0];
-            desiredVelocity = desiredHeadingVector*desiredSpeed;
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
@@ -86,11 +82,9 @@ classdef agent_VO < agent
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            if ~isempty(obj.targetWaypoint)
-                desiredHeadingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
-                desiredVelocity = desiredHeadingVector*desiredSpeed; % Desired relative velocity
-            end
-                        
+            [headingVector] = obj.getWaypointHeading();
+            desiredVelocity = headingVector*obj.nominalSpeed;
+
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
             avoidanceSet = [obstacleSet;agentSet];

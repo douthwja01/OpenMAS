@@ -21,21 +21,17 @@ classdef agent_2D_VO < agent_2D & agent_VO
             end
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent_2D(varargin); 
-            
+            % Omit superclass field
             obj.feasabliltyMatrix = []; % Omit parent field
-            % VIRTUAL DEFINITION (SIMULATOR PARAMETERS)
-            obj.VIRTUAL.radius = 0.5; 
+            
             % CHECK FOR USER OVERRIDES
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
             [obj] = obj.configurationParser(obj,varargin);
         end
         % ///////////////////// SETUP FUNCTION ////////////////////////////
         % SETUP - x = [x y psi dx dy dpsi]
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
-            % This function calculates the intial state for a generic
-            % object.
-            % The default state vector:
-            % [x y psi dx dy dpsi]
-            % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
             [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
@@ -60,22 +56,14 @@ classdef agent_2D_VO < agent_2D & agent_VO
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
             end 
             
-            % DEFAULT BEHAVIOUR 
-            desiredSpeed = obj.nominalSpeed;
-            desiredHeadingVector = [1;0];
-            desiredVelocity = desiredHeadingVector*desiredSpeed;
-            
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
 %             [obj,obstacleSet,agentSet] = obj.getSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
-            % Design the current desired trajectory from the waypoint.
-            if ~isempty(obj.targetWaypoint)
-                desiredHeadingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
-                desiredVelocity = desiredHeadingVector*desiredSpeed;            % Desired relative velocity
-            end
+            desiredHeadingVector = obj.getWaypointHeading();                    % Design the current desired trajectory from the waypoint.  
+            desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.

@@ -102,6 +102,13 @@ classdef objectDefinition
             % UPDATE THE CLASS GLOBAL PROPERTIES
             obj = obj.updateGlobalProperties_ENU(dt,newState);
         end
+        
+        % ///////////////////// SET FUNCTIONS /////////////////////////////
+        % Define the objects radius
+        function [obj] = setObjectRadius(obj,radius)
+            obj.radius = radius;            % Define the radius
+            obj.VIRTUAL.radius = radius;    % Virtual representations
+        end
     end
     %% ///////////////// BASIC STATE UPDATE FUNCTIONS /////////////////////
     methods
@@ -304,7 +311,6 @@ classdef objectDefinition
             % RETAIN THE PRIOR STATE FOR REFERENCE
             obj.VIRTUAL.priorState = obj.localState;
         end
-        
         % GLOBAL UPDATE - DEFAULT 
         function [obj] = updateGlobalProperties(obj,dt,eulerState)
             % SIMPLY A MAP TO THE 3D UPDATE FUNCTION

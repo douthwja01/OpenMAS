@@ -106,6 +106,20 @@ classdef agent < objectDefinition
     
     % ////////////////////// (3D) SENSORY FUNCTIONS ///////////////////////
     methods
+        % WAYPOINT TARGET VECTOR 
+        function [headingVector] = getWaypointHeading(obj)
+            % Design the current desired trajectory from the waypoint.
+            if ~isempty(obj.targetWaypoint)
+                headingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
+            else 
+                %headingVector = [1;0;0];
+                if obj.VIRTUAL.is3D
+                    headingVector = [1;0;0];
+                else
+                    headingVector = [1;0];
+                end
+            end
+        end
         % ALL IN ONE AGENT-INFORMATION UPDATE (FROM ENVIRONMENT)
         function [obj,obstacleSet,agentSet,waypointSet] = getAgentUpdate(obj,observedObjects)
             % This function computes the agents process for updating its

@@ -61,23 +61,15 @@ classdef agent_2D < agent
             else
                 error('Object TIME packet is invalid.');
             end
-            
-            % DEFAULT BEHAVIOUR 
-            desiredSpeed = 1;
-            desiredHeadingVector = [1;0];
-            desiredVelocity = desiredHeadingVector*desiredSpeed;
-            
+                        
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
-            % Design the current desired trajectory from the waypoint.
-            if ~isempty(obj.targetWaypoint)
-                desiredHeadingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
-                desiredVelocity = desiredHeadingVector*desiredSpeed; % Desired relative velocity
-            end
-                       
+            desiredHeadingVector = obj.getWaypointHeading();               % Design the current desired trajectory from the waypoint.  
+            desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
+                  
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %                                                             %
             %                         DO NOTHING                          %

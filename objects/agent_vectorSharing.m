@@ -40,10 +40,6 @@ classdef agent_vectorSharing < agent
         % ///////////////////// SETUP FUNCTION ////////////////////////////
         % SETUP - X = [x;x_dot]' 3D STATE VECTOR
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
-            % The state initialiser must be called 'initialise_localState'
-            % and instead calls the 'initialise_3DVelocities' function in
-            % this case. 
-            
             % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
             [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end        
@@ -74,12 +70,7 @@ classdef agent_vectorSharing < agent
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
             end
-            
-            % /////////////////// DEFAULT BEHAVIOUR ///////////////////////
-            desiredSpeed = obj.nominalSpeed;
-            desiredHeadingVector = [1;0;0];
-            desiredVelocity = desiredHeadingVector*desiredSpeed;
-            
+                        
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
@@ -87,21 +78,19 @@ classdef agent_vectorSharing < agent
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            if ~isempty(obj.targetWaypoint)
-                desiredHeadingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
-                desiredVelocity = desiredHeadingVector*desiredSpeed; % Desired relative velocity
-            end
+            headingVector   = obj.getWaypointHeading();
+            desiredVelocity = headingVector*obj.nominalSpeed;
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
             avoidanceSet = [obstacleSet,agentSet];
             algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;
-            if ~isempty(avoidanceSet) && avoidanceEnabled
-                algorithm_indicator = 1;
-                % GET THE UPDATED DESIRED VELOCITY
-                 [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
-                 desiredVelocity = desiredHeadingVector*desiredSpeed;
-            end
+%             if ~isempty(avoidanceSet) && avoidanceEnabled
+%                 algorithm_indicator = 1;
+%                 % GET THE UPDATED DESIRED VELOCITY
+%                  [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
+%                  desiredVelocity = desiredHeadingVector*desiredSpeed;
+%             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
                        
             % /////// COMPUTE STATE CHANGE FROM CONTROL INPUTS ////////////
@@ -109,8 +98,8 @@ classdef agent_vectorSharing < agent
                         
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'Vx (m/s)','Pitch (rad)','Roll (rad)','Yaw (rad)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs 
+            obj.DATA.inputNames = {'$V_x (m/s)$','$V_y (m/s)$','$V_z (m/s)$'};
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = desiredVelocity; % Record the control inputs 
         end
         % INITIALISE SENSORS (NOISY SENSOR PARAMETERS)
         function [obj] = getCustomSensorParameters(obj)
