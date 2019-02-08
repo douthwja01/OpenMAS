@@ -4,6 +4,7 @@
 % function 
 
 function varargout = OMAS_figureTabUtility(figHandles,groupName)
+
 % Creates a tabbed window with a figure contained in each tab.
 % 
 % No tab workarounds necessary - MATLAB's built-in but undocumented tab
@@ -68,7 +69,7 @@ initialize_tab_group(tabbedFig, tabGroupH);
 if nargout == 1
     varargout{1} = tabbedFig;
 end
-
+end
 
 function [tabbedFig,tabGroupH] = init_figure(figureName)
 %create tabbed figure
@@ -84,7 +85,7 @@ tabGroupH = uitabgroup;
 % set(tabGroupH,'SelectionChangeCallback',@update_guidata_and_resize) 
 set(tabGroupH,'SelectionChangedFcn',@update_guidata_and_resize) 
 drawnow
-
+end
 
 function initialize_tab_group(tabbedFig, tabGroupH)
 %set the first tab as active and update position
@@ -98,7 +99,7 @@ guiAndTabInfo =  getappdata(tabbedFig,'guiAndTabInfo');
 newPos = calcNewPos(curTabNum, guiAndTabInfo);
 set(tabbedFig,'Position',newPos)
 CenterWindow(tabbedFig)
-
+end
 
 function add_tab(tabbedFig, tabGroupH, figHandle, tabNum)
 %get all children a standalone figure
@@ -170,7 +171,7 @@ set(axesSubSet,'Parent',thisTabH);
 
 % close standalone figure since it has been "gutted" and placed onto a tab
 delete(figHandle);
-
+end
 
 function update_guidata_and_resize(varargin)
 
@@ -192,12 +193,12 @@ if isempty(guiAndTabInfo)
 end
 
 %get handles of the children in the current tab
-handles = guiAndTabInfo(curTabNum).handles;
-
-%update gui data with the handles of the children in the current tab
-if ~isempty(handles)
-    guidata(gcf, handles);
-end
+% handles = guiAndTabInfo(curTabNum).handles;
+% 
+% %update gui data with the handles of the children in the current tab
+% if ~isempty(handles)
+%     guidata(gcf, handles);
+% end
 
 newPos = calcNewPos(curTabNum, guiAndTabInfo);
 set(gcf,'Position',newPos)
@@ -205,7 +206,7 @@ set(gcf,'Position',newPos)
 %force redraw
 pause(0.01)
 drawnow
-
+end
 
 function newPos = calcNewPos(curTabNum, guiAndTabInfo)
 %update the size of the window to match the contents of the tab
@@ -225,7 +226,7 @@ curHeight = curFigPos(4);
 % calculate new size
 newBottom = curBottom + (curHeight-newHeight); %keep top left in place
 newPos = [curFigPos(1), newBottom, newWidth, newHeight ];
-
+end
 
 function outCell = confirm_cell(inArg)
 if ~iscell(inArg)
@@ -233,13 +234,13 @@ if ~iscell(inArg)
 else
     outCell = inArg;
 end
-
+end
 
 function bool=cregexp(cellStrArray,pat)
 %returns boolean array true at indices where pat is found in cellStrArray
 cellStrArray = confirm_cell(cellStrArray);
 bool = ~cellfun(@isempty,regexp(cellStrArray,pat));
-
+end
 
 function CenterWindow(hForeground, hBackground)
 % centers gui with hForeground over gui hBackground
@@ -285,4 +286,5 @@ elseif nargin == 2
     
     set(hForeground,'Units',origUnitsF);
     set(hBackground,'Units',origUnitsB);
+end
 end

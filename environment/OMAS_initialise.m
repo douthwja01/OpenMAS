@@ -85,7 +85,8 @@ fprintf('\n[%s]\tINITIALISING SIMULATION...\n\n',SIM.phase);
 close all; 
 
 % GET THE SIMULATIONS SUBDIRECTORIES (if not already added to path)
-configureDependencies(pwd,{'environment','toolboxes','events','objects','scenarios'});
+configureDependencies(pwd,{'environment','objects','scenarios'});          % Check directory for sub-directory 
+configureDependencies([pwd,'\','environment'],{'events'});                 % Check 'environment' directory for the dependancies
 
 % MAKE ANY ADDITIONAL PREPERATIONS TO THE META DATA ///////////////////////
 fprintf('[%s]\tOMAS CONFIGURATION:\n',SIM.phase);
@@ -234,7 +235,8 @@ for entity = 1:SIM.totalObjects
     end 
     % INITIALISE THE OBJECTS LOCAL STATE VECTOR (INDEPENDANT OF THE GLOBAL)
     try
-        objectIndex{entity} = objectIndex{entity}.initialise_localState(localXYZVelocity,localXYZrotations);
+        %objectIndex{entity} = objectIndex{entity}.initialise_localState(localXYZVelocity,localXYZrotations);
+        objectIndex{entity} = objectIndex{entity}.setup(localXYZVelocity,localXYZrotations);
     catch initialisationError
         warning('Unable to initialise the local state of object %s :%s',objectIndex{entity}.name);
         rethrow(initialisationError)
@@ -250,6 +252,7 @@ for entity = 1:SIM.totalObjects
                                      'name',objectIndex{entity}.name,...                      % Name reference
                                     'class',class(objectIndex{entity}),...                    % Class reference
                                      'type',uint8(objectIndex{entity}.VIRTUAL.type),...       % Object type
+                                   'hitBox',uint8(objectIndex{entity}.VIRTUAL.hitBoxType),... % Record the hitbox type
                                    'colour',objectIndex{entity}.VIRTUAL.colour,...            % Object virtual colour
                                    'symbol',objectIndex{entity}.VIRTUAL.symbol,...            % Representative symbol (from type)
                                    'radius',objectIndex{entity}.VIRTUAL.radius,...            % The objects critical radius
@@ -258,11 +261,9 @@ for entity = 1:SIM.totalObjects
                               'globalState',[globalXYZPosition;globalXYZVelocity;globalXYZquaternion],...
                                         'R',Rxyz,...                                          % Current Global-Body rotation matrix
                         'relativePositions',zeros(SIM.totalObjects,3),...                     % Relative distances between objects [dx;dy;dz]*objectCount
-                             'objectStatus',logical(zeros(SIM.totalObjects,(numel(eventEnums)-1)/2)));
-                            
+                             'objectStatus',logical(zeros(SIM.totalObjects,(numel(eventEnums)-1)/2)));                   
     % ASSIGN NaN TO LOCATIONS OF SELF-REFERENCE            
     SIM.OBJECTS(entity).relativePositions(entity,:) = NaN;                 % Mark self reference in the META structure as a NaN.
-
     % CHECK FOR SIMULATION/SAMPLING FREQUENCY ERROR
     % The user specifies an agent control frequency, which must be lower
     % than the minimum simulation sample frequency (1/dt)

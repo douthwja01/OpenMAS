@@ -448,7 +448,6 @@ classdef OMAS_geometry
             R(3,2) = 2*(q(1)*q(2) + q(3)*q(4));
             R(3,3) = q(1)^2 - q(2)^2 - q(3)^2 + q(4)^2;
         end
-        
         % THE QUATERNION DIFFERENCE
         function [dq] = qDifference(q1,q2)
             % This function gets the quaternion that will rotate from the
@@ -565,7 +564,7 @@ classdef OMAS_geometry
             
             % RELATIVE POSITION RAYS
             ABdirection = (centerB-centerA)/norm(centerB-centerA);
-            [ABray] = OMAS_geometry.defineRay(centerA,ABdirection);
+            [ABray] = OMAS_geometry.defineRay(centerA, ABdirection);
             [BAray] = OMAS_geometry.defineRay(centerB,-ABdirection);
             
             % PROJECTIONS OF EACH VERTEX ONTO THE SEPARATION VECTOR
@@ -610,7 +609,7 @@ classdef OMAS_geometry
             intersectFlag = separation_AABB < radius;
         end
         % INTERSECT - AXIS ALIGNED CUBOIDS (AABB)
-        function [intersectFlag,separation_AABB] = intersect_AABB_cuboids(minA,maxA,minB,maxB)
+        function [intersectFlag] = intersect_AABB_cuboids(minA,maxA,minB,maxB)
             % This function determines if two 3D cuboids currently intersect
             intersectFlag = 1;
             iMatrix = zeros(numel(minA),2);
@@ -622,18 +621,16 @@ classdef OMAS_geometry
                 end
             end
             % THE MEAN SEPARATION
-            separation_AABB = sqrt(sum(iMatrix(:,2).^2));
+            %separation_AABB = sqrt(sum(iMatrix(:,2).^2));
         end
         % INTERSECT - SPHERES
-        function [intersectFlag,separation_radial] = intersect_spheres(positionA,radiusA,positionB,radiusB)
+        function [intersectFlag] = intersect_spheres(positionA,radiusA,positionB,radiusB)
             % This uses a simple one dimensional comparison to determine
             % the overlap of two spherical volumes.
             
-            % SEPARATION
-            separation_radial = norm(positionB - positionA) - (radiusA + radiusB);                   % The two radii already include all geometric points
             % COLLISION LOGIC
             intersectFlag = 0;
-            if separation_radial < 0
+            if norm(positionB - positionA) - (radiusA + radiusB) < 0
                 intersectFlag = 1;
             end
         end

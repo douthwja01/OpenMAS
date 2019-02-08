@@ -4,6 +4,7 @@
 
 % Author: James A. Douthwaite 06/10/2016
 
+% //////////////////////// MAIN WRAPPER SCRIPT ////////////////////////////
 function [DATA,SIM,EVENTS,objectIndex]  = OMAS_mainCycle(META,objectIndex)
 % INPUTS:
 % objectIndex - The cell array of object classes
@@ -35,7 +36,7 @@ fprintf('[%s]\tClosing simulation.\n',META.phase);
 SIM = META;
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%% MAIN CYCLE FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% //////////////////////// MAIN CYCLE FUNCTIONS ///////////////////////////
 % PROCESS TIME VECTOR
 function [META,objectIndex,DATA,EVENTS] = processGlobalTimeSeries(META,objectIndex,DATA,EVENTS)
 % This function computes the simulation loop cycle across the given
@@ -156,7 +157,7 @@ function [SIM,metaEVENTS]	= updateSimulationMeta(SIM,objectIndex)
 % We want to move through the object set an update both the object being
 % updated, but also the object it is being updated against.
 
-%% /// ASSESS THE COLLISIONS AND RELATIVE POSITIONS (SYMMETRICAL CHECK) ///
+% //// ASSESS THE COLLISIONS AND RELATIVE POSITIONS (SYMMETRICAL CHECK) ///
 collisionLogicals = zeros(SIM.totalObjects);
 warningLogicals   = zeros(SIM.totalObjects);
 for entityA = 1:SIM.totalObjects                                           % Object A's position in the META.OBJECTS
@@ -172,17 +173,23 @@ for entityA = 1:SIM.totalObjects                                           % Obj
         SIM.OBJECTS(entityA).relativePositions(entityB,:) = (SIM.OBJECTS(entityB).globalState(1:3,1) - SIM.OBJECTS(entityA).globalState(1:3,1))';   % AB vector
         SIM.OBJECTS(entityB).relativePositions(entityA,:) = (SIM.OBJECTS(entityA).globalState(1:3,1) - SIM.OBJECTS(entityB).globalState(1:3,1))';   % BA vector
         % GET THE WARNING CONDITIONS (centroid separation based)
-        warningCondition = SIM.warningDistance > (norm(SIM.OBJECTS(entityA).relativePositions(entityB,:)) - (SIM.OBJECTS(entityA).radius + SIM.OBJECTS(entityB).radius));
+        separationDistance = norm(SIM.OBJECTS(entityA).relativePositions(entityB,:)) - (SIM.OBJECTS(entityA).radius + SIM.OBJECTS(entityB).radius);
+        warningCondition = SIM.warningDistance >= separationDistance;
         warningLogicals(entityA,entityB) = warningCondition;
         warningLogicals(entityB,entityA) = warningCondition;
         % EVALUATE COLLISIONS BETWEEN THE OBJECTS
         collisionCondition = OMAS_collisionDetection(SIM.OBJECTS(entityA),object_A.GEOMETRY,SIM.OBJECTS(entityB),object_B.GEOMETRY);
         collisionLogicals(entityA,entityB) = collisionCondition;
-        collisionLogicals(entityB,entityA) = collisionCondition; 
+        collisionLogicals(entityB,entityA) = collisionCondition;         
+        % ERROR CHECKING
+        if separationDistance > 0 && collisionCondition
+            error('[ERROR] A collision occurred at distance %f without violating the minimum separation of %f',...
+                    norm(SIM.OBJECTS(entityA).relativePositions(entityB,:)),(SIM.OBJECTS(entityA).radius + SIM.OBJECTS(entityB).radius));
+        end
     end
 end
 
-%% /////////// ASSESS DETECTION CONDITIONS (ASYMMETRICAL CHECK) ///////////
+% //////////// ASSESS DETECTION CONDITIONS (ASYMMETRICAL CHECK) ///////////
 % DEFAULT DETECTION CONDITION
 detectionLogicals = zeros(SIM.totalObjects);
 for entityA = 1:SIM.totalObjects
@@ -209,13 +216,11 @@ for entityA = 1:SIM.totalObjects
             end
         end
         
-        %% BREAK IF RADIAL SEPARATION DETERMINE DETECTION NOT POSSIBLE INTERSECTION 
         % CHECK WHETHER THERE IS A REMOTE POSSIBLITY THAT OBJECT B CAN BE OBSERVED BY A
         if SIM.OBJECTS(entityA).detectionRadius < (norm(SIM.OBJECTS(entityA).relativePositions(entityB,:)) - SIM.OBJECTS(entityB).radius)
             continue
         end
-        % /////////////////////////////////////////////////////////////////
-        
+                    
         % ///////// WAYPOINT DETECTION IS SATISIFED BY THIS CHECK /////////
         if SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint
             detectionLogicals(entityA,entityB) = 1;
@@ -229,32 +234,25 @@ for entityA = 1:SIM.totalObjects
         %   then its worth checking for more a more complex representation.
         % - We want to check if any vertices/edges can be observed. If any 
         %   edges are visible, then they are to be sent to the first object.
-        %SIM.OBJECTS(entityA).name
-        %SIM.OBJECTS(entityB).name
-        % IF THE OBJECT HAS GEOMETRIC PROPERTIES
-        if size(objectIndex{entityB}.GEOMETRY.vertices,1) > 0
-            % GET THE TEST GEOMETRY (GEOMETRY OF B)
-            relativeR = SIM.OBJECTS(entityA).R'*SIM.OBJECTS(entityB).R;        % Rotate second geometry orientated relative to 
-            % CREATE A NEW GEOMETRY STRUCTURE
-            geometryB = objectIndex{entityB}.GEOMETRY;       
-            geometryB.vertices = geometryB.vertices*relativeR + SIM.OBJECTS(entityB).globalState(1:3)';
-            % ASSESS EACH FACE AND VERTEX FOR DETECTION
-            for face = 1:size(geometryB.vertices,1)
-                % GET THE MEMBER IDs OF THE FACE
-                faceMembers  = geometryB.faces(face,:);
-                faceVertices = geometryB.vertices(faceMembers,:);
-                % CHECK THE GEOMETRY AGAINST THE SPHERICAL CONSTRAINT
-                isDetected = OMAS_sphereTriangleIntersection(SIM.OBJECTS(entityA).globalState(1:3),...
-                                                             SIM.OBJECTS(entityA).detectionRadius,...
-                                                             faceVertices(1,:)',faceVertices(2,:)',faceVertices(3,:)');
-                % IF THE FACE IS DETECTED
-                if isDetected
-                    detectionLogicals(entityA,entityB) = 1;
-                    break 
-                end
+        
+        % GET THE TEST GEOMETRY (GEOMETRY OF B)
+        relativeR = SIM.OBJECTS(entityA).R'*SIM.OBJECTS(entityB).R;        % Rotate second geometry orientated relative to 
+        geometryB = objectIndex{[SIM.globalIDvector == SIM.OBJECTS(entityB).objectID]}.GEOMETRY;
+        geometryB.vertices = geometryB.vertices*relativeR + SIM.OBJECTS(entityB).globalState(1:3)';
+        % ASSESS EACH FACE AND VERTEX FOR DETECTION
+        for face = 1:size(geometryB.vertices,1)
+            % GET THE MEMBER IDs OF THE FACE
+            faceMembers  = geometryB.faces(face,:);
+            faceVertices = geometryB.vertices(faceMembers,:);
+            % CHECK THE GEOMETRY AGAINST THE SPHERICAL CONSTRAINT
+            isDetected = OMAS_sphereTriangleIntersection(SIM.OBJECTS(entityA).globalState(1:3),...
+                                                         SIM.OBJECTS(entityA).detectionRadius,...
+                                                         faceVertices(1,:)',faceVertices(2,:)',faceVertices(3,:)');
+            % IF THE FACE IS DETECTED
+            if isDetected
+                detectionLogicals(entityA,entityB) = 1;
+                break 
             end
-        else
-            error('[ERROR]\tObject %s[ID:%d] missing geometry?',SIM.OBJECTS(entityB).name,SIM.OBJECTS(entityB).objectID);
         end
         % NOTE:
         % - If any faces are within the constraint, then the detection
@@ -279,14 +277,8 @@ for entityA = 1:SIM.totalObjects
         if SIM.OBJECTS(entityA).objectID == SIM.OBJECTS(entityB).objectID                                         
             continue                                                       % Only agents can generate notifications
         end 
-        
-        % CONFIRM THE OBJECT CAN BE COLLIDED WITH
-        isCollidable = 1;
-        if SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint           % Waypoints are the only objects with noCollide
-            isCollidable = 0;
-        end
-        
-        %% /////////// ASSESS EVENT CONDITIONS FOR THE AGENTS /////////////
+                
+        % //////////// ASSESS EVENT CONDITIONS FOR THE AGENTS /////////////
         % NOTES:
         % - The agent set is only capable of generating events associated
         %   with the detections, warnings and collisions.
@@ -302,16 +294,16 @@ for entityA = 1:SIM.totalObjects
             % UPDATE DETECTION STATUS
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.detection) = 1;              % Ammend status of the META object
             % GENERATE DETECTION EVENT
-            [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.detection);
+            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.detection);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
         elseif detectionEventNullCondition
             % AMEND THE META OBJECT
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.detection) = 0;              % Ammend status of the META object
             % GENERATE THE DETECTION NULLIFICATION EVENT
-            [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_detection);
+            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_detection);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
         end
-        
+                
         % ///////////////// ASSESS WAYPOINT CONDITIONS ////////////////////
         % WAYPOINT EVENT LOGIC
         ABwaypointCondition        =  collisionLogicals(entityA,entityB) && SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint;
@@ -323,19 +315,20 @@ for entityA = 1:SIM.totalObjects
             % AMEND THE META OBJECT
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) = 1;
             % GENERATE THE WAYPOINT ACHIEVED EVENT
-            [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.waypoint);
+            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.waypoint);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
         elseif waypointEventNullCondition
             % AMEND THE META OBJECT
-            %SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) = 0;
+            SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) = 0;
             % GENERATE THE WAYPOINT NULLIFICATION EVENT
-            % [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_waypoint);
-            % metaEVENTS = vertcat(metaEVENTS,EVENT);                                        % Add new META EVENTS to global structure
+            %[EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_waypoint);
+            %metaEVENTS = vertcat(metaEVENTS,EVENT);                                        % Add new META EVENTS to global structure
         end
         
-        % IF NOT COLLIDABLE, NO COLLISION CHECK OR WARNING NECESSARY
-        if ~isCollidable
-            continue
+        % ////////// CONFIRM THE OBJECT CAN BE COLLIDED WITH //////////////      
+        isBCollidable = SIM.OBJECTS(entityB).hitBox ~= OMAS_hitBoxType.none;
+        if ~isBCollidable || SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint
+            continue        % If not collidable, or is collidable and a way-point omit further events       
         end
         
         % /////////////////// ASSESS WARNING CONDITIONS ///////////////////
@@ -345,17 +338,17 @@ for entityA = 1:SIM.totalObjects
         warningEventCondition     =  ABwarningConstraint &&  novelWarningConstraint;         % Is within a range and a warning event has not been issued.
         warningEventNullCondition = ~ABwarningConstraint && ~novelWarningConstraint;         % Is outside a range and a warning condition is still toggled.       
         % EVALUATE OCCURANCE
-        if warningEventCondition && isCollidable
+        if warningEventCondition && isBCollidable
             % UPDATE WARNING STATUS
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.warning) = 1;
             % GENERATE THE WARNING EVENT
-            [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.warning);
+            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.warning);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
-        elseif warningEventNullCondition && isCollidable
+        elseif warningEventNullCondition && isBCollidable
             % UPDATE WARNING-NULL STATUS
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.warning) = 0;
             % GENERATE THE WARNING NULLIFICATION EVENT
-            [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_warning);
+            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_warning);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
         end
         
@@ -366,17 +359,17 @@ for entityA = 1:SIM.totalObjects
         collisionEventCondition     =  ABcollisionConstraint &&  novelCollisionConstraint;   % Is within a range and a collision event has not been issued.
         collisionEventNullCondition = ~ABcollisionConstraint && ~novelCollisionConstraint;   % Is outside a range and a collision condition is still toggled.     
         % EVALUATE OCCURANCE
-        if collisionEventCondition && isCollidable
+        if collisionEventCondition && isBCollidable
             % UPDATE COLLISIONL STATUS
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.collision) = 1;
             % GENERATE THE COLLISION EVENT
-            [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.collision);
+            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.collision);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
-        elseif collisionEventNullCondition && isCollidable
+        elseif collisionEventNullCondition && isBCollidable
         	% AMEND THE META OBJECT
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.collision) = 0;
             % GENERATE THE COLLISION NULLIFICATION EVENT
-            [EVENT] = OMAS_eventHandler(SIM,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_collision);
+            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_collision);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
         end     
     end

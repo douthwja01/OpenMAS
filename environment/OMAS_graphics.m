@@ -176,7 +176,7 @@ classdef OMAS_graphics
             geometry.faces = indexn(geometry.faces);
         end
         % CALCULATE GEOMETRY SURFACE NORMALS
-        function [normals] = normals(geometry)
+        function [normals]  = normals(geometry)
             % This function computes the surface normals of a defined
             % geometry structure
             normals = zeros(size(geometry.faces));
@@ -197,7 +197,39 @@ classdef OMAS_graphics
     
     %% UNIVERSAL DRAWING MECHANISMS
     methods (Static)
-        % DEFINE CUBOID FROM RADIUS
+        % GET HIT-BOX GEOMETRY
+        function [hitBoxGeometry] = getHitBoxGeometry(VIRTUAL,geometry)
+            % Input check
+            assert(isa(VIRTUAL.hitBoxType,'uint8'),'Object hit-box type must be of type "uint8".');
+            % Derive hit-box geometry
+            switch VIRTUAL.hitBoxType
+                case OMAS_hitBoxType.none
+                    % Assemble the spherical constraint volume
+                    hitBoxGeometry = [];
+                case OMAS_hitBoxType.spherical
+                    % Assemble the spherical constraint volume
+                    hitBoxGeometry = OMAS_graphics.defineSphere(zeros(3,1),VIRTUAL.radius,10);
+                case OMAS_hitBoxType.AABB
+                    % Assemble the AABB constraint volume
+                    R = OMAS_geometry.quaternionToRotationMatrix(VIRTUAL.quaternion); 
+                    % Rotate the body before defining constraint volume
+                    geometry.vertices = R*geometry.vertices;
+                    % DEFINE AN ALIGNED AABB CUBOID
+                    hitBoxGeometry = OMAS_graphics.defineCuboid(min(geometry.vertices),...
+                                                                  max(geometry.vertices));
+                case OMAS_hitBoxType.OBB
+                    % DEFINE AN ALIGNED OBB CUBOID
+                    hitBoxGeometry = OMAS_graphics.defineCuboid(min(geometry.vertices),...
+                                                                  max(geometry.vertices));                    
+                    % Assemble the OBB constraint volume
+                    R = OMAS_geometry.quaternionToRotationMatrix(VIRTUAL.quaternion); 
+                    % Rotate the hit-box to be aligned with the geometry
+                    hitBoxGeometry.vertices = R*hitBoxGeometry.vertices;
+                otherwise
+                    error('Hit-box type not recognised');
+            end
+        end
+        % DEFINE CUBOID (MINOR) FROM RADIUS
         function [geometry,minExtents,maxExtents] = defineCuboidFromRadius(center,radius)
             % This function creates a set of vertices for a cube
             % encapsuated in a sphere of a given radius.
@@ -228,11 +260,18 @@ classdef OMAS_graphics
             vertices(8,:) = [minExtents(1),maxExtents(2),minExtents(3)];
             geometry.vertices = vertices;
             % Define face connectivity matrix
-            geometry.faces = [3 4 7; 7 4 8; 5 6 1; ...
-                              1 6 2; 8 6 7; 7 6 5; ...
-                              4 2 8; 8 2 6; 3 1 4; ...
-                              4 1 2; 7 5 3; 3 5 1];
-            
+            geometry.faces =  [  1     2     7
+                                 1     4     2
+                                 1     7     4
+                                 2     3     8
+                                 2     4     3
+                                 2     8     7
+                                 3     4     6
+                                 3     5     8
+                                 3     6     5
+                                 4     7     6
+                                 5     6     8
+                                 6     7     8];
         end
         % DRAW SPHERE
         function [geometry] = defineSphere(position,radius,faces)
@@ -255,17 +294,22 @@ classdef OMAS_graphics
             geometry.centroid = position'; %reducepatch(P, R)
         end
         % DRAW UNIT TRIAD
-        function [triadVectors] = drawTriad(figureHandle,position,R)
+        function [triadHandle] = drawTriad(figureHandle,position,R,scale)
             % Draw a unit triad at a cartesian position, rotated by R.
             % FigureHandl Here is used to bring the current figure to the
             % function context.
             
-            colourVector = {'r','g','b'};
-            triadVectors = eye(3);
+            % INPUT CHECL
+            if nargin < 4
+                scale = 1;
+            end
+            
+            colourVector = 'rgb';
+            triadVectors = scale*eye(3);
             for axis = 1:size(triadVectors,2)
                 triadVectors(:,axis) = R*triadVectors(:,axis);
                 % Draw vectors
-                quiver3(gca,position(1),position(2),position(3),triadVectors(1,axis),triadVectors(2,axis),triadVectors(3,axis),colourVector{axis});
+                triadHandle(axis) = quiver3(gca,position(1),position(2),position(3),triadVectors(1,axis),triadVectors(2,axis),triadVectors(3,axis),colourVector(axis));
             end
         end
     end

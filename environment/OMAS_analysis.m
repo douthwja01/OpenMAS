@@ -45,7 +45,7 @@ sendOutputToFiles(META,EVENTS,DATA,objectIndex)
 fprintf('[%s]\tMoving to event data parser...\n',META.phase);
 try
     % HAND THE EVENT SET TO THE EVENT STATISTICS FUNCTION
-    [eventStatistics] = OMAS_eventStatistics(META,EVENTS);            % Collect all events into a subheading
+    [eventStatistics] = OMAS_eventStatistics(META,EVENTS);                 % Collect all events into a subheading
     % COPY EVENT DATA TO OUTPUT STRUCTURE
     if isstruct(eventStatistics)                                           % If event data is present 
         for name = fieldnames(eventStatistics)'                            % Move the event history data to the DATA structure
@@ -62,7 +62,6 @@ end
 fprintf('[%s]\tMoving to agent data parser...\n',META.phase);
 try
     [objectIndex,DATA.MEANS] = OMAS_agentStatistics(META,objectIndex);
-%     DATA.objectIndex = objectIndex;
 catch agentParseError
     warning('[ERROR] A problem occurred parsing the agent data.');
     warning(agentParseError.message);

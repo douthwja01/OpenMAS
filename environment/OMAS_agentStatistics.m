@@ -20,28 +20,29 @@ if isempty(objectIndex)
 end
 % BUILD THE "MEANS" DATA STRUCTURE
 MEANS = struct(); global_mean_dt = 0;
+% Isolate the agent set
+agentOBJECTS = objectIndex([SIM.OBJECTS(:).type] == OMAS_objectType.agent);  %(SIM.globalIDvector == objectIndex{ind}.objectID);
 % MOVE THROUGH THE OBJECT SET 
-for ind = 1:SIM.totalObjects
-    % GET THE OBJECTS META OBJECT
-    METAObject = SIM.OBJECTS(SIM.globalIDvector == objectIndex{ind}.objectID); 
-    isValidAgent = METAObject.type == OMAS_objectType.agent || 1 == isprop(objectIndex{ind},'DATA');
-    if ~isValidAgent || isempty(objectIndex{ind}.DATA)
-        continue
+for ind = 1:SIM.totalAgents
+    % Check if a 'DATA' structure is present
+    if isprop(agentOBJECTS{ind},'DATA') || isempty(objectIndex{ind}.DATA)
+       continue 
     end
-    % QUERY THE AGENT.DATA PROPERTY
-    agentDATA = objectIndex{ind}.DATA;
+    % Query the agent.DATA property
+    agentDATA = objectIndex{ind}.DATA; 
+    
     % GET THE ALGORIHM TIMESERIES DATA & SUMMARY INFORMATION
-    if isfield(agentDATA,'algorithm_dt')
+    if isfield(agentDATA,'dt')
         [agentDATA] = get_algorithmTimeData(agentDATA);
         % STORE THE AGENT'S MEAN TIME
-        fieldName = sprintf('mean_dt_%s',objectIndex{ind}.name);
-        MEANS.(fieldName) = agentDATA.algorithm_mean_dt;
+        fieldName = sprintf('objectID%d_mean_dt',objectIndex{ind}.objectID);
+        MEANS.(fieldName) = agentDATA.mean_dt;
         % GET THE (GLOBAL) ALGORITHM COMPUTATION-TIME DATA
-        global_mean_dt = global_mean_dt + agentDATA.algorithm_mean_dt/SIM.totalAgents;
+        global_mean_dt = global_mean_dt + agentDATA.mean_dt/SIM.totalAgents;
     end
+    % Reassign the DATA to agent structure
     objectIndex{ind}.DATA = agentDATA;                                     % Update object-side data
 end
-
 end
 
 % GENERATE THE TIMING PARAMETERS FROM THE ALGORITHM TIMESERIES
@@ -52,17 +53,17 @@ function [updatedAgentData] = get_algorithmTimeData(agentDATA)
 % INITIALISE THE OUTPUT DATA CONTAINER
 updatedAgentData = agentDATA;
 
-if ~isfield(agentDATA,'algorithm_indicator')
+if ~isfield(agentDATA,'indicator')
     % ASSUME ACTIVE CONSTANTLY
-    agentDATA.algorithm_indicator = ones(size(agentDATA.algorithm_dt));
+    agentDATA.indicator = ones(size(agentDATA.dt));
 end
 
 % DETERMINE THE ALGORITHM COMPUTATION TIME TIME-SERIES
-executedSteps = logical(agentDATA.algorithm_indicator);                % Convert algorithm ran indicators into logicals
-valid_algorithm_dt = agentDATA.algorithm_dt(executedSteps);            % Get the times where the computations were ran
+executedSteps = logical(agentDATA.indicator);                              % Convert algorithm ran indicators into logicals
+valid_algorithm_dt = agentDATA.dt(executedSteps);                          % Get the times where the computations were ran
 
 % GET THE (AGENT) ALGORITHM COMPUTATION-TIME DATA
-updatedAgentData.algorithm_mean_dt = sum(valid_algorithm_dt)/numel(valid_algorithm_dt);
-updatedAgentData.algorithm_max_dt = max(valid_algorithm_dt);
-updatedAgentData.algorithm_min_dt = min(valid_algorithm_dt);
+updatedAgentData.mean_dt = sum(valid_algorithm_dt)/numel(valid_algorithm_dt);
+updatedAgentData.max_dt = max(valid_algorithm_dt);
+updatedAgentData.min_dt = min(valid_algorithm_dt);
 end

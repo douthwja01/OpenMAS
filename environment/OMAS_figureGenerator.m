@@ -15,10 +15,8 @@ function [figureNumber] = OMAS_figureGenerator(SIM,objectIndex,DATA,figureNumber
 
 % PARAMETERISE ALL THE FIGURES BY CURRENT CONFIGURATION
 [DATA.figureProperties] = OMAS_figureProperties(SIM,DATA);
-
 % GENERATE THE REDUCED STATE TRAJECTORY FILE
 generateTrajectoryTempFile(SIM,DATA);
-
 % DETERMINE WHICH FIGURE IS TO BE GENERATED
 switch upper(char(figureLabel))
     case 'ALL'
@@ -30,8 +28,8 @@ switch upper(char(figureLabel))
             [figureNumber] = OMAS_figureGenerator(SIM,objectIndex,DATA,figureNumber,figureVector{fig});
         end
         close all;  % Kill figures
-        fprintf('[%s]\tAll figures pushed to output directory: \n[%s]\t%s',...
-                SIM.phase,SIM.phase,SIM.outputPath);
+        fprintf('[%s]\n[%s]\tAll figures pushed to output directory: \n[%s]\t%s',...
+                SIM.phase,SIM.phase,SIM.phase,SIM.outputPath);
 
     case 'EVENTS'
         fprintf('[%s]\tGenerating the event overview figure.\n',SIM.phase);
@@ -65,22 +63,26 @@ switch upper(char(figureLabel))
         savefig(windowHandle,strcat(SIM.outputPath,'globalTrajectory_overview')); % Save the output figure
         
     case 'SEPARATIONS' 
-        fprintf('[%s]\tGenerating object trajectory separation figure.\n',SIM.phase);
+        fprintf('[%s]\tGenerating object separation figure(s).\n',SIM.phase);
         figureSet = [];
-        if SIM.totalObjects - SIM.totalWaypoints <= 1
+        
+        %if SIM.totalAgents < 1
+        if (SIM.totalObjects - SIM.totalWaypoints) < 2
             warning('There must be at least two collidable objects to plot seperation data.\n');
             return
         end
-        for agentNum = 1:DATA.totalAgents
-            [figureNumber,figureSet(agentNum)] = get_agentSeparationFigure(SIM,DATA,figureNumber,agentNum);
+        
+        for objectNum = 1:(SIM.totalObjects - SIM.totalWaypoints)
+            [figureNumber,figureSet(objectNum)] = get_objectSeparationFigure(SIM,DATA,figureNumber,objectNum);
         end
+        
         % ASSEMBLE TABBED FIGURE
         windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Separation Overview');
         set(windowHandle,'Position', DATA.figureProperties.windowSettings);       % Maximise the figure in the tab
         savefig(windowHandle,strcat(SIM.outputPath,'separations_overview'));      % Save the output figure
         
     case 'CLOSEST'
-        fprintf('[%s]\tGenerating object trajectory seperation figure.\n',SIM.phase);
+        fprintf('[%s]\tGenerating closest separation figure.\n',SIM.phase);
         [figureNumber,~] = get_minimumSeparationFigure(SIM,DATA,figureNumber);
         
     case 'INPUTS'
@@ -157,7 +159,6 @@ outputStructure.frameTimeVector = frameTimeVector(logicalMatrix);
 filePath = [SIM.outputPath,SIM.systemFile];
 save(filePath,'-struct','outputStructure','-append');
 end
-
 
 %% /////////////////// COLLISION DATA FIGURE GENERATION ///////////////////
 % GET EVENTS STATISTICS OVERVIEW PANEL
@@ -296,119 +297,102 @@ function [currentFigure,figureHandle] = get_objectCollision(SIM,objectIndex,DATA
 
 % Generate the figure
 figureHandle = figure('Name',sprintf('[t=%.0fs] %s & %s',collisionEvent.time,collisionEvent.name_A,collisionEvent.name_B));
-set(figureHandle,'Position', DATA.figureProperties.windowSettings);             % [x y width height]
-set(figureHandle,'Color',DATA.figureProperties.figureColor);                    % Background colour
+set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
+set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour
 ax = axes(figureHandle);
 hold on;
-
 view([70 25]);
-titlestr = sprintf('Collision Event between %s and %s at t=%s',...              % Declare title string for figure
-    collisionEvent.name_A,collisionEvent.name_B,num2str(collisionEvent.time));
+titlestr = sprintf('Collision Event between %s and %s at t=%s',...         % Declare title string for figure
+           collisionEvent.name_A,collisionEvent.name_B,num2str(collisionEvent.time));
 
+% /////////////////////////// ENTITY DATA /////////////////////////////////
 % EVENT, OBJECT AND META DATA
 META_A = SIM.OBJECTS(SIM.globalIDvector == collisionEvent.objectID_A);
-META_B = SIM.OBJECTS(SIM.globalIDvector == collisionEvent.objectID_B);                 % The associated META datas
+META_B = SIM.OBJECTS(SIM.globalIDvector == collisionEvent.objectID_B);     % The associated META datas
 object_A = objectIndex{SIM.globalIDvector == collisionEvent.objectID_A};
-object_B = objectIndex{SIM.globalIDvector == collisionEvent.objectID_B};               % The associated object structures
-
+object_B = objectIndex{SIM.globalIDvector == collisionEvent.objectID_B};   % The associated object structures
+geometry_A = object_A.GEOMETRY;
+geometry_B = object_B.GEOMETRY;
 [objectAStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_A.objectID,inf);
 [objectBStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_B.objectID,inf);
 
-% /////////////// BEGIN GENERATING THE PLOT //////////////////////////////
-sphereFaceAlpha = 0.3;
-sphereLineWidth = 0.1;
-sphereEdgeAlpha = 0.1;                                                 % Show representative shapes with higher alpha
+% We need to plot:
+% - The object geometries
+% - The object hitboxes
 
-% ////////// PLOT COLLISION ASSUMPTIONS IF NECESSARY /////////////////
-if META_A.type ~= OMAS_objectType.obstacle
-    % PLOT COLLISION SPHERE FOR A
-    [geometry] = OMAS_graphics.defineSphere(collisionEvent.state_A(1:3),META_A.radius);
-    % REPRESENT GEOMETRY AS A PATCH
-    patch(ax,...
-        'Vertices',geometry.vertices,...
-        'Faces',geometry.faces,...
-        'FaceColor',META_A.colour,...
-        'EdgeColor','k',...
-        'EdgeAlpha',sphereEdgeAlpha,...
-        'FaceAlpha',sphereFaceAlpha,...
-        'FaceLighting','gouraud',...
-        'LineWidth',sphereLineWidth);
+% ////////////////////// PLOT THE OBJECT GEOMETRY /////////////////////////
+% SUBSTITUTE A'S GEOMETRY IF NECESSARY
+if size(object_A.GEOMETRY.vertices,1) < 1
+    [geometry_A] = OMAS_graphics.defineSphere(zeros(3,1),META_A.radius,10);
 end
-
-if META_B.type ~= OMAS_objectType.obstacle
-    % PLOT COLLISION SPHERE FOR B
-    [geometry] = OMAS_graphics.defineSphere(collisionEvent.state_B(1:3),META_B.radius);
-    % REPRESENT GEOMETRY AS A PATCH
-    patch(ax,...
-        'Vertices',geometry.vertices,...
-        'Faces',geometry.faces,...
-        'FaceColor',META_B.colour,...
-        'EdgeColor','k',...
-        'EdgeAlpha',sphereEdgeAlpha,...
-        'FaceAlpha',sphereFaceAlpha,...
-        'FaceLighting','gouraud',...
-        'LineWidth',sphereLineWidth);
-end
-
-% ///////////////////// PLOT THE GEOMETRY OF A ///////////////////////
-entityFaceAlpha = DATA.figureProperties.FaceAlpha;
-if isempty(object_A.GEOMETRY)
-    % REPRESENT AS SPHERE WITH DEFINED RADIUS
-    [vertexData,faceData] = OMAS_graphics.defineSphere(collisionEvent.state_A(1:3),META_A.radius);
-    entityLineWidth = 0.1;
-    entityEdgeAlpha = 0.1;                                 % Show representative shapes with higher alpha
-else
-    vertexData = object_A.GEOMETRY.vertices*META_A.R + collisionEvent.state_A(1:3,1)';
-    faceData   = object_A.GEOMETRY.faces;
-    entityLineWidth = 1;
-    entityEdgeAlpha = 0.8;
-end
-
-% REPRESENT GEOMETRY AS A PATCH
+% GET A'S ROTATIONS
+R_A = OMAS_geometry.quaternionToRotationMatrix(collisionEvent.state_A(7:10)); 
+% OBJECT A'S GEOMETRY
 patch(ax,...
-    'Vertices',vertexData,...
-    'Faces',faceData,...
+    'Vertices',(geometry_A.vertices*R_A + collisionEvent.state_A(1:3)'),...
+    'Faces',geometry_A.faces,...
     'FaceColor',META_A.colour,...
     'EdgeColor','k',...
-    'EdgeAlpha',entityEdgeAlpha,...
-    'FaceAlpha',entityFaceAlpha,...
+    'EdgeAlpha',DATA.figureProperties.edgeAlpha,...
+    'FaceAlpha',DATA.figureProperties.faceAlpha,...
     'FaceLighting','gouraud',...
-    'LineWidth',entityLineWidth);
+    'LineWidth',DATA.figureProperties.lineWidth);
 
-% ///////////////////// PLOT THE GEOMETRY OF B ///////////////////////
-
-if isempty(object_B.GEOMETRY)
-    % REPRESENT AS SPHERE WITH DEFINED RADIUS
-    [vertexData,faceData] = OMAS_graphics.defineSphere(collisionEvent.state_B(1:3),META_B.radius);
-    entityLineWidth = 0.1;
-    entityEdgeAlpha = 0.1;                                 % Show representative shapes with higher alpha
-else
-    vertexData = object_B.GEOMETRY.vertices*META_B.R + collisionEvent.state_B(1:3,1)';
-    faceData   = object_B.GEOMETRY.faces;
-    entityLineWidth = 1;
-    entityEdgeAlpha = 0.8; %0.2;
+% SUBSTITUTE B'S GEOMETRY IF NECESSARY
+if size(object_B.GEOMETRY.vertices,1) < 1
+    [geometry_B] = OMAS_graphics.defineSphere(zeros(3,1),META_B.radius,10); 
 end
-% REPRESENT GEOMETRY AS A PATCH
+% GET B'S ROTATIONS
+R_B = OMAS_geometry.quaternionToRotationMatrix(collisionEvent.state_B(7:10)); 
+% OBJECT B'S GEOMETRY
 patch(ax,...
-    'Vertices',vertexData,...
-    'Faces',faceData,...
+    'Vertices',(geometry_B.vertices*R_B + collisionEvent.state_B(1:3)'),...
+    'Faces',geometry_B.faces,...
     'FaceColor',META_B.colour,...
     'EdgeColor','k',...
-    'EdgeAlpha',entityEdgeAlpha,...
-    'FaceAlpha',entityFaceAlpha,...
+    'EdgeAlpha',DATA.figureProperties.edgeAlpha,...
+    'FaceAlpha',DATA.figureProperties.faceAlpha,...
     'FaceLighting','gouraud',...
-    'LineWidth',entityLineWidth);
+    'LineWidth',DATA.figureProperties.lineWidth);
 
-% PLOT THE TRAJECTORY TRAILS
+% ////////////////////// PLOT THE OBJECT'S HITBOX /////////////////////////
+% Get the hit-box geometry
+[hitBoxGeometry_A] = OMAS_graphics.getHitBoxGeometry(object_A.VIRTUAL,object_A.GEOMETRY);
+% DEFINE A's HITBOX
+patch(ax,...
+    'Vertices',(hitBoxGeometry_A.vertices + collisionEvent.state_A(1:3)'),...
+    'Faces',hitBoxGeometry_A.faces,...
+    'FaceColor','r',...
+    'EdgeColor','k',...
+    'EdgeAlpha',DATA.figureProperties.edgeAlpha*0.8,...
+    'FaceAlpha',DATA.figureProperties.faceAlpha*0.8,...
+    'FaceLighting','gouraud',...
+    'LineWidth',DATA.figureProperties.lineWidth);
+
+% Get the hit-box geometry
+[hitBoxGeometry_B] = OMAS_graphics.getHitBoxGeometry(object_B.VIRTUAL,object_B.GEOMETRY);
+% DEFINE B's HITBOX
+patch(ax,...
+    'Vertices',(hitBoxGeometry_B.vertices + collisionEvent.state_B(1:3)'),...
+    'Faces',hitBoxGeometry_B.faces,...
+    'FaceColor','r',...
+    'EdgeColor','k',...
+    'EdgeAlpha',DATA.figureProperties.edgeAlpha*0.8,...
+    'FaceAlpha',DATA.figureProperties.faceAlpha*0.8,...
+    'FaceLighting','gouraud',...
+    'LineWidth',DATA.figureProperties.lineWidth);
+
+% ////////////////////// PLOT THE TRAJECTORY TRAILS ///////////////////////
 plot3(ax,objectAStates(1,:),objectAStates(2,:),objectAStates(3,:),...
-    'LineStyle',DATA.figureProperties.LineStyle,...
-    'LineWidth',DATA.figureProperties.LineWidth,...
+    'LineStyle',DATA.figureProperties.lineStyle,...
+    'LineWidth',DATA.figureProperties.lineWidth,...
     'Color',META_A.colour);
 plot3(ax,objectBStates(1,:),objectBStates(2,:),objectBStates(3,:),...
-    'LineStyle',DATA.figureProperties.LineStyle,...
-    'LineWidth',DATA.figureProperties.LineWidth,...
+    'LineStyle',DATA.figureProperties.lineStyle,...
+    'LineWidth',DATA.figureProperties.lineWidth,...
     'Color',META_B.colour);
 
+% ////////////////////// PLOT THE VELOCITY VECTORS ////////////////////////
 % PLOT THE OBJECT VELOCITY VECTORS
 q = quiver3(collisionEvent.state_A(1),...
     collisionEvent.state_A(2),...
@@ -417,8 +401,7 @@ q = quiver3(collisionEvent.state_A(1),...
     collisionEvent.state_A(5),...
     collisionEvent.state_A(6),'r');
 q.AutoScaleFactor = 1;
-q.LineWidth = DATA.figureProperties.LineWidth;
-
+q.LineWidth = DATA.figureProperties.lineWidth;
 q = quiver3(collisionEvent.state_B(1),...
     collisionEvent.state_B(2),...
     collisionEvent.state_B(3),...
@@ -426,27 +409,34 @@ q = quiver3(collisionEvent.state_B(1),...
     collisionEvent.state_B(5),...
     collisionEvent.state_B(6),'g');
 q.AutoScaleFactor = 1;
-q.LineWidth = DATA.figureProperties.LineWidth;
+q.LineWidth = DATA.figureProperties.lineWidth;
 
-% ADD ANNOTATIONS
-annotationText = sprintf('    %s [ID-%s]',META_A.name,num2str(META_A.objectID));
+% ///////////////////////// ADD LABEL ANNOTATIONS /////////////////////////
+annotationText = sprintf('    %s [ID-%d]',META_A.name,META_A.objectID);
 text(collisionEvent.state_A(1),collisionEvent.state_A(2),collisionEvent.state_A(3),annotationText);
-annotationText = sprintf('    %s [ID-%s]',META_B.name,num2str(META_B.objectID));
+annotationText = sprintf('    %s [ID-%d]',META_B.name,META_B.objectID);
 text(collisionEvent.state_B(1),collisionEvent.state_B(2),collisionEvent.state_B(3),annotationText);
 
-% Other plot attributes
+% DEFINE THE PLOT LAYOUT
 title(titlestr,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize);
 xlabel('x(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
 ylabel('y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
 zlabel('z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
 set(ax,'Color',DATA.figureProperties.axesColor);
-axis('equal');
+set(ax,'GridLineStyle','--');
+axisLimit = (DATA.figureProperties.objectMaximalRadii + DATA.figureProperties.maxAbsPosition);
+xlim(ax,[-axisLimit,axisLimit]);
+ylim(ax,[-axisLimit,axisLimit]);
+zlim(ax,[-axisLimit,axisLimit]);
+axis vis3d equal;    
 grid on;  box on;
 hold off;
 
 % SAVE THE OUTPUT FIGURE
-filename = sprintf('collisionEvent_[ID-%.0f] %s_[ID-%.0f] %s.fig',collisionEvent.objectID_A,collisionEvent.name_A,collisionEvent.objectID_B,collisionEvent.name_B);
+filename = sprintf('collisionEvent_[ID-%d] %s_[ID-%d] %s.fig',...
+                    collisionEvent.objectID_A,collisionEvent.name_A,...
+                    collisionEvent.objectID_B,collisionEvent.name_B);
 savefig(figureHandle,strcat(SIM.outputPath,filename));
 % ITERATE PLOT
 currentFigure = currentFigure + 1;
@@ -490,7 +480,7 @@ for stateNum = 1:stateVectorLength
     % PLOT THE SEPERATION DATA ON CURRENT FIGURE
     plot(plotLocation,DATA.timeVector(1:SIM.TIME.endStep),stateTrajectory(:,1:SIM.TIME.endStep),...
          'LineStyle','-',...
-         'LineWidth',DATA.figureProperties.LineWidth,...
+         'LineWidth',DATA.figureProperties.lineWidth,...
          'Color','b');
     ylabel(plotLocation,stateTags{stateNum},'fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
     set(plotLocation,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
@@ -519,6 +509,267 @@ savefig(figureHandle,fileName);                                            % As 
 % set(figureHandle,'Visible','off');
 % ITERATE PLOT
 currentFigure = currentFigure + 1;
+end
+% GET THE AGENT SEPERATION SEPERATION TIMESERIES FIGURE
+function [currentFigure,figureHandle] = get_objectSeparationFigure(SIM,DATA,currentFigure,objectNum)
+% Draws the seperations of all agents from each other, neglecting waypoint
+% objects.
+
+% INPUT HANDLING
+if SIM.totalObjects - SIM.totalWaypoints < 2
+    warning('There must be at least two collidable objects to plot seperation data.\n');
+    figureHandle = [];
+    return
+end
+
+% GENERATE THE SEPERATION DATA FOR A GIVEN AGENT
+collidableObjectMETA = SIM.OBJECTS([SIM.OBJECTS.type] ~= OMAS_objectType.waypoint);   % The agent set
+objectSubject = collidableObjectMETA(objectNum);                                      % The agent requested
+objectMETA = SIM.OBJECTS([SIM.globalIDvector == objectSubject.objectID]);
+
+agentLabel = sprintf('[ID-%s] %s',num2str(objectSubject.objectID),objectSubject.name);
+figurePath = strcat(SIM.outputPath,sprintf('separations_%s ',agentLabel));
+
+% FIGURE META DATA
+figureHandle = figure('Name',agentLabel);                                   % Tab label
+setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
+set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
+set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
+set(figureHandle,'Visible','off');
+
+% EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
+% [agentStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,globalIndex);                  % Trajectory data per objectID
+[agentStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,objectMETA.objectID,inf);
+
+% CALCULATE THE ABSOLUTE SEPERATION FROM ALL OTHER OBJECTS OVER TIME
+legendEntries = cell(1,(DATA.totalAgents-1));
+legendCounter = 1; maxSeriesSeperation = 1;                                % Initial y-axis limit
+
+ax = axes(figureHandle);
+hold on;
+
+% MOVE THROUGH OTHER OBJECTS
+for ID2 = 1:DATA.totalObjects
+    % DEFINE CONDITIONS FOR PLOTTING
+    plotCondition = objectSubject.objectID ~= SIM.OBJECTS(ID2).objectID && ~strcmpi(SIM.OBJECTS(ID2).type,'WAYPOINT');
+    if plotCondition
+        % Generate legend entry
+        legendEntries(legendCounter) = {sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(ID2).objectID),num2str(SIM.OBJECTS(ID2).name))};
+        % Container for the timeseries data
+        ABSseperationTimeSeries = zeros(1,size(agentStates,2));
+        % Get comparative state data
+        [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID2).objectID,inf);
+        % Reset collision instance to 0
+        collisionInstance = 0;
+        for simStep = 1:size(ABSseperationTimeSeries,2)
+            % CALCULATE THE ABSOLUTE OBSTACLE SEPERATION TIMESERIES
+            collisionCondition = objectSubject.radius + SIM.OBJECTS(ID2).radius;                     % Define the collision condition (physical seperation)
+            objectSeperation = sqrt(sum((agentStates(1:3,simStep) - objectStates(1:3,simStep)).^2)); % Define object absolute (positional seperation)
+            objectSeperation = objectSeperation; %- collisionCondition;                                % Subtract the physical seperation requirement from the positional seperation
+            
+            if 0 >= objectSeperation && collisionInstance == 0
+                % OBJECT COLLISION INSTANCE
+                collisionInstance = 1;
+                % ADD COLLISION ANNOTATION
+                annoString = strcat('Collision-',SIM.OBJECTS(ID2).name);
+                xCoord = DATA.timeVector(simStep);
+                yCoord = objectSeperation;
+                text(ax,(xCoord),(yCoord),'|','fontsize',20,'Color',SIM.OBJECTS(ID2).colour); % '\uparrow'
+                text(ax,xCoord,(yCoord + 1),annoString);
+            end
+            ABSseperationTimeSeries(simStep) = objectSeperation;
+        end
+        
+        % Calculate seperation axis limit
+        maxSeperation = max(ABSseperationTimeSeries); % Get the maximum seperation value
+        if maxSeriesSeperation < maxSeperation
+            maxSeriesSeperation = maxSeperation;
+        end
+        
+        %% PLOT THE SEPERATION DATA ON CURRENT FIGURE
+        plot(ax,DATA.timeVector,ABSseperationTimeSeries,...
+            'LineStyle','-',...
+            'LineWidth',DATA.figureProperties.lineWidth,...
+            'Color',SIM.OBJECTS(ID2).colour);
+        legendCounter = legendCounter + 1;                             % Increment legend entry
+    end
+end
+% THE COLLISION CONDITION
+refHandle = refline(ax,0,collisionCondition);                                % Adds a reference line with slope m and intercept b to the current axes.
+set(refHandle,'color','k',...
+    'LineStyle','--',...
+    'LineWidth',DATA.figureProperties.lineWidth);
+legendEntries{legendCounter} = 'Collision Boundary';
+
+% ADD FINAL PLOT ATTRIBUTES
+title(ax,sprintf('Object seperations for agent %s',agentLabel),'fontweight',DATA.figureProperties.fontWeight,...
+                 'fontSize',DATA.figureProperties.titleFontSize);
+xlabel(ax,'t (s)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
+ylabel(ax,'Seperation(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
+xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
+ylim(ax,[(-0.1*maxSeriesSeperation) (1.1*maxSeriesSeperation)]);
+set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
+set(ax,'Color',DATA.figureProperties.axesColor);
+set(ax,'GridLineStyle','--')
+legend(ax,legendEntries,'Location','northeastoutside');
+grid on; box on;
+drawnow;
+hold off;
+
+% SAVE THE OUTPUT FIGURE
+savefig(figureHandle,figurePath);      
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end
+
+% INCREMENT THE FIGURE INDEX
+DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
+currentFigure = currentFigure + 1;      
+end
+% GET THE CLOSEST PROXIMITY FIGURES
+function [currentFigure,figureHandle] = get_minimumSeparationFigure(SIM,DATA,currentFigure)
+% This function generates a figure with the smallest separations observed
+% in the simulation and plots their separation. This plot only plots the
+% separation between objects that have a form of hitbo (i.e. ~none).
+
+% INPUT HANDLING
+figureHandle = [];
+if ~any([SIM.OBJECTS(:).hitBox] ~= OMAS_hitBoxType.none) 
+    warning('There must be at least two collidable objects to plot seperation data.');
+    return
+end
+if ~any([SIM.OBJECTS(:).type] ~= OMAS_objectType.waypoint) 
+    warning('There are no objects that are not waypoints.');
+    return
+end
+
+% Get the META structures for all hitbox objects
+hitBoxOBJECTS = SIM.OBJECTS([SIM.OBJECTS.hitBox] ~= OMAS_hitBoxType.none);   % The objects with valid hitboxes
+hitBoxOBJECTS = hitBoxOBJECTS([hitBoxOBJECTS.type] ~= OMAS_objectType.waypoint);
+% Get objects that are valid for consideration
+hitBoxIDvector = [hitBoxOBJECTS.objectID];
+% Output container
+separationTimeSeries = inf(numel(hitBoxIDvector),numel(hitBoxIDvector),SIM.TIME.endStep);
+for i = 1:numel(hitBoxOBJECTS)
+    % Get the state trace for object A
+    objectStatesA = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(i)),inf);
+    objectStatesA = objectStatesA(:,1:SIM.TIME.endStep);
+    for j = 1:numel(hitBoxOBJECTS)
+        if hitBoxIDvector(i) == hitBoxIDvector(j)
+            continue
+        end
+        % Get the state trace for object B
+        objectStatesB = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(j)),inf);
+        objectStatesB = objectStatesB(:,1:SIM.TIME.endStep);
+        % Calculate the separation across the time period
+        centroidSeparations = objectStatesB(1:3,:) - objectStatesA(1:3,:);
+        separationTimeSeries(i,j,:) = sqrt(sum(centroidSeparations.^2,1));
+    end
+end
+
+% GET THE MINIMUM SEPERATIONS FOR EACH AGENT
+% If the number of obstacle/agents exceeds 10 objects, we are only
+% interested in the 10 interactions that came the closest to collision.
+maxDisplayObjects = 10;
+
+% MIN AND MAXIMUM SEPERATION MATRICES [IDA by IDB]
+minABMatrix = min(separationTimeSeries,[],3);       % Minimum separations over the timeseries
+maxABMatrix = max(separationTimeSeries,[],3);       % Maximum separations over the timeseries
+maxABMatrix(isinf(maxABMatrix)) = NaN;              % Remove the 'inf' cases
+[h_maxVals,~] = max(maxABMatrix,[],2);              % The minimum seperations, horezontal indicies
+maxProximity  = max(h_maxVals);                     % Maximal seperation
+% Find the indices 
+[~,indexOfClosestObject] = min(minABMatrix,[],2);   % The minimum with respect to the IDvector
+
+% Define a vector of comparative IDs
+interactionsByID = [hitBoxIDvector',hitBoxIDvector(indexOfClosestObject)'];
+interactionsByID = sort(interactionsByID,2);
+uniqueIDInteractions = unique(interactionsByID,'rows');
+
+% Limit display objects
+if size(uniqueIDInteractions,1) > maxDisplayObjects
+    uniqueIDInteractions = uniqueIDInteractions(1:maxDisplayObjects,:);
+end
+
+% DEFINE THE FIGURE
+figurePath = strcat(SIM.outputPath,'minimumSeparations');   
+figureHandle = figure('Name','OpenMAS point of closest approach'); 
+setappdata(figureHandle,'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
+set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
+set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
+ax = axes(figureHandle);                                                   % Begin generating the figure
+% ADD FINAL PLOT ATTRIBUTES
+titleString = sprintf('Global minimum separations over a period of %ss',num2str(SIM.TIME.endTime));
+title(ax,titleString,'fontweight',DATA.figureProperties.fontWeight,...
+                     'fontSize',DATA.figureProperties.titleFontSize,...
+                     'fontSmoothing','On');
+xlabel(ax,'t (s)','fontweight',DATA.figureProperties.fontWeight,...
+                  'fontSize',DATA.figureProperties.axisFontSize,'fontSmoothing','On');
+ylabel(ax,'Separation(m)',...
+          'fontweight',DATA.figureProperties.fontWeight,...
+          'fontSize',DATA.figureProperties.axisFontSize,...
+          'fontSmoothing','On');
+set(ax,'FontSize',DATA.figureProperties.axisFontSize,...
+       'fontWeight',DATA.figureProperties.fontWeight,...
+       'fontSmoothing','On');
+set(ax,'Color',DATA.figureProperties.axesColor);
+set(ax,'GridLineStyle','--');
+xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
+ylim(ax,[0 (0.5*maxProximity)]);
+grid on; box on; hold on;
+
+% Each of the uniqe interactions
+legendEntries = {}; legendCounter = 1;
+for i = 1:size(uniqueIDInteractions,1)
+    % The associate META objects
+    META_A = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == uniqueIDInteractions(i,1));
+    META_B = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == uniqueIDInteractions(i,2));
+    ind_A  = find(hitBoxIDvector == META_A.objectID);
+    ind_B  = find(hitBoxIDvector == META_B.objectID);
+    % Get the separation tracing 
+    separationTrace = squeeze(separationTimeSeries(ind_A,ind_B,:)); 
+    % Collective radii
+    criticalLimit = META_A.radius + META_B.radius;
+    % Build the labels
+    label1 = sprintf('%s[ID-%d]',META_A.name,META_A.objectID);
+    label2 = sprintf('%s[ID-%d]',META_B.name,META_B.objectID);
+    % Create the legend entries
+    legendEntries{legendCounter} = strcat(label1,' - ',label2);
+    % PLOT THE SEPERATIONS
+    plot(ax,DATA.timeVector(:,1:SIM.TIME.endStep),...
+         separationTrace',...
+        'Color',META_A.colour,...
+        'LineStyle','-',...
+        'LineWidth',DATA.figureProperties.lineWidth);
+    % INCREMENT THE LEGEND COUNTER
+    legendCounter = legendCounter + 1;                             % Increment legend entry
+end
+
+% THE COLLISION CONDITION
+refHandle = refline(ax,0,criticalLimit);                                % Adds a reference line with slope m and intercept b to the current axes.
+set(refHandle,'color','k','LineStyle','--','LineWidth',DATA.figureProperties.lineWidth);
+
+% Add legend entries
+legendEntries{legendCounter} = 'Collision Boundary';
+legend(ax,legendEntries,'Location','northEast');
+
+% SAVE THE OUTPUT FIGURE
+savefig(figureHandle,figurePath);      
+% PUBLISH TO PDF
+if DATA.figureProperties.publish
+    set(figureHandle,'Units','Inches');
+    pos = get(figureHandle,'Position');
+    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
+    print(figureHandle,figurePath,'-dpdf','-r0');
+end
+
+% INCREMENT THE FIGURE INDEX
+DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
+currentFigure = currentFigure + 1;    
 end
 % AGENT CONTROL INPUT TRAJECTORIES
 function [currentFigure,figureHandle] = get_agentControlInputs(SIM,objectIndex,DATA,currentFigure)
@@ -612,8 +863,11 @@ for ID1 = 1:SIM.totalAgents
     ystring = sprintf('Inputs \n [ID-%s]',num2str(evalAgent.objectID));%,evalAgent.name);
     
     % PLOT THE SEPERATION DATA ON CURRENT FIGURE
-    plot(plotLocation,DATA.timeVector(:,1:SIM.TIME.endStep),inputTrajectories(:,1:SIM.TIME.endStep),...
-        'LineStyle','-','LineWidth',DATA.figureProperties.LineWidth);
+    plot(plotLocation,...
+         DATA.timeVector(:,1:SIM.TIME.endStep),...
+         inputTrajectories(:,1:SIM.TIME.endStep),...
+        'LineStyle','-',...
+        'LineWidth',DATA.figureProperties.lineWidth);
     % ADD THE AXES LABELS
     ylabel(plotLocation,ystring,'fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','On');
     set(plotLocation,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
@@ -631,7 +885,7 @@ for ID1 = 1:SIM.totalAgents
     end
     
     % ADD LEGEND
-    legend(legendEntries,'Location','eastoutside');
+    legend(legendEntries,'Location','eastoutside','Interpreter','latex');
     % Move to next subplot location       
     plotCellA = plotCellA + plotCellWidth; 
 end
@@ -649,276 +903,6 @@ end
 % INCREMENT THE FIGURE INDEX
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;  
-end
-% GET THE AGENT SEPERATION SEPERATION TIMESERIES FIGURE
-function [currentFigure,figureHandle] = get_agentSeparationFigure(SIM,DATA,currentFigure,agentNum)
-% Draws the seperations of all agents from each other, neglecting waypoint
-% objects.
-
-% INPUT HANDLING
-if SIM.totalObjects - SIM.totalWaypoints <= 1
-    warning('There must be at least two collidable objects to plot seperation data.\n');
-    figureHandle = [];
-    return
-end
-
-% GENERATE THE SEPERATION DATA FOR A GIVEN AGENT
-agentMETA = SIM.OBJECTS([SIM.OBJECTS.type] == OMAS_objectType.agent);      % The agent set
-agentSubject = agentMETA(agentNum);                                        % The agent requested
-
-globalIndex =  find((SIM.globalIDvector == agentSubject.objectID), 1, 'first'); % The agents position in the global series
-agentLabel = sprintf('[ID-%s] %s',num2str(agentSubject.objectID),agentSubject.name);
-figurePath = strcat(SIM.outputPath,sprintf('separations_%s ',agentLabel));
-
-% FIGURE META DATA
-figureHandle = figure('Name',agentLabel);                                   % Tab label
-setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
-set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
-set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
-set(figureHandle,'Visible','off');
-
-% EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
-% [agentStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,globalIndex);                  % Trajectory data per objectID
-[agentStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(globalIndex).objectID,inf);
-
-% CALCULATE THE ABSOLUTE SEPERATION FROM ALL OTHER OBJECTS OVER TIME
-legendEntries = cell(1,(DATA.totalAgents-1));
-legendCounter = 1; maxSeriesSeperation = 1;                                % Initial y-axis limit
-
-ax = axes(figureHandle);
-hold on;
-
-% MOVE THROUGH OTHER OBJECTS
-for ID2 = 1:DATA.totalObjects
-    % DEFINE CONDITIONS FOR PLOTTING
-    plotCondition = agentSubject.objectID ~= SIM.OBJECTS(ID2).objectID && ~strcmpi(SIM.OBJECTS(ID2).type,'WAYPOINT');
-    if plotCondition
-        % Generate legend entry
-        legendEntries(legendCounter) = {sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(ID2).objectID),num2str(SIM.OBJECTS(ID2).name))};
-        % Container for the timeseries data
-        ABSseperationTimeSeries = zeros(1,size(agentStates,2));
-        % Get comparative state data
-        [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID2).objectID,inf);
-        % Reset collision instance to 0
-        collisionInstance = 0;
-        for simStep = 1:size(ABSseperationTimeSeries,2)
-            % CALCULATE THE ABSOLUTE OBSTACLE SEPERATION TIMESERIES
-            collisionCondition = agentSubject.radius + SIM.OBJECTS(ID2).radius;                      % Define the collision condition (physical seperation)
-            objectSeperation = sqrt(sum((agentStates(1:3,simStep) - objectStates(1:3,simStep)).^2)); % Define object absolute (positional seperation)
-            objectSeperation = objectSeperation; %- collisionCondition;                                % Subtract the physical seperation requirement from the positional seperation
-            
-            if 0 >= objectSeperation && collisionInstance == 0
-                % OBJECT COLLISION INSTANCE
-                collisionInstance = 1;
-                % ADD COLLISION ANNOTATION
-                annoString = strcat('Collision-',SIM.OBJECTS(ID2).name);
-                xCoord = DATA.timeVector(simStep);
-                yCoord = objectSeperation;
-                text(ax,(xCoord),(yCoord),'|','fontsize',20,'Color',SIM.OBJECTS(ID2).colour); % '\uparrow'
-                text(ax,xCoord,(yCoord + 1),annoString);
-            end
-            ABSseperationTimeSeries(simStep) = objectSeperation;
-        end
-        
-        % Calculate seperation axis limit
-        maxSeperation = max(ABSseperationTimeSeries); % Get the maximum seperation value
-        if maxSeriesSeperation < maxSeperation
-            maxSeriesSeperation = maxSeperation;
-        end
-        
-        %% PLOT THE SEPERATION DATA ON CURRENT FIGURE
-        plot(ax,DATA.timeVector,ABSseperationTimeSeries,...
-            'LineStyle','-',...
-            'LineWidth',DATA.figureProperties.LineWidth,...
-            'Color',SIM.OBJECTS(ID2).colour);
-        legendCounter = legendCounter + 1;                             % Increment legend entry
-    end
-end
-% THE COLLISION CONDITION
-refHandle = refline(ax,0,collisionCondition);                                % Adds a reference line with slope m and intercept b to the current axes.
-set(refHandle,'color','k',...
-    'LineStyle','--',...
-    'LineWidth',DATA.figureProperties.LineWidth);
-legendEntries{legendCounter} = 'Collision Boundary';
-
-% ADD FINAL PLOT ATTRIBUTES
-title(ax,sprintf('Object seperations for agent %s',agentLabel),'fontweight',DATA.figureProperties.fontWeight,...
-                 'fontSize',DATA.figureProperties.titleFontSize);
-xlabel(ax,'t (s)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-ylabel(ax,'Seperation(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize);
-xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
-ylim(ax,[(-0.1*maxSeriesSeperation) (1.1*maxSeriesSeperation)]);
-set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight);
-set(ax,'Color',DATA.figureProperties.axesColor);
-set(ax,'GridLineStyle','--')
-legend(ax,legendEntries,'Location','northeastoutside');
-grid on; box on;
-drawnow;
-hold off;
-
-% SAVE THE OUTPUT FIGURE
-savefig(figureHandle,figurePath);      
-% PUBLISH TO PDF
-if DATA.figureProperties.publish
-    set(figureHandle,'Units','Inches');
-    pos = get(figureHandle,'Position');
-    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
-    print(figureHandle,figurePath,'-dpdf','-r0');
-end
-
-% INCREMENT THE FIGURE INDEX
-DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
-currentFigure = currentFigure + 1;      
-end
-% GET THE CLOSEST PROXIMITY FIGURES
-function [currentFigure,figureHandle] = get_minimumSeparationFigure(SIM,DATA,currentFigure)
-% This function generates a figure with the smallest separations observed
-% in the simulation and plots them on a inter-agent basis. This function is
-% irrespective of agents, or obstacles, but neglects waypoints.
-
-% INPUT HANDLING
-if SIM.totalObjects - SIM.totalWaypoints <= 1
-    warning('There must be at least two collidable objects to plot seperation data.');
-    figureHandle = [];
-    return
-end
-
-% BUILD OBJECT SET FOR ALL NON-WAYPOINTS
-objectMETA = SIM.OBJECTS([SIM.OBJECTS.type] ~= OMAS_objectType.waypoint);
-[LIA,LOCB] = ismember(SIM.globalIDvector,[objectMETA.objectID]);
-collidableIDs = LOCB(LIA);
-
-% OUTPUT CONTAINER
-separationTimeSeries = inf(numel(collidableIDs),numel(collidableIDs),SIM.TIME.numSteps);
-for IDnumA = 1:numel(collidableIDs)
-    % THE AGENT STATES
-    [objectStatesA] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(collidableIDs(IDnumA)),inf);
-    for IDnumB = 1:numel(collidableIDs)
-        if IDnumA == IDnumB 
-            % OMIT SEPERATIONS BETWEEN ITSELF
-            continue
-        else
-            % GET THE AGENT STATE TIMESERIES
-%             objectStatesB = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,collidableIDs(IDnumB));
-            [objectStatesB] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(collidableIDs(IDnumB)),inf);
-            centroidSeparations = objectStatesB(1:3,:) - objectStatesA(1:3,:);  % seperation of the centroids
-            centroidSeparations = sqrt(sum(centroidSeparations.^2,1));
-            % STORE IN SEPERATION TIMESERIES MATRIX
-            separationTimeSeries(IDnumB,IDnumA,:) = centroidSeparations;
-        end
-    end
-end
-
-% GET THE MINIMUM SEPERATIONS FOR EACH AGENT
-% If the number of obstacle/agents exceeds 10 objects, we are only
-% interested in the 10 interactions that came the closest to collision.
-% maxDisplayObjects = inf;
-
-% MIN AND MAXIMUM SEPERATION MATRICES [IDA by IDB]
-minABAxes = collidableIDs;
-minABMatrix = min(separationTimeSeries,[],3);                          % Minimum separations over the timeseries
-maxABMatrix = max(separationTimeSeries,[],3);
-maxABMatrix(isinf(maxABMatrix)) = NaN;
-[h_maxVals,~] = max(maxABMatrix,[],2);       % The minimum seperations, horezontal indicies
-maxProximity = max(h_maxVals);               % Maximal seperation
-
-% MIN-MATRIX > MINIMUM SEPERATIONS [IDA by IDB]
-% minABMatrix is a matrix of closest interactions between all objects A
-% vs B.
-[~,h_ind] = min(minABMatrix,[],2); % The minimum seperations, horezontal indicies
-
-% DETERMINE UNIQUE INTERACTIONS
-% [ord,ord_ind] = sort(h_val);           % Sort minimums by magnitude
-% [~,unique_ind,~] = unique(ord,'rows');
-
-% uniqueIndOrder = ord_ind(unique_ind);  % Unique, ordered proximities
-
-% % THE ID's OF THE CLOSEST (UNIQUE) OBJECTS
-closestIDpairs = [minABAxes',h_ind];
-% orderedClosestPairs = closestIDpairs(uniqueIndOrder,:);
-% % GET THE LIMITED NUMBER OF ID PAIRS TO PLOT
-% if size(orderedClosestPairs,1) > maxDisplayObjects
-%     plotableInteractions = orderedClosestPairs(1:maxDisplayObjects,:);
-% else
-%     plotableInteractions = orderedClosestPairs;
-% end
-
-plotableInteractions = closestIDpairs; % <<< PLOT ALL, CLOSEST INTERACTIONS, BETWEEN OBJECTS
-
-% FIGURE META PROPERTIES
-figurePath = strcat(SIM.outputPath,'minimumSeparations');   
-figureHandle = figure('Name','OpenMAS point of closest approach'); 
-setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
-set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
-set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
-
-% BEGIN GENERATING THE FIGURE
-ax = axes(figureHandle);
-hold on;
-legendEntries = {}; legendCounter = 1;
-% FOR EACH INTERACTION GET THE SEPERATION DATA
-for interaction = 1:size(plotableInteractions,1)
-    % GET THE INTERACTION IDs
-    ID1 = plotableInteractions(interaction,1);
-    ID2 = plotableInteractions(interaction,2);
-    
-    % PLOT A LINE WITH THE COMBINED RADIUS
-    criticalLimit = SIM.OBJECTS(ID1).radius + SIM.OBJECTS(ID2).radius;
-    
-    % BUILD LEGEND STRING
-    label1 = sprintf('[ID-%s]%s',num2str(SIM.OBJECTS(ID1).objectID),num2str(SIM.OBJECTS(ID1).name));
-    label2 = sprintf('[ID-%s]%s',num2str(SIM.OBJECTS(ID2).objectID),num2str(SIM.OBJECTS(ID2).name));
-    
-    legendEntries{legendCounter} = strcat(label1,' - ',label2);
-%     legendEntries = horzcat(legendEntries,label1,label2);
-
-    % GET THE SEPERATION TIMESERIES TO PLOT
-    sepTimeSeries = squeeze(separationTimeSeries(ID1,ID2,:));
-    % PLOT THE SEPERATIONS
-    lineHandles(interaction) = plot(ax,DATA.timeVector,sepTimeSeries');
-    set(lineHandles(interaction),...
-        'color',SIM.OBJECTS(ID1).colour,...
-        'LineStyle','-',...
-        'LineWidth',DATA.figureProperties.LineWidth);
-    % INCREMENT THE LEGEND COUNTER
-    legendCounter = legendCounter + 1;                             % Increment legend entry
-end
-
-% THE COLLISION CONDITION
-refHandle = refline(ax,0,criticalLimit);                                % Adds a reference line with slope m and intercept b to the current axes.
-set(refHandle,'color','k','LineStyle','--','LineWidth',DATA.figureProperties.LineWidth);
-
-
-% ADD FINAL PLOT ATTRIBUTES
-titleString = sprintf('Global minimum separations over a period of %ss',num2str(SIM.TIME.endTime));
-title(ax,titleString,'fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.titleFontSize,'fontSmoothing','On');
-xlabel(ax,'t (s)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'fontSmoothing','On');
-ylabel(ax,'Separation(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'fontSmoothing','On');
-set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'fontSmoothing','On');
-set(ax,'Color',DATA.figureProperties.axesColor);
-set(ax,'GridLineStyle','--');
-xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
-ylim(ax,[0 (0.5*maxProximity)]);
-grid on; box on;
-drawnow;
-hold off;
-
-% legendEntries{legendCounter} = 'Collision Boundary';
-% legHandle = legend(ax,legendEntries,'Location','northeastoutside');
-
-% SAVE THE OUTPUT FIGURE
-savefig(figureHandle,figurePath);      
-% PUBLISH TO PDF
-if DATA.figureProperties.publish
-    set(figureHandle,'Units','Inches');
-    pos = get(figureHandle,'Position');
-    set(figureHandle,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)]);
-    print(figureHandle,figurePath,'-dpdf','-r0');
-end
-
-% INCREMENT THE FIGURE INDEX
-DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
-currentFigure = currentFigure + 1;    
 end
 
 %% ////////////////////// GENERAL OVERVIEW FIGURES ////////////////////////
@@ -955,20 +939,20 @@ for ID1 = 1:DATA.totalObjects
         patch(ax,'Vertices',objectHandle.GEOMETRY.vertices*R_final + finalPosition',...
             'Faces',objectHandle.GEOMETRY.faces,...
             'FaceColor',SIM.OBJECTS(ID1).colour,...
-            'EdgeColor',DATA.figureProperties.EdgeColor,...
-            'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
-            'FaceLighting',DATA.figureProperties.FaceLighting,...
-            'FaceAlpha',DATA.figureProperties.FaceAlpha,...
-            'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties
+            'EdgeColor',DATA.figureProperties.edgeColor,...
+            'EdgeAlpha',DATA.figureProperties.edgeAlpha,...  
+            'FaceLighting',DATA.figureProperties.faceLighting,...
+            'FaceAlpha',DATA.figureProperties.faceAlpha,...
+            'LineWidth',DATA.figureProperties.patchLineWidth);             % Patch properties
     else
         % PLOT THE TERMINAL POSITIONS
         plot3(ax,finalPosition(1),finalPosition(2),finalPosition(3),...
               'Marker',SIM.OBJECTS(ID1).symbol,...
-              'MarkerSize',DATA.figureProperties.MarkerSize,...
+              'MarkerSize',DATA.figureProperties.markerSize,...
               'MarkerFaceColor',SIM.OBJECTS(ID1).colour,...
-              'MarkerEdgeColor',DATA.figureProperties.MarkerEdgeColor,...
-              'LineWidth',DATA.figureProperties.LineWidth,...
-              'LineStyle',DATA.figureProperties.LineStyle,...
+              'MarkerEdgeColor',DATA.figureProperties.markerEdgeColor,...
+              'LineWidth',DATA.figureProperties.lineWidth,...
+              'LineStyle',DATA.figureProperties.lineStyle,...
               'Color',SIM.OBJECTS(ID1).colour); 
     end  
     legendCounter = legendCounter + 1;
@@ -981,8 +965,8 @@ for ID1 = 1:DATA.totalObjects
     [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,idleFlag);
     positions = objectStates(1:3,:);
     plot3(positions(1,:),positions(2,:),positions(3,:),...
-          'LineStyle',DATA.figureProperties.LineStyle,...
-          'LineWidth',DATA.figureProperties.LineWidth,...
+          'LineStyle',DATA.figureProperties.lineStyle,...
+          'LineWidth',DATA.figureProperties.lineWidth,...
           'Color',SIM.OBJECTS(ID1).colour);
       
     % ADD THE INTIAL POSITION REFERENCE POSITION 
@@ -991,8 +975,8 @@ for ID1 = 1:DATA.totalObjects
         rectangle('Position',[initialPlotPosition(1) initialPlotPosition(2) (2*SIM.OBJECTS(ID1).radius) (2*SIM.OBJECTS(ID1).radius)],...
                   'Curvature',[1 1],...
                   'FaceColor',SIM.OBJECTS(ID1).colour,...
-                  'EdgeColor',DATA.figureProperties.EdgeColor,...
-                  'LineWidth',DATA.figureProperties.PatchLineWidth)  
+                  'EdgeColor',DATA.figureProperties.edgeColor,...
+                  'LineWidth',DATA.figureProperties.patchLineWidth)  
     end  
 end
 legend(legendEntries,'location','northeastoutside');
@@ -1067,20 +1051,20 @@ for ID1 = 1:DATA.totalObjects
         patch(ax,'Vertices',objectID1.GEOMETRY.vertices*R_final + finalPosition',...
             'Faces',objectID1.GEOMETRY.faces,...
             'FaceColor',SIM.OBJECTS(ID1).colour,...
-            'EdgeColor',DATA.figureProperties.EdgeColor,...
-            'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
-            'FaceLighting',DATA.figureProperties.FaceLighting,...
-            'FaceAlpha',DATA.figureProperties.FaceAlpha,...
-            'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties            % Patch properties
+            'EdgeColor',DATA.figureProperties.edgeColor,...
+            'EdgeAlpha',DATA.figureProperties.edgeAlpha,...  
+            'FaceLighting',DATA.figureProperties.faceLighting,...
+            'FaceAlpha',DATA.figureProperties.faceAlpha,...
+            'LineWidth',DATA.figureProperties.patchLineWidth);             % Patch properties            % Patch properties
     else
         % PLOT THE TERMINAL POSITIONS
         plot3(ax,finalPosition(1),finalPosition(2),finalPosition(3),...
               'Marker',SIM.OBJECTS(ID1).symbol,...
-              'MarkerSize',DATA.figureProperties.MarkerSize,...
+              'MarkerSize',DATA.figureProperties.markerSize,...
               'MarkerFaceColor',SIM.OBJECTS(ID1).colour,...
-              'MarkerEdgeColor',DATA.figureProperties.MarkerEdgeColor,...
-              'LineWidth',DATA.figureProperties.LineWidth,...
-              'LineStyle',DATA.figureProperties.LineStyle,...
+              'MarkerEdgeColor',DATA.figureProperties.markerEdgeColor,...
+              'LineWidth',DATA.figureProperties.lineWidth,...
+              'LineStyle',DATA.figureProperties.lineStyle,...
               'Color',SIM.OBJECTS(ID1).colour); 
     end  
     legendCounter = legendCounter + 1;
@@ -1093,8 +1077,8 @@ for ID1 = 1:DATA.totalObjects
     [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,idleFlag);
     positions = objectStates(1:3,:);
     plot3(positions(1,:),positions(2,:),positions(3,:),...
-          'LineStyle',DATA.figureProperties.LineStyle,...
-          'LineWidth',DATA.figureProperties.LineWidth,...
+          'LineStyle',DATA.figureProperties.lineStyle,...
+          'LineWidth',DATA.figureProperties.lineWidth,...
           'Color',SIM.OBJECTS(ID1).colour);
 end
 legend(legendEntries,'location','northeastoutside');
@@ -1107,8 +1091,8 @@ zlabel(ax,'z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.f
 % xlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
 % ylim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
 zlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
-xlim(ax,[DATA.figureProperties.axisMinimums(1),DATA.figureProperties.axisMaximums(1)]);
-ylim(ax,[DATA.figureProperties.axisMinimums(2),DATA.figureProperties.axisMaximums(2)]);
+xlim(ax,[DATA.figureProperties.axisMinimums(1)-0.1,DATA.figureProperties.axisMaximums(1)+0.1]);
+ylim(ax,[DATA.figureProperties.axisMinimums(2)-0.1,DATA.figureProperties.axisMaximums(2)+0.1]);
 % zlim(ax,[DATA.figureProperties.axisMinimums(3),DATA.figureProperties.axisMaximums(3)]);
 
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');% axis equal
@@ -1193,24 +1177,24 @@ for frame = 1:framesToPlot
                    'Vertices',objectHandle.GEOMETRY.vertices*R_frame + globalStates(1:3,frame)',...
                    'Faces',objectHandle.GEOMETRY.faces,...
                    'FaceColor',SIM.OBJECTS(entity).colour,...
-                   'EdgeColor',DATA.figureProperties.EdgeColor,...
-                   'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
-                   'FaceLighting',DATA.figureProperties.FaceLighting,...
-                   'FaceAlpha',DATA.figureProperties.FaceAlpha,...
-                   'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties
+                   'EdgeColor',DATA.figureProperties.edgeColor,...
+                   'EdgeAlpha',DATA.figureProperties.edgeAlpha,...  
+                   'FaceLighting',DATA.figureProperties.faceLighting,...
+                   'FaceAlpha',DATA.figureProperties.faceAlpha,...
+                   'LineWidth',DATA.figureProperties.patchLineWidth);             % Patch properties
             else
                 % INITIAL MARKER PLOT
                 markerHandle(entity) = plot3(ax,globalStates(1,frame),globalStates(2,frame),globalStates(3,frame));
                 % ASSIGN MARKER PROPERTIES
                 markerHandle(entity).Marker = SIM.OBJECTS(entity).symbol;
-                markerHandle(entity).MarkerSize = DATA.figureProperties.MarkerSize;
+                markerHandle(entity).MarkerSize = DATA.figureProperties.markerSize;
                 markerHandle(entity).MarkerFaceColor = SIM.OBJECTS(entity).colour;
-                markerHandle(entity).MarkerEdgeColor = DATA.figureProperties.MarkerEdgeColor;
+                markerHandle(entity).MarkerEdgeColor = DATA.figureProperties.markerEdgeColor;
                 markerHandle(entity).Color = SIM.OBJECTS(entity).colour;
             end
             % ASSIGN TRACE PROPERTIES
-            traceHandle(entity).LineStyle = DATA.figureProperties.LineStyle;
-            traceHandle(entity).LineWidth = DATA.figureProperties.LineWidth;
+            traceHandle(entity).LineStyle = DATA.figureProperties.lineStyle;
+            traceHandle(entity).LineWidth = DATA.figureProperties.lineWidth;
             traceHandle(entity).Color = SIM.OBJECTS(entity).colour;
         end
         % ANNOTATION WITH THE CURRENT TIME
@@ -1364,24 +1348,24 @@ for frame = 1:framesToPlot
                    'Vertices',objectHandle.GEOMETRY.vertices*R_frame + objectStates(1:3,frame)',...
                    'Faces',objectHandle.GEOMETRY.faces,...
                    'FaceColor',SIM.OBJECTS(entity).colour,...
-                   'EdgeColor',DATA.figureProperties.EdgeColor,...
-                   'EdgeAlpha',DATA.figureProperties.EdgeAlpha,...  
-                   'FaceLighting',DATA.figureProperties.FaceLighting,...
-                   'FaceAlpha',DATA.figureProperties.FaceAlpha,...
-                   'LineWidth',DATA.figureProperties.PatchLineWidth);             % Patch properties
+                   'EdgeColor',DATA.figureProperties.edgeColor,...
+                   'EdgeAlpha',DATA.figureProperties.edgeAlpha,...  
+                   'FaceLighting',DATA.figureProperties.faceLighting,...
+                   'FaceAlpha',DATA.figureProperties.faceAlpha,...
+                   'LineWidth',DATA.figureProperties.patchLineWidth);             % Patch properties
             else
                 % INITIAL MARKER PLOT
                 markerHandle(entity) = plot3(ax,objectStates(1,frame),objectStates(2,frame),objectStates(3,frame));
                 % ASSIGN MARKER PROPERTIES
                 markerHandle(entity).Marker = SIM.OBJECTS(entity).symbol;
-                markerHandle(entity).MarkerSize = DATA.figureProperties.MarkerSize;
+                markerHandle(entity).MarkerSize = DATA.figureProperties.markerSize;
                 markerHandle(entity).MarkerFaceColor = SIM.OBJECTS(entity).colour;
-                markerHandle(entity).MarkerEdgeColor = DATA.figureProperties.MarkerEdgeColor;
+                markerHandle(entity).MarkerEdgeColor = DATA.figureProperties.markerEdgeColor;
                 markerHandle(entity).Color = SIM.OBJECTS(entity).colour;
             end
             % ASSIGN TRACE PROPERTIES
-            traceHandle(entity).LineStyle = DATA.figureProperties.LineStyle;
-            traceHandle(entity).LineWidth = DATA.figureProperties.LineWidth;
+            traceHandle(entity).LineStyle = DATA.figureProperties.lineStyle;
+            traceHandle(entity).LineWidth = DATA.figureProperties.lineWidth;
             traceHandle(entity).Color = SIM.OBJECTS(entity).colour;
         end
         % ANNOTATION WITH THE CURRENT TIME
@@ -1495,7 +1479,7 @@ iter = 0;
 for ID1 = 1:SIM.totalAgents
     % TRY TO GET THE REQUIRED PROPERTIES
     try
-       agentObjectIndex{ID1}.DATA.algorithm_dt;
+       agentObjectIndex{ID1}.DATA.dt;
     catch
        iter = iter + 1; 
     end
@@ -1503,10 +1487,9 @@ end
 
 % SANITY CHECK 2
 if iter == SIM.totalAgents
-    warning('No agents with defined algorithm timeseries in "DATA.algorithm_dt".');
+    warning('No agents with defined algorithm timeseries in "DATA.dt".');
     return 
 end
-
 
 % CONFIGURE THE PLOT ATTRIBUTES
 figurePath = strcat(SIM.outputPath,'computationTimes');
@@ -1515,23 +1498,17 @@ ax = axes(figureHandle);
 set(figureHandle,'Position',DATA.figureProperties.windowSettings);         % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.08, 0.08, 0.90, 0.88]);
-
 for ind = 1:SIM.totalAgents
     % GET OBJECT DATA
     entity = objectIndex{ind};
     % GET THE EQUIVALENT SIM OBJECT
     IDvector = [SIM.OBJECTS.objectID];
     SIMobject = SIM.OBJECTS(IDvector == entity.objectID);
-    % GET THE TIMESERIES DATA
-    dt_timeSeries = entity.DATA.algorithm_dt*1E3; 
-
-    % LEGEND LABEL
-    displayString = sprintf('[ID-%s] %s',num2str(SIMobject.objectID),SIMobject.name);
     % GENERATE FIGURES
-    plot(DATA.timeVector(1:SIM.TIME.endStep),dt_timeSeries,...
+    plot(DATA.timeVector(1:SIM.TIME.endStep),entity.DATA.dt*1E3,...
          'Color',SIMobject.colour,...
-         'LineWidth',DATA.figureProperties.LineWidth,...
-         'DisplayName',displayString);
+         'LineWidth',DATA.figureProperties.lineWidth,...
+         'DisplayName',sprintf('[ID-%s] %s',num2str(SIMobject.objectID),SIMobject.name));
     hold on;
 end
 grid on; box on; grid minor;

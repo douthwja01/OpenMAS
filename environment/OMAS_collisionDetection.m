@@ -3,7 +3,7 @@
 % objects moving through the 3D environment. The collision flag is returned
 % based on the hit box assumptions described below.
 
-function [ABCollided] = OMAS_collisionDetection(META_A,geometry_A,META_B,geometry_B)
+function [ABcollided] = OMAS_collisionDetection(META_A,geometry_A,META_B,geometry_B)
 
 % INPUTS:
 % META_A     - The global META structure of object A
@@ -11,69 +11,171 @@ function [ABCollided] = OMAS_collisionDetection(META_A,geometry_A,META_B,geometr
 % META_B     - The global META structure of object B
 % geometry_B - The geometry of object B (""."")
 
-% COLLISION DETECTION (BASED ON OBJECT ASSUMPTIONS)
-% The separation check is what prevents us from using early returns.
-% We have the following scenarios:
-% - Object A is a polygon ; Object B is a polygon
-% - Object A is a polygon ; Object B is a point
-% - Object A is a point   ; Object B is a polygon
-% - Object A is a point   ; Object B is a point
+% %%%%%%%%%%%%%%%%%% ASSESS THE COLLISION CONDITIONS %%%%%%%%%%%%%%%%%%%%%%
+% Objects are given a parameter defining the type of "hitbox" 
+% 'none'      - None collidable
+% 'spherical' - Spherical assumption
+% 'AABB'      - Axis aligned bounding box
+% 'OBB'       - Object aligned bounding box
 
-% DETERMINE BEHAVIOUR BASED ON AVAILABILITY OF GEOMETRY DATA
-objectA_isPoint = size(geometry_A.vertices,1) < 1;                         % GEOMETRY property is populated for the object class being updated
-objectB_isPoint = size(geometry_B.vertices,1) < 1;                         % GEOMETRY property is populated for the object its been evaluated again
+% SIMPLE PROXIMITY CHECK
+ABcollided = 0;
+if ~OMAS_geometry.intersect_spheres(META_A.globalState(1:3),META_A.radius,META_B.globalState(1:3),META_B.radius)
+    return      % It is not possible for either objects to meet .. return
+end
 
-% ///////////// ASSESS THE COLLISION SEPARATION & COLLISION /////////////// 
-if ~objectA_isPoint && ~objectB_isPoint
-    % COMPARING COMPLEX OBSTACLE TO COMPLEX OBSTACLE
-    % CONSTRAINING VOLUME A
-    dimMin = min(geometry_A.vertices,[],1); 
-    dimMax = max(geometry_A.vertices,[],1);
-    [cuboidA] = OMAS_graphics.defineCuboid(dimMin,dimMax);         % A's cuboid volume
-    % CONSTRAINING VOLUME B
-    dimMin = min(geometry_B.vertices,[],1); 
-    dimMax = max(geometry_B.vertices,[],1);
-    [cuboidB] = OMAS_graphics.defineCuboid(dimMin,dimMax);         % B's cuboid volume
-    % MOVE AND ORIENTATE THE CUBOID
-    ABrelativePosition = META_B.globalState(1:3,1) - META_A.globalState(1:3,1);
-    relativeVertices = cuboidB.vertices*(META_A.R*META_B.R) + ABrelativePosition';
-    % COMPARE TWO ORIENTATED CUBOIDS 
-    [ABCollided,~] = OMAS_geometry.intersect_OBB_cuboids(zeros(3,1),...
-                                                         cuboidA.vertices,...
-                                                         ABrelativePosition,...
-                                                         relativeVertices);
-elseif ~objectA_isPoint
-    % COMPARING COMPLEX OBSTACLE TO (AGENT,WAYPOINT,SIMPLE OBSTACLES)
-    % CONSTRAINING VOLUME A
-    dimMinA = min(geometry_A.vertices,[],1); 
-    dimMaxA = max(geometry_A.vertices,[],1);
-    [cuboidA] = OMAS_graphics.defineCuboid(dimMinA,dimMaxA);
-    % MOVE AND ORIENTATE THE CUBOID
-    cuboidVerticesA = cuboidA.vertices*META_A.R + META_A.globalState(1:3)'; % Map a cuboid to the global space of A
-    % COMPARE ORIENTATED CUBOID WITH SPHERE
-    [ABCollided,~] = OMAS_geometry.intersect_OBB_sphereCuboid(META_B.globalState(1:3),...
-                                                              META_B.radius,...
-                                                              META_A.globalState(1:3),...
-                                                              cuboidVerticesA);
-elseif ~objectB_isPoint
-    % COMPARING COMPLEX OBSTACLE TO (AGENT,WAYPOINT,SIMPLE OBSTACLES)
-    dimMinB = min(geometry_B.vertices,[],1); 
-    dimMaxB = max(geometry_B.vertices,[],1);
-    [cuboidB] = OMAS_graphics.defineCuboid(dimMinB,dimMaxB);
-    cuboidVerticesB = cuboidB.vertices*META_B.R + META_B.globalState(1:3)'; % Map A into the frame of B
-    % COMPARE ORIENTATED CUBOID WITH SPHERE
-    [ABCollided,~] = OMAS_geometry.intersect_OBB_sphereCuboid(META_A.globalState(1:3),...
-                                                              META_A.radius,...
-                                                              META_B.globalState(1:3),...
-                                                              cuboidVerticesB);
-else
-    % NO COMPLEX COMPARISON REQUIRED: ASSUME SPHERES
-    [ABCollided,~] = OMAS_geometry.intersect_spheres(...
-        META_A.globalState(1:3),META_A.radius,...
-        META_B.globalState(1:3),META_B.radius);
-    return  % Separation is trivial
+% NEITHER OBJECTS HAVE A HIT-BOX 
+if META_A.hitBox == OMAS_hitBoxType.none || META_B.hitBox == OMAS_hitBoxType.none
+	return 
+end   
+    
+% OBJECT ROTATION MATRICES
+R_A = OMAS_geometry.quaternionToRotationMatrix(META_A.globalState(7:10));
+R_B = OMAS_geometry.quaternionToRotationMatrix(META_B.globalState(7:10));    
+
+% HIT-BOX CONDITIONS OF OBJECT A
+switch META_A.hitBox
+    case OMAS_hitBoxType.spherical
+        % Behaviour with respect to a sphere representing a object A.
+        switch META_B.hitBox
+            case OMAS_hitBoxType.spherical
+                % Directly intersect its sphere
+            	ABcollided = OMAS_geometry.intersect_spheres(...
+                           META_A.globalState(1:3),META_A.radius,...
+                           META_B.globalState(1:3),META_B.radius);
+                return
+            case OMAS_hitBoxType.AABB
+                % Rotated vertices used defined the box
+                rotatedVertices_B = geometry_B.vertices*R_B + META_B.globalState(1:3)';
+                % Intersect the AABB: sphere -> cuboid
+                ABcollided = OMAS_geometry.intersect_AABB_sphereCuboid(...
+                           META_A.globalState(1:3),META_A.radius,...
+                           min(rotatedVertices_B),max(rotatedVertices_B));
+                return
+            case OMAS_hitBoxType.OBB
+                % Get the cuboid scaled from the geometry
+                cuboidGeometryB = OMAS_graphics.defineCuboid(...
+                                min(geometry_B.vertices),max(geometry_B.vertices));
+                % Map cuboid to the global space
+                rotatedGeometryB = cuboidGeometryB*R_b + META_B.globalState(1:3)';
+                % Intersect the OBB: sphere -> cuboid
+                ABcollided = OMAS_geometry.intersect_OBB_sphereCuboid(...
+                           META_A.globalState(1:3),META_A.radius,...
+                           META_B.globalState(1:3),rotatedGeometryB);
+                return
+            otherwise
+                error('Object %d hit box type not recognised.',META_B.objectID); 
+        end
+    case OMAS_hitBoxType.AABB
+        % Behaviour with respect to an AABB representing a object A.
+        switch META_B.hitBox
+            case OMAS_hitBoxType.spherical
+                % Rotated vertices used defined the box
+                rotatedVertices_A = geometry_A.vertices*R_A + META_A.globalState(1:3)';
+                % Intersect the AABB: sphere -> cuboid
+                ABcollided = OMAS_geometry.intersect_AABB_sphereCuboid(...
+                           META_B.globalState(1:3),META_B.radius,...
+                           min(rotatedVertices_A),max(rotatedVertices_A));
+                return
+            case OMAS_hitBoxType.AABB
+                % Rotated vertices used defined the box
+                rotatedVertices_A = geometry_A.vertices*R_A + META_A.globalState(1:3)';
+                rotatedVertices_B = geometry_B.vertices*R_B + META_B.globalState(1:3)';
+                minA = min(rotatedVertices_A); maxA = max(rotatedVertices_A);
+                minB = min(rotatedVertices_B); maxB = max(rotatedVertices_B);
+                % Intersect the double AABB: 
+                ABcollided = OMAS_geometry.intersect_AABB_cuboids(minA,maxA,minB,maxB);
+                return
+            case OMAS_hitBoxType.OBB
+                % Rotated vertices used defined the box
+                rotatedVertices_A = geometry_A.vertices*R_A + META_A.globalState(1:3)';
+                % Get the AABB
+                cuboidGeometry_A = OMAS_graphics.defineCuboid(min(rotatedVertices_A),...
+                                                              max(rotatedVertices_A));
+                % Get the OBB
+                cuboidGeometry_B = OMAS_graphics.defineCuboid(min(geometry_B.vertices),...
+                                                              max(geometry_B.vertices));
+                cuboidGeometry_B = cuboidGeometry_B.vertices*R_B + META_B.globalState(1:3)';
+                % Intersect the AABB and the OBB
+                ABcollided = OMAS_geometry.intersect_OBB_cuboids(...
+                           META_A.globalState(1:3),cuboidGeometry_A,...
+                           META_B.globalState(1:3),cuboidGeometry_B);
+                return
+            otherwise
+                error('Object %d hit box type not recognised.',META_B.objectID); 
+        end
+    case OMAS_hitBoxType.OBB
+        % Behaviour with respect to an OBB representing a object A.
+        switch META_B.hitBox
+            case OMAS_hitBoxType.spherical
+                % Get the cuboid scaled from the geometry
+                cuboidGeometry_A = OMAS_graphics.defineCuboid(...
+                                min(geometry_A.vertices),max(geometry_A.vertices));
+                % Map cuboid to the global space
+                rotatedGeometryA = cuboidGeometry_A*R_A + META_A.globalState(1:3)';
+                % Intersect the OBB: sphere -> cuboid
+                ABcollided = OMAS_geometry.intersect_OBB_sphereCuboid(...
+                           META_B.globalState(1:3),META_B.radius,...
+                           META_A.globalState(1:3),rotatedGeometryA);
+                return
+            case OMAS_hitBoxType.AABB
+                % Get the OBB
+                cuboidGeometry_A = OMAS_graphics.defineCuboid(min(geometry_A.vertices),...
+                                                              max(geometry_A.vertices));
+                cuboidGeometry_A = cuboidGeometry_A.vertices*R_A + META_A.globalState(1:3)';
+                % Rotated vertices used defined the box
+                rotatedVertices_B = geometry_B.vertices*R_B + META_B.globalState(1:3)';
+                % Get the AABB
+                cuboidGeometry_B = OMAS_graphics.defineCuboid(min(rotatedVertices_B),...
+                                                              max(rotatedVertices_B));
+                % Intersect the AABB and the OBB
+                ABcollided = OMAS_geometry.intersect_OBB_cuboids(...
+                           META_B.globalState(1:3),cuboidGeometry_B,...
+                           META_A.globalState(1:3),cuboidGeometry_A);
+                return
+            case OMAS_hitBoxType.OBB
+                % Get the OBB A
+                cuboidGeometry_A = OMAS_graphics.defineCuboid(min(geometry_A.vertices),...
+                                                              max(geometry_A.vertices));
+                % Get the OBB B
+                cuboidGeometry_B = OMAS_graphics.defineCuboid(min(geometry_B.vertices),...
+                                                              max(geometry_B.vertices));
+                % Rotated vertices used defined the box
+                rotatedVertices_A = cuboidGeometry_A.vertices*R_A + META_A.globalState(1:3)';                                     
+                rotatedVertices_B = cuboidGeometry_B.vertices*R_B + META_B.globalState(1:3)';                      
+                % Intersect the OBB and the OBB
+                ABcollided = OMAS_geometry.intersect_OBB_cuboids(...
+                           META_A.globalState(1:3),rotatedVertices_A,...
+                           META_B.globalState(1:3),rotatedVertices_B);
+                return
+            otherwise
+                error('Object %d hit box type not recognised.',META_B.objectID); 
+        end
+    otherwise
+        error('Object %d hit box type not recognised.',META_A.objectID);    
 end
 
 end
 
-
+% % COLLISION CHECK BASED ON GEOMETRY SELECTION
+% if objectA_isPoint && ~objectB_isPoint
+%     % OBJECT A HAS A GEOMETRY
+%     globalVerticesB = geometry_B.vertices*R_B + globalPositionB';
+%     % COMPARE ORIENTATED CUBOID WITH SPHERE
+%     [ABCollided] = OMAS_geometry.intersect_OBB_sphereCuboid(globalPositionA,META_A.radius,...
+%                                                             globalPositionB,globalVerticesB);
+% elseif ~objectA_isPoint && objectB_isPoint
+%     % OBJECT B HAS A GEOMETRY
+%     globalVerticesA = geometry_A.vertices*R_A + globalPositionA';
+%     % COMPARE ORIENTATED CUBOID WITH SPHERE
+%     [ABCollided] = OMAS_geometry.intersect_OBB_sphereCuboid(globalPositionB,META_B.radius,...
+%                                                             globalPositionA,globalVerticesA);
+% else
+%     % BOTH OBJECTS HAVE GEOMETRIES
+%     % Rotate the two set of vertices into the world frame
+%     globalVerticesA = geometry_A.vertices*R_A + globalPositionA';
+%     globalVerticesB = geometry_B.vertices*R_B + globalPositionB';          
+%     % Compare the two orientated cuboids containing the geometries
+%     [ABCollided] = OMAS_geometry.intersect_OBB_cuboids(globalPositionA,globalVerticesA,...
+%                                                        globalPositionB,globalVerticesB);
+% end
