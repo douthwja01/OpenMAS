@@ -653,18 +653,16 @@ hitBoxOBJECTS = hitBoxOBJECTS([hitBoxOBJECTS.type] ~= OMAS_objectType.waypoint);
 % Get objects that are valid for consideration
 hitBoxIDvector = [hitBoxOBJECTS.objectID];
 % Output container
-separationTimeSeries = inf(numel(hitBoxIDvector),numel(hitBoxIDvector),SIM.TIME.endStep);
+separationTimeSeries = inf(numel(hitBoxIDvector),numel(hitBoxIDvector),SIM.TIME.numSteps);
 for i = 1:numel(hitBoxOBJECTS)
     % Get the state trace for object A
-    objectStatesA = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(i)),inf);
-    objectStatesA = objectStatesA(:,1:SIM.TIME.endStep);
+    [objectStatesA] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(i)),inf);
     for j = 1:numel(hitBoxOBJECTS)
         if hitBoxIDvector(i) == hitBoxIDvector(j)
             continue
         end
         % Get the state trace for object B
-        objectStatesB = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(j)),inf);
-        objectStatesB = objectStatesB(:,1:SIM.TIME.endStep);
+        [objectStatesB] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(j)),inf);
         % Calculate the separation across the time period
         centroidSeparations = objectStatesB(1:3,:) - objectStatesA(1:3,:);
         separationTimeSeries(i,j,:) = sqrt(sum(centroidSeparations.^2,1));
@@ -691,17 +689,29 @@ interactionsByID = sort(interactionsByID,2);
 uniqueIDInteractions = unique(interactionsByID,'rows');
 
 % Limit display objects
-if size(uniqueIDInteractions,1) > maxDisplayObjects
+if size(uniqueIDInteractions,1) <= maxDisplayObjects
     uniqueIDInteractions = uniqueIDInteractions(1:maxDisplayObjects,:);
 end
 
-% DEFINE THE FIGURE
+
+
+
+
+
+
+
+
+
+
+
+% FIGURE META PROPERTIES
 figurePath = strcat(SIM.outputPath,'minimumSeparations');   
 figureHandle = figure('Name','OpenMAS point of closest approach'); 
 setappdata(figureHandle,'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 ax = axes(figureHandle);                                                   % Begin generating the figure
+
 % ADD FINAL PLOT ATTRIBUTES
 titleString = sprintf('Global minimum separations over a period of %ss',num2str(SIM.TIME.endTime));
 title(ax,titleString,'fontweight',DATA.figureProperties.fontWeight,...
@@ -720,42 +730,45 @@ set(ax,'Color',DATA.figureProperties.axesColor);
 set(ax,'GridLineStyle','--');
 xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
 ylim(ax,[0 (0.5*maxProximity)]);
-grid on; box on; hold on;
+grid on; box on;
+hold on;
 
-% Each of the uniqe interactions
 legendEntries = {}; legendCounter = 1;
-for i = 1:size(uniqueIDInteractions,1)
-    % The associate META objects
-    META_A = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == uniqueIDInteractions(i,1));
-    META_B = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == uniqueIDInteractions(i,2));
-    ind_A  = find(hitBoxIDvector == META_A.objectID);
-    ind_B  = find(hitBoxIDvector == META_B.objectID);
-    % Get the separation tracing 
-    separationTrace = squeeze(separationTimeSeries(ind_A,ind_B,:)); 
-    % Collective radii
+% FOR EACH INTERACTION GET THE SEPERATION DATA
+for interaction = 1:(size(interactionsByID,1)/2) 
+    % GET THE INTERACTION IDs
+    ID_A = interactionsByID(interaction,1);
+    ID_B = interactionsByID(interaction,2);
+    % Get the META objects
+    META_A = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == ID_A);
+    META_B = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == ID_B);
+    % The critical radius
     criticalLimit = META_A.radius + META_B.radius;
+    % Separation time-series
+    separationTrace = squeeze(separationTimeSeries(interactionsByID(interaction,1),...
+                                                   interactionsByID(interaction,2),:));    
     % Build the labels
     label1 = sprintf('%s[ID-%d]',META_A.name,META_A.objectID);
     label2 = sprintf('%s[ID-%d]',META_B.name,META_B.objectID);
     % Create the legend entries
     legendEntries{legendCounter} = strcat(label1,' - ',label2);
+
     % PLOT THE SEPERATIONS
-    plot(ax,DATA.timeVector(:,1:SIM.TIME.endStep),...
-         separationTrace',...
-        'Color',META_A.colour,...
+    lineHandles(interaction) = plot(ax,DATA.timeVector,separationTrace');
+    set(lineHandles(interaction),...
+        'color',META_A.colour,...
         'LineStyle','-',...
         'LineWidth',DATA.figureProperties.lineWidth);
     % INCREMENT THE LEGEND COUNTER
     legendCounter = legendCounter + 1;                             % Increment legend entry
 end
+% Add legend entries
+legendEntries{legendCounter} = 'Collision Boundary';
+legend(ax,legendEntries,'northEastOutside');
 
 % THE COLLISION CONDITION
 refHandle = refline(ax,0,criticalLimit);                                % Adds a reference line with slope m and intercept b to the current axes.
 set(refHandle,'color','k','LineStyle','--','LineWidth',DATA.figureProperties.lineWidth);
-
-% Add legend entries
-legendEntries{legendCounter} = 'Collision Boundary';
-legend(ax,legendEntries,'Location','northEast');
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
