@@ -1,3 +1,22 @@
-
+# DIRECTORIES
 legacy/
 stls/
+
+agent_2D_formation_HRVO
+agent_2D_formation_RVO
+agent_2D_formation_RVO2
+agent_2D_formation_VO
+
+# INTERVAL
+agent_2D_vectorSharing_interval
+agent_vectorSharing_interval
+
+# EXPERIMENTAL
+agent_2D_VO_withComplex
+ARdrone_formation
+ARdrone_formation_VO
+
+# QUADCOPTER
+quadcopter_backup
+quadcopter_formation
+quadcopter_shiyu
