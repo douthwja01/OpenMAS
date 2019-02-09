@@ -19,9 +19,10 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent_2D(varargin);                                        
                                   
-            % GET THE SENSOR DESCRIPTIONS
-%             obj = obj.getDefaultSensorParameters();     % For defaults
-%             obj = obj.getCustomSensorParameters();    % For experiment
+            % //////////////////// SENSOR PARAMETERS //////////////////////
+            [obj] = obj.getDefaultSensorParameters();       % Default sensing
+            %[obj] = obj.getCustomSensorParameters();       % Experimental sensing
+            % /////////////////////////////////////////////////////////////
 
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
@@ -93,7 +94,7 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
             
-            % /// CONTROLLER
+            % ///////////////////// CONTROLLER ////////////////////////////
             [obj] = obj.controller(dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
@@ -111,57 +112,57 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
     end
     % ///////////////////// THE VECTOR SHARING METHODS ////////////////////
     methods (Access = public)
-         % GET THE AVOIDANCE CORRECTION
-        function [headingVector,speed] = getAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
-            % This function calculates the collision avoidance velocity in
-            % light of the current obstacles
-            
-            % AGENT KNOWLEDGE
-            [p_a,v_a,r_a] = obj.getAgentMeasurements(); % Its own position, velocity and radius
-           
-            % MOVE THROUGH THE PRIORITISED OBSTACLE SET 
-            optimalSet = []; 
-            for item = 1:length(knownObstacles)
-                % NEIGHBOUR CONDITIONS
-                neighbourConditionA = item < obj.maxNeighbours;                   % Maximum number of neighbours
-                neighbourConditionB = norm(knownObstacles(item).position) < obj.neighbourDist;      % [CONFIRMED] 
-                if ~neighbourConditionA || ~neighbourConditionB
-                    continue
-                end
-                % OBSTACLE KNOWLEDGE
-                p_b = knownObstacles(item).position + p_a; 
-                v_b = knownObstacles(item).velocity + v_a;                 % Convert relative parameters to absolute
-                r_b = knownObstacles(item).radius;
-                
-                % COMPUTE THE VECTOR SHARING PROBLEM
-                [Voptimal] = obj.defineOptimalVelocity(desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem);
-                optimalSet = horzcat(optimalSet,[Voptimal;abs(norm(desiredVelocity - Voptimal))]);
-            end
-            
-            % INTERPRETING THE AVOIDANCE VELOCITY SET
-            inputDim = 2;
-            if ~isempty(optimalSet)
-                % THE CLOSEST OBSTACLE
-%                 avoidanceVelocity = optimalSet(1:inputDim,1);
-                % FIND THE MINIMUM MAGNITUDE DEVIATION FROM THE DESIRED
-                [~,minIndex] = min(optimalSet((inputDim+1),:),[],2);       % Return the index of the smallest vector
-                avoidanceVelocity = optimalSet(1:inputDim,minIndex);
-            else
-                % NOTHING TO AVOID, CHOOSE OPTIMAL VELOCITY
-                avoidanceVelocity = desiredVelocity;
-            end
-
-            % CHECK VELOCITY IS PERMISSIBLE
-            if any(isnan(avoidanceVelocity))
-                headingVector = [1;0];   % Retain forward direction
-                speed = 0;
-            else
-                speed = norm(avoidanceVelocity);
-                headingVector = avoidanceVelocity/speed;
-            end
-        end
+%          % GET THE AVOIDANCE CORRECTION
+%         function [headingVector,speed] = getAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
+%             % This function calculates the collision avoidance velocity in
+%             % light of the current obstacles
+%             
+%             % AGENT KNOWLEDGE
+%             [p_a,v_a,r_a] = obj.getAgentMeasurements(); % Its own position, velocity and radius
+%            
+%             % MOVE THROUGH THE PRIORITISED OBSTACLE SET 
+%             optimalSet = []; 
+%             for item = 1:length(knownObstacles)
+%                 % NEIGHBOUR CONDITIONS
+%                 neighbourConditionA = item < obj.maxNeighbours;                   % Maximum number of neighbours
+%                 neighbourConditionB = norm(knownObstacles(item).position) < obj.neighbourDist;      % [CONFIRMED] 
+%                 if ~neighbourConditionA || ~neighbourConditionB
+%                     continue
+%                 end
+%                 % OBSTACLE KNOWLEDGE
+%                 p_b = knownObstacles(item).position + p_a; 
+%                 v_b = knownObstacles(item).velocity + v_a;                 % Convert relative parameters to absolute
+%                 r_b = knownObstacles(item).radius;
+%                 
+%                 % COMPUTE THE VECTOR SHARING PROBLEM
+%                 [Voptimal] = obj.defineOptimalVelocity(desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem);
+%                 optimalSet = horzcat(optimalSet,[Voptimal;abs(norm(desiredVelocity - Voptimal))]);
+%             end
+%             
+%             % INTERPRETING THE AVOIDANCE VELOCITY SET
+%             inputDim = 2;
+%             if ~isempty(optimalSet)
+%                 % THE CLOSEST OBSTACLE
+% %                 avoidanceVelocity = optimalSet(1:inputDim,1);
+%                 % FIND THE MINIMUM MAGNITUDE DEVIATION FROM THE DESIRED
+%                 [~,minIndex] = min(optimalSet((inputDim+1),:),[],2);       % Return the index of the smallest vector
+%                 avoidanceVelocity = optimalSet(1:inputDim,minIndex);
+%             else
+%                 % NOTHING TO AVOID, CHOOSE OPTIMAL VELOCITY
+%                 avoidanceVelocity = desiredVelocity;
+%             end
+% 
+%             % CHECK VELOCITY IS PERMISSIBLE
+%             if any(isnan(avoidanceVelocity))
+%                 headingVector = [1;0];   % Retain forward direction
+%                 speed = 0;
+%             else
+%                 speed = norm(avoidanceVelocity);
+%                 headingVector = avoidanceVelocity/speed;
+%             end
+%         end
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
-        function [U_a] = defineOptimalVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
+        function [U_a] = define2DVectorSharingVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
             % This function calculates the avoidance vectors based on the
             % principle of vector sharing.
             % INPUTS:

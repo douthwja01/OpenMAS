@@ -1,18 +1,22 @@
-%% EARTH-OBSTACLE (earth.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% The Earth class is an iteration of the spheriod obstacle class aimed
+%% MOON-OBSTACLE (moon.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The Moon class is an iteration of the spheriod obstacle class aimed
 % mostly providing a reference for satelite simulation.
 
-% Author: James A. Douthwaite 27/07/2018
+% Author: James A. Douthwaite 09/02/2019
 
-classdef earth < obstacle_spheroid
+classdef moon < obstacle_spheroid
     properties
-        radius    = 6.371E+06;      % Radius of the earth (m)
-        axialRate = 7.2921150E-5;   % Rotational rate about its vertical axes(rad/s)
+        inclination = deg2rad(5.145); % Inclination angle
+        orbit       = 3.844E+08;      % Orbit around the Earth
+        orbitalSpeed = 1.022E+03;     % Oribital speed around the Earth
+        radius      = 1.737E+06;      % Radius of the moon (m)
+        mass        = 7.342E+22;      % Mass of the moon (kg)     
+        axialRate   = 1.737E+06;% Rotational rate about its vertical axes(rad/s)
     end
-%%  CLASS METHODS
+    %  CLASS METHODS
     methods 
         % CONSTRUCTION METHOD
-        function obj = earth(varargin)
+        function obj = moon(varargin)
             % This function constructs the cuboid obstacle. The object must
             % be imported and represented with a global position and
             % velocity as all other objects are in OMAS.

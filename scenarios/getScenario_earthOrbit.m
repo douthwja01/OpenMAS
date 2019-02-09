@@ -22,26 +22,33 @@ defaultConfig = struct('file','scenario.mat',...
 % GENERATE THE EARTH AS THE FOCAL POINT
 objectIndex{1} = earth('name','Earth'); % Will be initiallised at the origin.
 
-% DEFINE THE ISS'S ORBITAL PROPERTIES
-orbitalAltitude = 6.371E+06 + 406E3; 
-orbitalInclination = deg2rad(51.64);
+% ////////////////// DEFINE THE MOONS'S ORBITAL PROPERTIES ////////////////
+objectIndex{2} = moon('name','Moon');
+orbitalInclination = deg2rad(objectIndex{2}.inclination);
 axisProjection = zeros(3,1);
 axisProjection(1) = -1*sin(orbitalInclination);
 axisProjection(3) = -1*cos(orbitalInclination);
-
+% GENERATE THE MOON IN ORBIT
 ISS_scenario = scenarioBuilder(1);
-ISS_config = ISS_scenario.planarRing('objects',1,...
-                                      'radius',orbitalAltitude,...
-                                      'pointA',axisProjection,...
-                                      'pointB',zeros(3,1));
+Moon_config = ISS_scenario.planarRing('objects',1,'radius',objectIndex{2}.orbit,...
+                                      'pointA',axisProjection,'pointB',zeros(3,1));
+objectIndex{2}.VIRTUAL.globalVelocity = [0;objectIndex{2}.orbitalSpeed;0];                    % Initialise with tangential oribit speed of 7.67km/s
+objectIndex{2}.VIRTUAL.globalPosition = Moon_config.position;               % Initialise at the apogee (403k), perigee is 406km
+objectIndex{2}.VIRTUAL.quaternion = Moon_config.quaternion;
 
+% ////////////////// DEFINE THE ISS'S ORBITAL PROPERTIES //////////////////
 % GENERATE THE ISS IN ORBIT
-objectIndex{2} = ISS('name','ISS','scale',scenarioConfig.scale);
-objectIndex{2}.VIRTUAL.globalVelocity = [0;7.67E3;0];                      % Initialise with tangential oribit speed of 7.67km/s
-objectIndex{2}.VIRTUAL.globalPosition = ISS_config.position;               % Initialise at the apogee (403k), perigee is 406km
-objectIndex{2}.VIRTUAL.quaternion = ISS_config.quaternion;
-
-
+objectIndex{3} = ISS('name','ISS','scale',scenarioConfig.scale);
+orbitalInclination = deg2rad(0);
+axisProjection = zeros(3,1);
+axisProjection(1) = -1*sin(orbitalInclination);
+axisProjection(3) = -1*cos(orbitalInclination);
+ISS_scenario = scenarioBuilder(1);
+ISS_config = ISS_scenario.planarRing('objects',1,'radius',objectIndex{3}.orbit,...
+                                      'pointA',axisProjection,'pointB',zeros(3,1));
+objectIndex{3}.VIRTUAL.globalVelocity = [0;objectIndex{3}.orbitalSpeed;0];                      % Initialise with tangential oribit speed of 7.67km/s
+objectIndex{3}.VIRTUAL.globalPosition = ISS_config.position;               % Initialise at the apogee (403k), perigee is 406km
+objectIndex{3}.VIRTUAL.quaternion = ISS_config.quaternion;
 
 % PLOT THE SCENE
 if scenarioConfig.plot

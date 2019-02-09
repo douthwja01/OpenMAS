@@ -456,44 +456,63 @@ set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x 
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 set(figureHandle,'Visible','off');
 plotCellWidth = 4; plotCellA = 1;                                          % The width of each figure, the start of the plot
+setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1,0.1,0.85,0.82]);     
 
 % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
 [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(objectNum).objectID,inf);
-
 % STATE NAME VECTOR
-stateTags = {'x(m)','y(m)','z(m)',...
-             'u(m/s)','v(m/s)','w(m/s)',...
-             'q0','q1','q2','q3'};
+stateTags = {{'$x$','$(m)$'},{'$y$','$(m)$'},{'$z$','$(m)$'},...
+             {'$u$','$(m/s)$'},{'$v$','$(m/s)$'},{'$w$','$(m/s)$'},...
+             {'$\phi$','$(rad)$'},{'$\theta$','$(rad)$'},{'$\psi$','$(rad)$'}};
+% CONVERT QUATERNION STATE TO EULER ANGLE STATES         
+eulerStates = zeros(9,size(objectStates,2));         
+for i = 1:size(objectStates,2)  
+    eulerStates(1:6,i) = objectStates(1:6,i);
+    eulerStates(7:9,i) = OMAS_geometry.quaternionToEulers(objectStates(7:10,i));         
+end            
 
-setappdata(gcf, 'SubplotDefaultAxesLocation', [0.1,0.1,0.85,0.82]);         
+clear objectStates;
 
 % FOR EACH OBJECTS PERSPECTIVE
-stateVectorLength = size(objectStates,1);
-for stateNum = 1:stateVectorLength
-    % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
-    stateTrajectory = objectStates(stateNum,:);
-        
+stateVectorLength = size(eulerStates,1);
+for n = 1:stateVectorLength       
     % CALCULATE THE ABSOLUTE SEPERATION FROM ALL OTHER OBJECTS OVER TIME
-    plotCellB = stateNum*plotCellWidth;                                    % The end of the plot
+    plotCellB = n*plotCellWidth;                                    % The end of the plot
     plotLocation = subplot(stateVectorLength,plotCellWidth,[plotCellA plotCellB]);
     
     % PLOT THE SEPERATION DATA ON CURRENT FIGURE
-    plot(plotLocation,DATA.timeVector(1:SIM.TIME.endStep),stateTrajectory(:,1:SIM.TIME.endStep),...
+    plot(plotLocation,DATA.timeVector(1:SIM.TIME.endStep),...
+         eulerStates(n,1:SIM.TIME.endStep),...
          'LineStyle','-',...
          'LineWidth',DATA.figureProperties.lineWidth,...
          'Color','b');
-    ylabel(plotLocation,stateTags{stateNum},'fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
-    set(plotLocation,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');
+    ylabel(plotLocation,stateTags{n},...
+        'fontweight',DATA.figureProperties.fontWeight,...
+        'fontSize',DATA.figureProperties.axisFontSize,...
+        'FontSmoothing','on',...
+        'Interpreter', 'latex');
+    set(plotLocation,...
+        'FontSize',DATA.figureProperties.axisFontSize,...
+        'FontWeight',DATA.figureProperties.fontWeight,...
+        'FontSmoothing','on');
     set(plotLocation,'Color',DATA.figureProperties.axesColor);
     grid on; box on; grid minor;
     
     % ADD FIGURE TITLE TO FIRST PLOT HEADER
-    if stateNum == 1
-        title(plotLocation,titlestr,'fontweight',DATA.figureProperties.fontWeight,'fontsize',DATA.figureProperties.titleFontSize,'FontSmoothing','on');                                                   % Append title to first subplot
+    if n == 1
+        title(plotLocation,titlestr,...
+            'Interpreter', 'latex',...
+            'fontweight',DATA.figureProperties.fontWeight,...
+            'fontsize',DATA.figureProperties.titleFontSize,...
+            'FontSmoothing','on');                                                   % Append title to first subplot
     end
     % Prevent overlap of x-label
-    if stateNum == stateVectorLength
-        xlabel(plotLocation,'t (s)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.figureProperties.axisFontSize,'FontSmoothing','on');
+    if n == stateVectorLength
+        xlabel(plotLocation,'t (s)',...
+            'Interpreter', 'latex',...
+            'fontweight',DATA.figureProperties.fontWeight,...
+            'fontSize',DATA.figureProperties.axisFontSize,...
+            'FontSmoothing','on');
     else
         set(plotLocation,'XTickLabel',[]); 
     end
@@ -612,7 +631,7 @@ set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figurePro
 set(ax,'Color',DATA.figureProperties.axesColor);
 set(ax,'GridLineStyle','--')
 legend(ax,legendEntries,'Location','northeastoutside');
-grid on; box on;
+grid on; box on; grid minor;
 drawnow;
 hold off;
 
@@ -653,16 +672,18 @@ hitBoxOBJECTS = hitBoxOBJECTS([hitBoxOBJECTS.type] ~= OMAS_objectType.waypoint);
 % Get objects that are valid for consideration
 hitBoxIDvector = [hitBoxOBJECTS.objectID];
 % Output container
-separationTimeSeries = inf(numel(hitBoxIDvector),numel(hitBoxIDvector),SIM.TIME.numSteps);
+separationTimeSeries = inf(numel(hitBoxIDvector),numel(hitBoxIDvector),SIM.TIME.endStep);
 for i = 1:numel(hitBoxOBJECTS)
     % Get the state trace for object A
-    [objectStatesA] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(i)),inf);
+    objectStatesA = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(i)),inf);
+    objectStatesA = objectStatesA(:,1:SIM.TIME.endStep);
     for j = 1:numel(hitBoxOBJECTS)
         if hitBoxIDvector(i) == hitBoxIDvector(j)
             continue
         end
         % Get the state trace for object B
-        [objectStatesB] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(j)),inf);
+        objectStatesB = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,uint8(hitBoxIDvector(j)),inf);
+        objectStatesB = objectStatesB(:,1:SIM.TIME.endStep);
         % Calculate the separation across the time period
         centroidSeparations = objectStatesB(1:3,:) - objectStatesA(1:3,:);
         separationTimeSeries(i,j,:) = sqrt(sum(centroidSeparations.^2,1));
@@ -689,29 +710,17 @@ interactionsByID = sort(interactionsByID,2);
 uniqueIDInteractions = unique(interactionsByID,'rows');
 
 % Limit display objects
-if size(uniqueIDInteractions,1) <= maxDisplayObjects
+if size(uniqueIDInteractions,1) > maxDisplayObjects
     uniqueIDInteractions = uniqueIDInteractions(1:maxDisplayObjects,:);
 end
 
-
-
-
-
-
-
-
-
-
-
-
-% FIGURE META PROPERTIES
+% DEFINE THE FIGURE
 figurePath = strcat(SIM.outputPath,'minimumSeparations');   
 figureHandle = figure('Name','OpenMAS point of closest approach'); 
 setappdata(figureHandle,'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 ax = axes(figureHandle);                                                   % Begin generating the figure
-
 % ADD FINAL PLOT ATTRIBUTES
 titleString = sprintf('Global minimum separations over a period of %ss',num2str(SIM.TIME.endTime));
 title(ax,titleString,'fontweight',DATA.figureProperties.fontWeight,...
@@ -719,7 +728,7 @@ title(ax,titleString,'fontweight',DATA.figureProperties.fontWeight,...
                      'fontSmoothing','On');
 xlabel(ax,'t (s)','fontweight',DATA.figureProperties.fontWeight,...
                   'fontSize',DATA.figureProperties.axisFontSize,'fontSmoothing','On');
-ylabel(ax,'Separation(m)',...
+ylabel(ax,'Separation (m)',...
           'fontweight',DATA.figureProperties.fontWeight,...
           'fontSize',DATA.figureProperties.axisFontSize,...
           'fontSmoothing','On');
@@ -729,46 +738,43 @@ set(ax,'FontSize',DATA.figureProperties.axisFontSize,...
 set(ax,'Color',DATA.figureProperties.axesColor);
 set(ax,'GridLineStyle','--');
 xlim(ax,[SIM.TIME.startTime SIM.TIME.endTime]);
-ylim(ax,[0 (0.5*maxProximity)]);
-grid on; box on;
-hold on;
+ylim(ax,[0 1.1*maxProximity]);                                             % Use the maximum recorded separation 
+grid on; box on; hold on; grid minor;
 
+% Each of the uniqe interactions
 legendEntries = {}; legendCounter = 1;
-% FOR EACH INTERACTION GET THE SEPERATION DATA
-for interaction = 1:(size(interactionsByID,1)/2) 
-    % GET THE INTERACTION IDs
-    ID_A = interactionsByID(interaction,1);
-    ID_B = interactionsByID(interaction,2);
-    % Get the META objects
-    META_A = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == ID_A);
-    META_B = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == ID_B);
-    % The critical radius
+for i = 1:size(uniqueIDInteractions,1)
+    % The associate META objects
+    META_A = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == uniqueIDInteractions(i,1));
+    META_B = hitBoxOBJECTS([hitBoxOBJECTS.objectID] == uniqueIDInteractions(i,2));
+    ind_A  = find(hitBoxIDvector == META_A.objectID);
+    ind_B  = find(hitBoxIDvector == META_B.objectID);
+    % Get the separation tracing 
+    separationTrace = squeeze(separationTimeSeries(ind_A,ind_B,:)); 
+    % Collective radii
     criticalLimit = META_A.radius + META_B.radius;
-    % Separation time-series
-    separationTrace = squeeze(separationTimeSeries(interactionsByID(interaction,1),...
-                                                   interactionsByID(interaction,2),:));    
     % Build the labels
     label1 = sprintf('%s[ID-%d]',META_A.name,META_A.objectID);
     label2 = sprintf('%s[ID-%d]',META_B.name,META_B.objectID);
     % Create the legend entries
     legendEntries{legendCounter} = strcat(label1,' - ',label2);
-
     % PLOT THE SEPERATIONS
-    lineHandles(interaction) = plot(ax,DATA.timeVector,separationTrace');
-    set(lineHandles(interaction),...
-        'color',META_A.colour,...
+    plot(ax,DATA.timeVector(:,1:SIM.TIME.endStep),...
+         separationTrace',...
+        'Color',META_A.colour,...
         'LineStyle','-',...
         'LineWidth',DATA.figureProperties.lineWidth);
     % INCREMENT THE LEGEND COUNTER
     legendCounter = legendCounter + 1;                             % Increment legend entry
 end
-% Add legend entries
-legendEntries{legendCounter} = 'Collision Boundary';
-legend(ax,legendEntries,'northEastOutside');
 
 % THE COLLISION CONDITION
 refHandle = refline(ax,0,criticalLimit);                                % Adds a reference line with slope m and intercept b to the current axes.
 set(refHandle,'color','k','LineStyle','--','LineWidth',DATA.figureProperties.lineWidth);
+
+% Add legend entries
+legendEntries{legendCounter} = 'Collision Boundary';
+legend(ax,legendEntries,'Location','northEast');
 
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);      
@@ -935,7 +941,7 @@ ax = axes(figureHandle);
 
 legendCounter = 1; legendEntries = cell(DATA.totalObjects,1);
 
-hold on; grid on; box on;
+hold on; grid on; box on; grid minor;
 for ID1 = 1:DATA.totalObjects    
     % GET OBJECT OVERVIEW DATA
     legendString = sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(ID1).objectID),SIM.OBJECTS(ID1).name);
@@ -1000,15 +1006,12 @@ ylabel(ax,'y(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.f
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');% axis equal
 set(ax,'Color',DATA.figureProperties.axesColor);
 set(ax,'GridLineStyle','--');
-% xlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
-% ylim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
-% zlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
 
-axisMins = DATA.figureProperties.axisMinimums(1:3) - DATA.figureProperties.objectMaximalRadii;
-axisMaxs = DATA.figureProperties.axisMaximums(1:3) + DATA.figureProperties.objectMaximalRadii;
-xlim(ax,[axisMins(1),axisMaxs(1)]);
-ylim(ax,[axisMins(2),axisMaxs(2)]);
-zlim(ax,[axisMins(3),axisMaxs(3)]);
+% axisMins = DATA.figureProperties.axisMinimums(1:3) - DATA.figureProperties.objectMaximalRadii;
+% axisMaxs = DATA.figureProperties.axisMaximums(1:3) + DATA.figureProperties.objectMaximalRadii;
+% xlim(ax,[axisMins(1),axisMaxs(1)]);
+% ylim(ax,[axisMins(2),axisMaxs(2)]);
+% zlim(ax,[axisMins(3),axisMaxs(3)]);
 axis square equal;
 
 % axis square;     
@@ -1045,7 +1048,7 @@ set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Bac
 ax = axes(figureHandle);
 legendCounter = 1; legendEntries = cell(DATA.totalObjects,1);
 
-hold on; grid on; box on;
+hold on; grid on; box on; grid minor;
 for ID1 = 1:DATA.totalObjects    
     % GET OBJECT OVERVIEW DATA
     legendString = sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(ID1).objectID),SIM.OBJECTS(ID1).name);
@@ -1103,9 +1106,9 @@ zlabel(ax,'z(m)','fontweight',DATA.figureProperties.fontWeight,'fontSize',DATA.f
 
 % xlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
 % ylim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
-zlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
-xlim(ax,[DATA.figureProperties.axisMinimums(1)-0.1,DATA.figureProperties.axisMaximums(1)+0.1]);
-ylim(ax,[DATA.figureProperties.axisMinimums(2)-0.1,DATA.figureProperties.axisMaximums(2)+0.1]);
+%zlim(ax,[-DATA.figureProperties.maxAbsPosition,DATA.figureProperties.maxAbsPosition]);
+%xlim(ax,[DATA.figureProperties.axisMinimums(1)-0.1,DATA.figureProperties.axisMaximums(1)+0.1]);
+%ylim(ax,[DATA.figureProperties.axisMinimums(2)-0.1,DATA.figureProperties.axisMaximums(2)+0.1]);
 % zlim(ax,[DATA.figureProperties.axisMinimums(3),DATA.figureProperties.axisMaximums(3)]);
 
 set(ax,'FontSize',DATA.figureProperties.axisFontSize,'fontWeight',DATA.figureProperties.fontWeight,'FontSmoothing','on');% axis equal
@@ -1114,7 +1117,7 @@ set(ax,'GridLineStyle','--');
 axis vis3d equal;     
 view([-24 36]);
 set(ax,'outerposition',[0.05 0.15 1 0.68]);                               % Set the axes offset position in the figure window
-grid on; 
+grid on; grid minor;
 hold off;
 
 % SAVE THE OUTPUT FIGURE
@@ -1230,7 +1233,7 @@ for frame = 1:framesToPlot
         
         legend(markerHandle,DATA.figureProperties.legendEntries,'Location','northeastoutside');
         view([viewPoint inclinationAngle]);     % Set initial view angle
-        grid on; box on; hold off;
+        grid on; box on; hold off; grid minor;
     else
         % CONTINUED FRAMES
         % FOR EACH PLOT ENTITY
@@ -1275,7 +1278,6 @@ for frame = 1:framesToPlot
         end
     end
     % UPDATE TIMESTAMP ANNOTATION
-    % view([viewPoint inclinationAngle]); % Dont re-apply each time
     set(clockHandle,'String',sprintf('Time: %ss',num2str(frameTimeVector(frame))));
     % FORCE IMAGE WRITE
     drawnow();
@@ -1405,7 +1407,8 @@ for frame = 1:framesToPlot
         legend(markerHandle,DATA.figureProperties.legendEntries,'Location','northeastoutside');
 %         set(ax,'OuterPosition', [.1, .2, .9, .6]); % [xLeft, yBottom, width, height]
         view([viewPoint inclinationAngle]);     % Set initial view angle
-        grid on; box on;hold off;
+        grid on; grid minor;
+        box on; hold off; 
     else
         % CONTINUED FRAMES
         % FOR EACH PLOT ENTITY
@@ -1547,7 +1550,6 @@ end
 DATA.figureProperties.alignment = DATA.figureProperties.alignment + DATA.figureProperties.spacing;
 currentFigure = currentFigure + 1;   
 end
-
 
 % NOTES:
 % WAIT FOR INPUT BEFORE CLOSING ALL

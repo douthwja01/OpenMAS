@@ -27,9 +27,10 @@ classdef agent_vectorSharing < agent
             % DYNAMIC PARAMETERS
             [obj] = obj.getDynamicParameters();
             
-            % SENSOR PARAMETERS
-            [obj] = obj.getDefaultSensorParameters();
-            %[obj] = obj.getCustomSensorParameters();
+            % //////////////////// SENSOR PARAMETERS //////////////////////
+            [obj] = obj.getDefaultSensorParameters();       % Default sensing
+            %[obj] = obj.getCustomSensorParameters();       % Experimental sensing
+            % /////////////////////////////////////////////////////////////
             
             % RE-ESTABLISH THE (SIMULATOR PARAMETERS)
             obj.VIRTUAL.radius = obj.radius; 
@@ -85,12 +86,12 @@ classdef agent_vectorSharing < agent
             % Modify the desired velocity with the augmented avoidance velocity.
             avoidanceSet = [obstacleSet,agentSet];
             algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;
-%             if ~isempty(avoidanceSet) && avoidanceEnabled
-%                 algorithm_indicator = 1;
-%                 % GET THE UPDATED DESIRED VELOCITY
-%                  [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
-%                  desiredVelocity = desiredHeadingVector*desiredSpeed;
-%             end
+            if ~isempty(avoidanceSet) && avoidanceEnabled
+                algorithm_indicator = 1;
+                % GET THE UPDATED DESIRED VELOCITY
+                 [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
+                 desiredVelocity = desiredHeadingVector*desiredSpeed;
+            end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
                        
             % /////// COMPUTE STATE CHANGE FROM CONTROL INPUTS ////////////
@@ -98,8 +99,8 @@ classdef agent_vectorSharing < agent
                         
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'$V_x (m/s)$','$V_y (m/s)$','$V_z (m/s)$'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = desiredVelocity; % Record the control inputs 
+            obj.DATA.inputNames = {'dx (m/s)','dy (m/s)','Yaw Rate (rad/s)'};
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);  
         end
         % INITIALISE SENSORS (NOISY SENSOR PARAMETERS)
         function [obj] = getCustomSensorParameters(obj)
@@ -137,9 +138,9 @@ classdef agent_vectorSharing < agent
                 p_b = knownObstacles(item).position + p_a;
                 v_b = knownObstacles(item).velocity + v_a;                 % Convert relative parameters to absolute
                 r_b = knownObstacles(item).radius;
-                
+
                 % COMPUTE THE VECTOR SHARING PROBLEM
-                [Voptimal] = obj.defineOptimalVelocity(desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem);
+                [Voptimal] = obj.define3DVectorSharingVelocity(desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem);
                 optimalSet = horzcat(optimalSet,[Voptimal;abs(norm(desiredVelocity - Voptimal))]);
             end
             
@@ -166,7 +167,7 @@ classdef agent_vectorSharing < agent
             end
         end
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
-        function [U_a] = defineOptimalVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
+        function [U_a] = define3DVectorSharingVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
             % This function calculates the avoidance vectors based on the
             % principle of vector sharing.
             % INPUTS:
@@ -182,37 +183,43 @@ classdef agent_vectorSharing < agent
             % U_a - The optimal vector heading, scaled by the desired
             %       velocity.
             
+            % Define the current velocity as optimal
+            U_a = desiredVelocity;
+            
             % DEFINE THE INITIAL PROBLEM PARAMETERS
             r   = p_b - p_a;                          % The relative position vector = relative seperation
             c_b = v_b - v_a;                          % Define absolute velocity of b
             c_b_unit = c_b/norm(c_b);                 % Unit relative velocity of v_b
-                        
-            % THE 'NEAR-MISS' VECTOR
-            if numel(desiredVelocity) == 3
-                r_m = cross(c_b_unit,cross(r,c_b_unit));
-            else
-                c_temp = [c_b_unit;0]; r_temp = [r;0];
-                r_m = cross(c_temp,cross(r_temp,c_temp));
+            
+            % COLLISION CHECK #1 - No relative velocity.
+            if ~any(c_b)                                              
+                return                                
             end
             
-            if norm(r_m) == 0 % No miss vector -> compensate
+            % ///////////////// VECTOR SHARING PROBLEM ////////////////////
+            
+            % THE 'NEAR-MISS' VECTOR
+            r_m = cross(c_b_unit,cross(r,c_b_unit));
+
+%             c_temp = [c_b_unit;0]; r_temp = [r;0];
+%             r_m = cross(c_temp,cross(r_temp,c_temp));
+
+            % CATCHA: No miss vector -> compensate
+            if norm(r_m) == 0               
                 r_m = 0.01*rand(3,1);
             end    
             
             % DEFINE THE TIME TO COLLISION (+ve converging)
             tau = -(dot(r,c_b)/dot(c_b,c_b));
             
-            % AVOIDANCE CONDITION
+            % COLLISION CHECK #2 - No future time to collision
             if tau < 0
-                U_a = desiredVelocity;
                 return
             end
             
-            % DEFINE THE REST REGION
-            r_safe = r_a + r_b; %;+ 0.5;
-            
-            % RESOLUTION ZONE
-            r_res = r_safe - norm(r_m);                                    % Define the rest region
+            % VECTOR SHARING PROBLEM
+            r_safe = r_a + r_b;             % Define the safe separation distance
+            r_res = r_safe - norm(r_m);  	% Define the resolution zone
             
             % DEFINE THE VECTOR SHARING TERMS
             r_vsa = (norm(v_b)/(norm(v_a) + norm(v_b)))*(r_res/norm(r_m))*(-r_m);
@@ -225,16 +232,9 @@ classdef agent_vectorSharing < agent
             % NORMALISED AND DEMENSION BY DESIRED SPEED
             U_a = (U_a/norm(U_a))*norm(desiredVelocity);
             
-            % DEFINE THE OPTIMAL ACCELERATION VECTOR
-            % Based on the hamiltonian, H, the vector that minimises the
-            % cost expression J, is an ahat that is parallel to -r_m:
-            % J = -0.5*norm(r_m)^2;
-            % H = dot(-r_m,c_b) + (a_mod*tau)*dot(-r_m,unit_acc);
-            
             % We can therefore write the optimal acceleration direction:
-            %             unitAcceleration = -r_m/norm(r_m);
-            
-            
+            % unitAcceleration = -r_m/norm(r_m);
+
             % PLOT THE SCENARIO IF REQUESTED
             if visualiseProblem == 1 && obj.objectID == 1
                 % A & B's current trajectory at tau

@@ -141,10 +141,15 @@ classdef agent_2D < agent
             omega = -dHeading/dt;
             desiredVelocity = [desiredSpeed;0];
             
-            % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////
+            % //////////////////// SIMPLE DYNAMICS ////////////////////////
             [dX] = obj.dynamics_simple(obj.localState(1:3),desiredVelocity,omega);
             obj.localState(1:3) = obj.localState(1:3) + dt*dX;
-            obj.localState(4:6) = dX;  
+            obj.localState(4:6) = dX; 
+            
+            % ///////////// UPDATE OBJECT GLOBAL PROPERTIES /////////////// 
+            if obj.VIRTUAL.idleStatus
+                obj.localState(4:5) = zeros(2,1);
+            end
             
             % ///////////// UPDATE OBJECT GLOBAL PROPERTIES ///////////////
             [obj] = obj.updateGlobalProperties_2DVelocities(dt,obj.localState);
@@ -243,10 +248,5 @@ classdef agent_2D < agent
                                                       quaternion_k_plus,...     % Quaternion at k plus
                                                       eulerState);              % The new state for reference
         end
-        % [DEFINED IN 'agent.m']
-        % GLOBAL UPDATE - EULER 6DOF(3DOF) [x y z phi theta psi],[x y psi]
-        %function: updateGlobalProperties_ENU(obj,dt,eulerState)
-        % GLOBAL UPDATE - EULER 6DOF(3DOF) (NO ROTATIONS)
-        %function: updateGlobalProperties_ENU_fixedFrame(obj,dt,eulerState)
     end
 end

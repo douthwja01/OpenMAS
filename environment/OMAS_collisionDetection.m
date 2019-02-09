@@ -18,17 +18,18 @@ function [ABcollided] = OMAS_collisionDetection(META_A,geometry_A,META_B,geometr
 % 'AABB'      - Axis aligned bounding box
 % 'OBB'       - Object aligned bounding box
 
-% SIMPLE PROXIMITY CHECK
 ABcollided = 0;
-if ~OMAS_geometry.intersect_spheres(META_A.globalState(1:3),META_A.radius,META_B.globalState(1:3),META_B.radius)
-    return      % It is not possible for either objects to meet .. return
-end
 
-% NEITHER OBJECTS HAVE A HIT-BOX 
+% NEITHER OBJECTS HAVE A HIT-BOX (Collisions cannot occur)
 if META_A.hitBox == OMAS_hitBoxType.none || META_B.hitBox == OMAS_hitBoxType.none
 	return 
 end   
     
+% SIMPLE PROXIMITY CHECK
+if ~OMAS_geometry.intersect_spheres(META_A.globalState(1:3),META_A.radius,META_B.globalState(1:3),META_B.radius)
+    return      % It is not possible for either objects to meet .. return
+end
+
 % OBJECT ROTATION MATRICES
 R_A = OMAS_geometry.quaternionToRotationMatrix(META_A.globalState(7:10));
 R_B = OMAS_geometry.quaternionToRotationMatrix(META_B.globalState(7:10));    
@@ -40,9 +41,7 @@ switch META_A.hitBox
         switch META_B.hitBox
             case OMAS_hitBoxType.spherical
                 % Directly intersect its sphere
-            	ABcollided = OMAS_geometry.intersect_spheres(...
-                           META_A.globalState(1:3),META_A.radius,...
-                           META_B.globalState(1:3),META_B.radius);
+            	ABcollided = 1;
                 return
             case OMAS_hitBoxType.AABB
                 % Rotated vertices used defined the box
@@ -156,26 +155,3 @@ switch META_A.hitBox
 end
 
 end
-
-% % COLLISION CHECK BASED ON GEOMETRY SELECTION
-% if objectA_isPoint && ~objectB_isPoint
-%     % OBJECT A HAS A GEOMETRY
-%     globalVerticesB = geometry_B.vertices*R_B + globalPositionB';
-%     % COMPARE ORIENTATED CUBOID WITH SPHERE
-%     [ABCollided] = OMAS_geometry.intersect_OBB_sphereCuboid(globalPositionA,META_A.radius,...
-%                                                             globalPositionB,globalVerticesB);
-% elseif ~objectA_isPoint && objectB_isPoint
-%     % OBJECT B HAS A GEOMETRY
-%     globalVerticesA = geometry_A.vertices*R_A + globalPositionA';
-%     % COMPARE ORIENTATED CUBOID WITH SPHERE
-%     [ABCollided] = OMAS_geometry.intersect_OBB_sphereCuboid(globalPositionB,META_B.radius,...
-%                                                             globalPositionA,globalVerticesA);
-% else
-%     % BOTH OBJECTS HAVE GEOMETRIES
-%     % Rotate the two set of vertices into the world frame
-%     globalVerticesA = geometry_A.vertices*R_A + globalPositionA';
-%     globalVerticesB = geometry_B.vertices*R_B + globalPositionB';          
-%     % Compare the two orientated cuboids containing the geometries
-%     [ABCollided] = OMAS_geometry.intersect_OBB_cuboids(globalPositionA,globalVerticesA,...
-%                                                        globalPositionB,globalVerticesB);
-% end

@@ -85,21 +85,8 @@ classdef agent_2D_VO < agent_2D & agent_VO
                 desiredVelocity = desiredHeadingVector*obj.maxSpeed;
             end  
             
-            % GET THE EQUIVALENT HEADING ANGLE
-            [dHeading] = obj.getVectorHeadingAngles([1;0;0],[desiredHeadingVector;0]); % Relative heading angles   
-            omega = -dHeading/dt;
-            desiredVelocity = [desiredSpeed;0];
-            
-            % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////
-            [dX] = obj.dynamics_simple(obj.localState(1:3),desiredVelocity,omega);
-            obj.localState(1:3) = obj.localState(1:3) + dt*dX;
-            obj.localState(4:6) = dX;
-
-            % ///////////// UPDATE OBJECT GLOBAL PROPERTIES /////////////// 
-            if obj.VIRTUAL.idleStatus
-                obj.localState(4:5) = zeros(2,1);
-            end
-            [obj] = obj.updateGlobalProperties_2DVelocities(dt,obj.localState);
+            % ///////////////////// CONTROLLER ////////////////////////////
+            [obj] = obj.controller(dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);

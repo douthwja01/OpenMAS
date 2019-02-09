@@ -40,7 +40,7 @@ classdef scenarioBuilder
                
         %% SCENARIO GENERATORS
         % PLANAR CONCENTRIC DISK %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = planarDisk(obj,varargin)
+        function [ scenarioConfig,obj ] = planarDisk(obj,varargin)
             % This function generates a configuration representing a given 
             % number of objects distributed about a disk defined by a 
             % central axis vector.
@@ -60,6 +60,13 @@ classdef scenarioBuilder
                                    'scale',1);   
             % PARSE CONFIGURATIONS
             [config] = obj.configurationParser(defaultConfig,varargin);
+            
+            % INPUT SANITY CHECK
+            assert(isnumeric(config.pointA) && numel(config.pointA) == 3,'The reference point must be a 3D Cartesian point.'); 
+            assert(isnumeric(config.pointB) && numel(config.pointB) == 3,'The centroid point must be a 3D Cartesian point.'); 
+            assert(isnumeric(config.zeroAngle) && numel(config.zeroAngle) == 1,'The zero angle must be a scalar.'); 
+            assert(isnumeric(config.velocity) && numel(config.velocity) == 1,'The object velocity must be a scalar.'); 
+            assert(isnumeric(config.scale) && numel(config.scale) == 1,'The object padding scale must be a scalar.'); 
             
             % ////////////// DESIGN THE DISK DISTRIBUTION /////////////////
             objectNumber = obj.objects;
@@ -90,7 +97,7 @@ classdef scenarioBuilder
                     objectsInLayer = layerMax;
                 end
                 % BUILD THE NEXT LAYER
-                [~,layerConfig] = obj.planarRing('objects',objectsInLayer,...
+                [layerConfig,~] = obj.planarRing('objects',objectsInLayer,...
                                                  'pointA',config.pointA,...
                                                  'pointB',config.pointB,...
                                                  'zeroAngle',config.zeroAngle,...
@@ -109,7 +116,7 @@ classdef scenarioBuilder
 
         end
         % PLANAR RING OF STATES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = planarRing(obj,varargin)
+        function [ scenarioConfig,obj ] = planarRing(obj,varargin)
             % This function generates a configuration representing a given 
             % number of objects destributed around a ring defined by a 
             % central axis vector. 
@@ -135,7 +142,7 @@ classdef scenarioBuilder
             % DEFINE AN ANGLE FOR EQUAL DISTRIBUTION ABOUT THE RING
             nodalAngle = (2*pi)/config.objects;          
             % HAND NODAL ANGLE TO ringAngle FUNCTION
-            [ obj, scenarioConfig ] = obj.planarAngle('objects',config.objects,...
+            [ scenarioConfig,obj ] = obj.planarAngle('objects',config.objects,...
                                                       'pointA',config.pointA,...
                                                       'pointB',config.pointB,...
                                                       'radius',config.radius,...
@@ -146,7 +153,7 @@ classdef scenarioBuilder
             obj.name = 'Planar ring.';
         end
         % CONSTANT OFFSET ANGLE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = planarAngle(obj,varargin)
+        function [ scenarioConfig,obj ] = planarAngle(obj,varargin)
             % GENERATE A SCENARIO DEFINITION 
             % INPUTS:
             % pointA        - The first axis reference point.
@@ -167,6 +174,15 @@ classdef scenarioBuilder
                                    'velocity',0);   
             % PARSE CONFIGURATIONS
             [config] = obj.configurationParser(defaultConfig,varargin);
+            
+            % INPUT SANITY CHECK
+            assert(isnumeric(config.pointA) && numel(config.pointA) == 3,'The reference point must be a 3D Cartesian point.'); 
+            assert(isnumeric(config.pointB) && numel(config.pointB) == 3,'The center point must be a 3D Cartesian point.'); 
+            assert(isnumeric(config.radius) && numel(config.radius) == 1,'The arc radius must be a scalar.'); 
+            assert(isnumeric(config.zeroAngle) && numel(config.zeroAngle) == 1,'The initial radial angle must be a scalar.'); 
+            assert(isnumeric(config.offsetAngle) && numel(config.offsetAngle) == 1,'The offset radial angle must be a scalar.'); 
+            assert(isnumeric(config.velocity) && numel(config.velocity) == 1,'The object velocity must be a scalar.');
+            
             % UPDATE SCENARIO LABEL
             obj.name = sprintf('Planar offset angle of %srad.',num2str(config.offsetAngle));
             
@@ -184,7 +200,7 @@ classdef scenarioBuilder
             perpVector = config.radius*perpVector;               
             
             % GET THE NODE POINT SET
-            nodalAngle = config.zeroAngle + pi/2; % pi/2 aligns the first agent with the x-axis
+            nodalAngle = config.zeroAngle + pi/2; % pi/2 aligns the first object with the x-axis
             for node = 1:config.objects
                 % ROTATE THE RADIAL VECTOR TO DEFINE NODAL POSITIONS
                 radialVector = OMAS_geometry.rodriguesRotation(perpVector,unit_axisVector,nodalAngle);
@@ -231,17 +247,24 @@ classdef scenarioBuilder
             obj.name = 'Planar Angle.';
         end
         % SPHERICAL EQUAL DISTRIBUTION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = regularSphere(obj,varargin)
+        function [ scenarioConfig,obj ] = regularSphere(obj,varargin)
             % This function is designed to generate points equally
             % distributed about the circumference of a sphere.
                        
             % DEFAULT CONFIGURATION
-            defaultConfig = struct('radius',10,...
+            defaultConfig = struct('file','scenario.mat',...
+                                   'radius',10,...
                                    'center',[0;0;0],...
                                    'velocity',0);   
             % PARSE CONFIGURATIONS
             [config] = obj.configurationParser(defaultConfig,varargin);
-                        
+            
+            % INPUT SANITY CHECK
+            assert(ischar(config.file),'The provided file path must be a string.'); 
+            assert(isnumeric(config.radius) && numel(config.radius) == 1,'The sphere radius must be a scalar.'); 
+            assert(isnumeric(config.center) && numel(config.center) == 3,'The sphere center must be a 3D Cartesian vector.'); 
+            assert(isnumeric(config.velocity) && numel(config.velocity) == 1,'The object velocity must be a scalar.'); 
+            
             % ATTEMPT TO ADD THE ICOSAHEDRALS LIBRARY
             try
                 libraryPath = strcat(cd,'\scenarios\icosahedrals');
@@ -261,8 +284,6 @@ classdef scenarioBuilder
             XYZ = unique(XYZ','rows');                                     % Remove repeat entries
             XYZ = sortrows(XYZ,1);
             XYZ = XYZ';
-%             planarIndices = any(XYZ == 0);
-%             nodalPositions = XYZ(:,planarIndices);
             nodalPositions = XYZ();
             nodalPositions = nodalPositions(:,1:obj.objects);
             % ALLOCATE RANDOM SET TO OBJECT GLOBAL POSITIONS
@@ -303,7 +324,7 @@ classdef scenarioBuilder
             obj.name = 'Equally spaced spherical distribution.';   
         end
         % COCENTRIC HELICAL STATES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = helix(obj,varargin)
+        function [ scenarioConfig,obj ] = helix(obj,varargin)
             
             % DEFAULT CONFIGURATION
             defaultConfig = struct('file','scenario.mat',...
@@ -312,11 +333,18 @@ classdef scenarioBuilder
                                    'pointB',[0;0;10],...
                                    'radius',10,...
                                    'offsetAngle',pi/5,...
-                                   'waypointRadius',2,...
                                    'velocities',0,...
                                    'plot',0);
             % PARSE CONFIGURATIONS
             [config] = scenarioBuilder.configurationParser(defaultConfig,varargin);
+            
+            % INPUT SANITY CHECK
+            assert(ischar(config.file),'The provided file path must be a string.'); 
+            assert(isnumeric(config.pointA) && numel(config.pointA) == 3,'The origin point must be a 3D Cartesian point.');
+            assert(isnumeric(config.pointB) && numel(config.pointB) == 3,'The terminal point must be a 3D Cartesian point.');
+            assert(isnumeric(config.radius) && numel(config.radius) == 1,'The helical radius must be a scalar.');
+            assert(isnumeric(config.offsetAngle) && numel(config.offsetAngle) == 1,'The helical angle must be a scalar.');
+            assert(isnumeric(config.velocity) && numel(config.velocity) == 1,'The object velocity must be a scalar.');
             
             % DEFINE THE HELIX AXIS
             helixAxis = config.pointB - config.pointA;
@@ -358,7 +386,7 @@ classdef scenarioBuilder
                                     'quaternion',obj.quaternion); 
         end
         % COLINEAR DISTRIBUTION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = line(obj,varargin)
+        function [ scenarioConfig,obj ] = line(obj,varargin)
             % DEFAULT CONFIGURATION
             defaultConfig = struct('file','scenario.mat',...
                                    'objects',obj.objects,...
@@ -370,15 +398,18 @@ classdef scenarioBuilder
             % PARSE CONFIGURATIONS
             [config] = scenarioBuilder.configurationParser(defaultConfig,varargin);
             
+            % INPUT SANITY CHECK
+            assert(ischar(config.file),'The provided file path must be a string.'); 
+            assert(isnumeric(config.pointA) && numel(config.pointA) == 3,'Please provide a 3D point to the start of the line.'); 
+            assert(isnumeric(config.pointB) && numel(config.pointB) == 3,'Please provide a 3D point to the end of the line.');
+            assert(isnumeric(config.heading) && numel(config.heading) == 3,'Please provide a 3D vector defining the object heading');
+            assert(isnumeric(config.velocities) && numel(config.velocities) == 1,'Please provide a scalar initial speed along the heading vector');
+            
             % LINE AXIS
             axis = config.pointB - config.pointA;
             unit_axis = OMAS_geometry.unit(axis);                          % Get the axis vector between the two points
-            
-            if sum(iszero(config.heading)) == 3
-                headingReference = [1;0;0];
-            else
-                headingReference = OMAS_geometry.unit(config.heading);
-            end
+            % Ensure the heading is a unit vector
+            headingReference = OMAS_geometry.unit(config.heading);
             
             % DISTRIBUTE THE OBJECTS EQUALLY ALONG THE AXIS
             if isnumeric(config.objects)
@@ -411,7 +442,7 @@ classdef scenarioBuilder
         end
         
         % RANDOM SPHERE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = randomSphere(obj,varargin)
+        function [ scenarioConfig,obj ] = randomSphere(obj,varargin)
             % This fuction is designed to generate random positions 
             % distributed about the circumference of a sphere. 
                         
@@ -422,6 +453,12 @@ classdef scenarioBuilder
                                    'velocity',0);   
             % PARSE CONFIGURATIONS
             [config] = obj.configurationParser(defaultConfig,varargin);
+            
+            % INPUT SANITY CHECK
+            assert(isnumeric(config.radius) && numel(config.radius) == 1,'Sphere radius must be a scalar.');
+            assert(isnumeric(config.center) && numel(config.ceneter) == 3,'Sphere center must be a 3D Cartesian vector.');
+            assert(isnumeric(config.velocity) && numel(config.velocity) == 1,'Agent velocity must be a scalar.');
+            
             % ATTEMPT TO ADD THE ICOSAHEDRALS LIBRARY
             try
                 libraryPath = strcat(cd,'\scenarios\icosahedrals');
@@ -480,13 +517,13 @@ classdef scenarioBuilder
             obj.name = 'Random cocentric sphere';
         end  
         % DEFAULT RANDOM STATE GENERATOR - NORMAL %%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = random(obj)
+        function [ scenarioConfig,obj ] = random(obj)
             % This function is a simple placeholder to facilitate the use
             % of .random for quick access to normally distributed state sets.
             [ obj,scenarioConfig ] = randomNormal(obj);
         end
         % RANDOM (NORMAL DISTRIBUTION) SCENARIO %%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = randomNormal(obj)
+        function [ scenarioConfig,obj ] = randomNormal(obj)
             % This function generates a random state vector set using a normal distribution. 
             % assuming the order of the states is [x;y;z;u;v;w;phi;theta;psi;p;q;r]
             % INPUT:
@@ -550,7 +587,7 @@ classdef scenarioBuilder
             save('scenario.mat','scenarioConfig');
         end
         % RANDOM (UNIFORM DISTRIBUTION) SCENARIO %%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [ obj,scenarioConfig ] = randomUniform(obj)
+        function [ scenarioConfig,obj ] = randomUniform(obj)
             % This function generates a random state vector set using a uniform distribution. 
             % assuming the order of the states is [x;y;z;u;v;w;phi;theta;psi;p;q;r]
             % INPUT:
@@ -615,7 +652,7 @@ classdef scenarioBuilder
     
     %% GENERIC SCENARIO TOOLS /////////////////////////////////////////
     methods
-        % PLOT SCENARIO FROM GLOBAL CONFIGURATION ONLY
+        % PLOT SCENARIO ACCORDING TO THE SCENARIO BUILDER DEFINITION
         function [figureHandle] = plot(obj)
             % This function is designed to plot the positional and velocity
             % configuration of the current scenario
@@ -634,9 +671,10 @@ classdef scenarioBuilder
             
             % GENERATE THE FIGURE
             figureHandle = figure(plotnum);
+            ax = axes(figureHandle);
             title('Scenario Definition');
             axis('equal');
-            xlabel('X(m)'); ylabel('Y(m)'); zlabel('Z(m)');
+            xlabel('x (m)'); ylabel('y (m)'); zlabel('z (m)');
             view([70 25]);            
             hold on;
             grid on;
@@ -647,36 +685,24 @@ classdef scenarioBuilder
                 globalVelocity = obj.velocity(:,objNum);
                 globalQuaternion = obj.quaternion(:,objNum);
                 % GET THE ROTATION MATRIX GOING FROM BODY-GLOBAL
-                [R_GB,~] = obj.quaternionRotationMatrix(globalQuaternion); 
+                [R] = OMAS_geometry.quaternionToRotationMatrix(globalQuaternion); 
                 
                 % PLOT THE POSITIONS
-                scatter3(globalPosition(1),globalPosition(2),globalPosition(3),'r');
+                scatter3(ax,globalPosition(1),globalPosition(2),globalPosition(3),'r');
                 % PLOT THE VELOCITY VECTORS
-                quiv = quiver3(globalPosition(1),globalPosition(2),globalPosition(3),...
-                               globalVelocity(1),globalVelocity(2),globalVelocity(3),'c');
+                quiv = quiver3(ax,globalPosition(1),globalPosition(2),globalPosition(3),...
+                                  globalVelocity(1),globalVelocity(2),globalVelocity(3),'c');
                 quiv.AutoScaleFactor = 1;
                 % ADD ANNOTATION
                 annotationText = sprintf('   object %s',num2str(objNum));
                 text(globalPosition(1),globalPosition(2),globalPosition(3),annotationText);
                 
-                % PLOT THE ROTATION TRIAD              
-                % DEFINE TRIAD
-                colours = {'r','g','b'};
-                % REPLOT TRIAD
-                for j = 1:size(obj.globalTriad,2)
-                    % GET THE ROTATED TRIAD AXES
-                    localVector = R_GB*obj.globalTriad(:,j);
-                    % DRAW THE LOCAL TRIAD
-                    quiv = quiver3(globalPosition(1),globalPosition(2),globalPosition(3),...
-                                      localVector(1),localVector(2),localVector(3),colours{j}); 
-                    quiv.AutoScaleFactor = 1;
-                end
+                % PLOT THE ROTATION TRIAD    
+                OMAS_graphics.drawTriad(figureHandle,globalPosition,R) 
             end
             % Increment the plot counter
             plotnum = plotnum + 1; 
-            % SAVE THE FIGURE TO THE WORKING DIRECTORY
-            saveas(figureHandle,'scenario.png');
-        end 
+        end
     end
     methods (Static)
         % PLOT SCENARIO FROM INITIALISED OBJECT-INDEX
@@ -694,7 +720,9 @@ classdef scenarioBuilder
                         
             % GENERATE THE FIGURE
             figureHandle = figure(plotnum);
-            axis('equal');
+%             axis('equal');
+            axis vis3d;
+            view([45,45]);
             xlabel('X(m)'); ylabel('Y(m)'); zlabel('Z(m)');
             hold on; grid on;
             ax = gca;
@@ -727,7 +755,7 @@ classdef scenarioBuilder
                     vertexData = geometry.vertices;
                     faceData = geometry.faces;
                     entityFaceAlpha = 0.3;
-                    entityLineWidth = 0.1;
+                    entityLineWidth = 0.05;
                     entityEdgeAlpha = 0.1;                                 % Show representative shapes with higher alpha              
                 else
                     vertexData = objectIndex{index}.GEOMETRY.vertices*R_q + globalPosition';

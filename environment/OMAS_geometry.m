@@ -382,9 +382,8 @@ classdef OMAS_geometry
             % Gets the rotation angles from an equivalent quaternion
             % attitude. Associated block:
             % "Quaternions to Rotation Angles"
-            if length(q) ~= 4
-                error('Input quaternion is of length %d',length(q));
-            end
+            assert(size(q,1) == 4,'A quaternion column vector is expected 4x1');
+
             % Normalise the quaternion
             q = OMAS_geometry.qUnit(q);
             eulerAngles = zeros(3,1);

@@ -599,8 +599,9 @@ classdef objectDefinition
             % IF PATCH RETURNED, PROCESS FOR SIMULATION
             if isstruct(geometry)
                % NORMALISE THE IMPORTED GEOMETRY
-                [geometry] = OMAS_graphics.normalise(geometry);                 % Normalise
-                [geometry] = OMAS_graphics.scale(geometry,obj.VIRTUAL.radius);  % Scale
+                geometry = OMAS_graphics.normalise(geometry);                 % Normalise
+                geometry = OMAS_graphics.scale(geometry,obj.VIRTUAL.radius);  % Scale
+                geometry.normals = OMAS_graphics.normals(geometry);
                 % ADD CENTROID
                 geometry.centroid = zeros(1,3);                                 % Assume vertices are relative to a centroid
             else
@@ -608,7 +609,7 @@ classdef objectDefinition
                 geometry = struct('vertices',[],...
                                   'faces',[],...
                                   'normals',[],...
-                                  'centroid',zeros(3,1));                  % If the object is something other than a point.        
+                                  'centroid',zeros(1,3));                  % If the object is something other than a point.        
             end
             % Return patch, empty if not successful
         end

@@ -31,9 +31,11 @@ classdef agent_VO < agent
             obj.feasabliltyMatrix = obj.getFeasabilityGrid(-ones(3,1)*obj.maxSpeed,...
                                                             ones(3,1)*obj.maxSpeed,...
                                                             obj.pointDensity); 
-            % GET THE SENSOR DESCRIPTIONS
-            obj = obj.getDefaultSensorParameters();     % For defaults
-%             obj = obj.getCustomSensorParameters();    % For experiment
+            
+            % //////////////////// SENSOR PARAMETERS //////////////////////
+            [obj] = obj.getDefaultSensorParameters();       % Default sensing
+            %[obj] = obj.getCustomSensorParameters();       % Experimental sensing
+            % /////////////////////////////////////////////////////////////
                                                         
             % VIRTUAL DEFINITION (SIMULATOR PARAMETERS)
             obj.VIRTUAL.radius = obj.radius; 
@@ -280,16 +282,16 @@ classdef agent_VO < agent
             unit_lambda_ab   = lambda_ab/mod_lambda_ab;                    % Unit relative position
             % DEFINE THE ANGLE REFERENCE AXES   
             referenceAxis = [1;0;0]; % To avoid [0;0;0]
-            problemAxis = cross(referenceAxis,unit_lambda_ab);             % The reference axis defaults to the agents direction
-            if sum(problemAxis) == 0
-               problemAxis = cross([0;0;1],unit_lambda_ab);                % Axes then align with the aerospace convention
+            planarNormal = cross(referenceAxis,unit_lambda_ab);             % The reference axis defaults to the agents direction
+            if sum(planarNormal) == 0
+               planarNormal = cross([0;0;1],unit_lambda_ab);                % Axes then align with the aerospace convention
             end     
             % CALCUATE THE OPEN ANGLE OF THE CONE
             halfAlpha = asin(r_c/mod_lambda_ab);
             halfAlpha = real(halfAlpha);
             
             % CALCULATE THE LEADING TANGENTS ((oldVector,axisVector,theta))
-            [leadingTangentVector] = obj.rotateVectorAboutAxis(lambda_ab,problemAxis,halfAlpha); % The leading tangential radial vector         
+            [leadingTangentVector] = obj.rotateVectorAboutAxis(lambda_ab,planarNormal,halfAlpha); % The leading tangential radial vector         
 
             % CALCULATE THE AXIS PROJECTION
             VOaxis = (dot(leadingTangentVector,lambda_ab)/mod_lambda_ab^2)*lambda_ab; % Define the tangent projection on AB
@@ -297,11 +299,11 @@ classdef agent_VO < agent
             axisUnit = VOaxis/axisLength;
             
             % DEFINE THE LEADING TANGENT VECTOR
-            [leadingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,problemAxis,halfAlpha); % The leading tangential radial vector         
+            [leadingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,planarNormal,halfAlpha); % The leading tangential radial vector         
             unit_leadingTangent = leadingTangentVector/norm(leadingTangentVector);
             
             % DEFINE THE TRAILING VECTORS (TRAILING)
-            [trailingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,problemAxis,-halfAlpha); % The leading tangential radial vector         
+            [trailingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,planarNormal,-halfAlpha); % The leading tangential radial vector         
             unit_trailingTangent = trailingTangentVector/norm(trailingTangentVector);
             
             % ESTABLISH DIRECTION OF THE AGENT

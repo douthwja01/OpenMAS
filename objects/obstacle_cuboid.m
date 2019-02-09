@@ -22,7 +22,8 @@ classdef obstacle_cuboid < obstacle
                         
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj = obj@obstacle(varargin); 
-                        
+            % Unpack the input vector if necessary
+            [varargin] = obj.inputHandler(varargin);
             % ALLOCATE DEFAULT OBJECT-SPECIFIC CONSTANTS 
             obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.OBB;
             

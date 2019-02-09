@@ -6,14 +6,16 @@
 
 classdef ISS < agent
     properties
-        length = 72.8;     % Length (m)
-        width = 108.5;     % Width (m)
-        height = 20;       % Height (m)
+        orbit = 6.371E+06 + 406E3;      % Orbit above Earth
+        orbitalSpeed = 7.67E3;          % Orbital speed
+        length = 72.8;                  % Length (m)
+        width = 108.5;                  % Width (m)
+        height = 20;                    % Height (m)
         scale = 1;
     end
 
     methods 
-        %% CONSTRUCTOR METHOD
+        % CONSTRUCTOR METHOD
         function obj = ISS(varargin)
             % This function is called to create the 'agent_example' class,
             % which then takes on the new parameters specified.
@@ -36,7 +38,7 @@ classdef ISS < agent
             % SCALING
             [obj.GEOMETRY] = OMAS_graphics.scale(obj.GEOMETRY,[obj.length/2,obj.width/2,obj.height/2]); % To match real world dimensions
         end
-        %% AGENT MAIN CYCLE 
+        % AGENT MAIN CYCLE 
         function [obj] = main(obj,TIME,varargin)
             % This function is designed to contain everything your agent does
             % in a given simulation timestep. As an 'agent', a list of
@@ -68,7 +70,7 @@ classdef ISS < agent
                 [obj,~,~] = obj.getAgentUpdate(observationSet);
             end
             
-            %% \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
+            % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
             % INSERT ALGORITHM/DECISION MAKING PROCESS HERE
             orbitalAltitude = 6.371E+06 + 406E3; 
             orbitalTangentialVelocity = 7.67E3; % Orbital speed
@@ -88,12 +90,6 @@ classdef ISS < agent
             % UPDATE THE 'agent_example' PROPERTIES WITH ITS NEW STATE
             [obj] = obj.updateGlobalProperties_ENU(dt,eulerState);
         end
-        
-%         % THE INITIALISER FOR THE STATE VECTOR
-%         function [obj] = initialise_localState(obj,localXYZVelocity,localRotations)
-%             obj.localState = 
-%             
-%         end
     end
     
     methods (Static)

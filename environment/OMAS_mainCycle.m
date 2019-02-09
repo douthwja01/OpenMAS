@@ -237,7 +237,7 @@ for entityA = 1:SIM.totalObjects
         
         % GET THE TEST GEOMETRY (GEOMETRY OF B)
         relativeR = SIM.OBJECTS(entityA).R'*SIM.OBJECTS(entityB).R;        % Rotate second geometry orientated relative to 
-        geometryB = objectIndex{[SIM.globalIDvector == SIM.OBJECTS(entityB).objectID]}.GEOMETRY;
+        geometryB = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID}.GEOMETRY;
         geometryB.vertices = geometryB.vertices*relativeR + SIM.OBJECTS(entityB).globalState(1:3)';
         % ASSESS EACH FACE AND VERTEX FOR DETECTION
         for face = 1:size(geometryB.vertices,1)
@@ -452,22 +452,22 @@ switch SIMfirstObject.type
             %   place to create a subset of the geometry.
 
             % THE GEOMETRIC PARAMETERS
-            if size(secondObject.GEOMETRY.vertices,1) > 0
-                % Rotate evaluation object geometry into the global space,
-                % then rotate it back into the local space of the reference.                
-                % THE RELATIVE ROTATIONS OF THE SECOND BODY
-                relativeR = SIMfirstObject.R'*SIMsecondObject.R; 
-                % THE CONTAINER FOR THE RELATIVE GEOMETRY
-                relativeGeometry = struct('vertices',secondObject.GEOMETRY.vertices*relativeR + observedPosition',...
-                                          'normals', secondObject.GEOMETRY.normals*relativeR,...
-                                          'faces',   secondObject.GEOMETRY.faces,...
-                                          'centroid',secondObject.GEOMETRY.centroid + observedPosition');
-                % PROCESS THE VISIBLE GEOMETRY (The sub-set of the geometry that is visible to the agent.)
-                observedGeometry = OMAS_restrictedGeometry(zeros(3,1),SIMfirstObject.detectionRadius,relativeGeometry);                   
-            else
+%             if size(secondObject.GEOMETRY.vertices,1) > 0
+%                 % Rotate evaluation object geometry into the global space,
+%                 % then rotate it back into the local space of the reference.                
+%                 % THE RELATIVE ROTATIONS OF THE SECOND BODY
+%                 relativeR = SIMfirstObject.R'*SIMsecondObject.R; 
+%                 % THE CONTAINER FOR THE RELATIVE GEOMETRY
+%                 relativeGeometry = struct('vertices',secondObject.GEOMETRY.vertices*relativeR + observedPosition',...
+%                                           'normals', secondObject.GEOMETRY.normals*relativeR,...
+%                                           'faces',   secondObject.GEOMETRY.faces,...
+%                                           'centroid',secondObject.GEOMETRY.centroid + observedPosition');
+%                 % PROCESS THE VISIBLE GEOMETRY (The sub-set of the geometry that is visible to the agent.)
+%                 observedGeometry = OMAS_restrictedGeometry(zeros(3,1),SIMfirstObject.detectionRadius,relativeGeometry);                   
+%             else
                 % THE OBSERVED GEOMETRY IS EMPTY
                 observedGeometry = secondObject.GEOMETRY; % PASS THE EMPTY STRUCTURE
-            end
+%             end
             
             % OBJECT TIME TO COLLISION APPROXIMATION
             tau = -(dot(observedPosition,observedVelocity)/dot(observedVelocity,observedVelocity)); % Projection based approximation

@@ -360,6 +360,11 @@ classdef agent < objectDefinition
             obj.localState(1:6)  = obj.localState(1:6) + dt*dX;
             obj.localState(7:12) = dX;
             
+            % ///////////// UPDATE OBJECT GLOBAL PROPERTIES /////////////// 
+            if obj.VIRTUAL.idleStatus
+                obj.localState(7:12) = zeros(6,1);
+            end
+            
             % ////// GLOBAL UPDATE FOR STATE WITH RETAINED VELOCITES //////
             [obj] = obj.updateGlobalProperties_3DVelocities(dt,obj.localState);
         end
@@ -523,13 +528,13 @@ classdef agent < objectDefinition
                                              sin(theta)]*r;
         end
         % CONVERT CARTESIAN TO SPHERICAL
-        function [r,phi,theta] = sphericalFromCartesian(p)
+        function [r,phi,theta]  = sphericalFromCartesian(p)
             r = norm(p);                                            % The range
             phi = atan2(p(2),p(1));                    % The angle made in the azimuth (bearing)
             theta = atan2(p(3),sqrt(p(1).^2 + p(2).^2));  % The elevation (vertical bearing)
         end
         % VALIDATE THE OBSTACLE
-        function [tau] = validateCollision(p,v)
+        function [tau]  = validateCollision(p,v)
             % CONFIRM WE KNOW THE HEADING OF THE OBSTACLE
             if any(isnan(v))
                 tau = -inf;

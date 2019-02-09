@@ -6,11 +6,9 @@
 % Author: James A. Douthwaite 23/05/2018
 
 classdef obstacle_spheroid < obstacle
-
     properties
-        surfaceNormals;
     end
-%%  CLASS METHODS
+    %  CLASS METHODS
     methods 
         % CONSTRUCTION METHOD
         function obj = obstacle_spheroid(varargin)
@@ -20,13 +18,19 @@ classdef obstacle_spheroid < obstacle
                         
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj = obj@obstacle(varargin); 
-                                    
+            % Unpack the input vector if necessary
+            [varargin] = obj.inputHandler(varargin);
+            
+            obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.spherical;            % Spherical collider
+            
             % CHECK FOR USER OVERRIDES
             obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
             obj = obj.configurationParser(obj,varargin);
             
             % CONSTRUCT THE GEOMETRY FROM DEFINITION INSTEAD
-            [obj.GEOMETRY] = OMAS_graphics.defineSphere(zeros(3,1),obj.VIRTUAL.radius,20);
+            if size(obj.GEOMETRY.vertices,1) < 1 || isempty(obj.GEOMETRY)  % If it has no geometry define it
+                [obj.GEOMETRY] = OMAS_graphics.defineSphere(zeros(3,1),obj.VIRTUAL.radius,20);
+            end
         end 
 
         % COMPUTE CLOSEST FACE TO POINT
@@ -49,11 +53,6 @@ classdef obstacle_spheroid < obstacle
         end
     end
     methods (Static)
-        % CALCULATE CLOSEST POINT ON THE STL TO A GIVEN POINT
-        function [point,distance] = closestPointOnGeometry(geometry,p)
-            % This function computes the point on the STL closest to 
-            % a given candidate point.
-        end
         % CALCULATE CLOSET POINT ON SEGMENT TO POINT
         function [pClosest] = closestPointOnSegment(pA,pB,q)
             % https://diego.assencio.com/?index=ec3d5dfdfc0b6a0d147a656f0af

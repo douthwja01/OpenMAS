@@ -29,9 +29,9 @@ testScenario = scenarioBuilder(agentNumber);
 % DEFINE THE AGENT CONFIGURATIONS
 % 30mph - 13.4112m/s
 % 40mph - 17.9916m/s
-[ agentConfig ] = testScenario.planarAngle('radius',scenarioConfig.agentOrbit,...
-                                       'velocities',scenarioConfig.agentVelocity,...
-                                      'offsetAngle',scenarioConfig.angle);
+[ ~, agentConfig ] = testScenario.planarAngle('radius',scenarioConfig.agentOrbit,...
+                                          'velocities',scenarioConfig.agentVelocity,...
+                                         'offsetAngle',scenarioConfig.angle);
 
 %% ASSIGN GLOBAL PARAMETERS TO THE AGENT INDEX
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
@@ -46,9 +46,10 @@ end
 %% DEFINE WAYPOINTS AND ASSIGN GLOBAL PARAMETERS
 % DEFINE THE FIRST WAYPOINT SET
 waypointPlanarRotation = pi;
-[ waypointConfig] = testScenario.planarAngle('radius',scenarioConfig.waypointOrbit,'velocities',0,...
-                                             'zeroAngle',waypointPlanarRotation,...
-                                             'offsetAngle',scenarioConfig.angle);
+[ ~,waypointConfig] = testScenario.planarAngle('radius',scenarioConfig.waypointOrbit,...
+                                           'velocities',0,...
+                                            'zeroAngle',waypointPlanarRotation,...
+                                          'offsetAngle',scenarioConfig.angle);
 
 % MOVE THROUGH THE WAYPOINTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning waypoint definitions:\n'); 
@@ -71,37 +72,4 @@ end
 save(scenarioConfig.file,'objectIndex','agentIndex','waypointIndex');
 % CLEAR THE REMAINING VARIABLES
 clearvars -except objectIndex
-end
-
-% PARSE CONFIGURATION INPUTS
-function [agentIndex,noiseFactor,configFile] = parseInputs(inputSet)
-
-% DEFAULT FILE NAME
-configFile = 'scenario.mat';
-noiseFactor = 0;
-agentIndex = {};
-
-% VISABILTY REDUCTION RATIO (IN FUTURE PROPORTIONAL TO ISO PROPERTIES)
-tmp = strncmpi(inputSet,'filename',4);
-if any(tmp)
-    configFile = inputSet{find(tmp) + 1};
-end
-
-tmp = strncmpi(inputSet,'agents',5)|strncmpi(inputSet,'objects',6); 
-if any(tmp)
-    agentIndex = inputSet{find(tmp) + 1}; 
-    assert(iscell(agentIndex) == 1,'Figure set must be specified as a cell array of string names.');
-end
-
-tmp = strncmpi(inputSet,'noisefactor',5); % |strncmpi(inputSet,'objects',6); 
-if any(tmp)
-    noiseFactor = inputSet{find(tmp) + 1}; 
-    assert(isnumeric(noiseFactor) == 1,'Noise factor must be a numeric factor.');
-end
-
-% CHECK THERE IS SOMETHING TO SIMULATE
-if isempty(agentIndex)
-    error('Please provide a cell array of agent objects to simulation');
-end
-
 end

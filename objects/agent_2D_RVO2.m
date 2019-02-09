@@ -76,7 +76,7 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             % [agentPosition,agentVelocity,agentRadius] = obj.getAgentMeasurements();
             
             % PLOT INPUT VARIABLES
-            inputDebugPlot = 1;
+            inputDebugPlot = 0;
             if inputDebugPlot 
                 figureHandle = figure(1);
                 hold on; grid on; box on;
