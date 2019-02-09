@@ -2,21 +2,26 @@
 legacy/
 stls/
 
-agent_2D_formation_HRVO
-agent_2D_formation_RVO
-agent_2D_formation_RVO2
-agent_2D_formation_VO
+agent_2D_formation_HRVO.m
+agent_2D_formation_RVO.m
+agent_2D_formation_RVO2.m
+agent_2D_formation_VO.m
+
+agent_formation_HRVO.m
+agent_formation_RVO.m
+agent_formation_RVO2.m
+agent_formation_VO.m
 
 # INTERVAL
-agent_2D_vectorSharing_interval
-agent_vectorSharing_interval
+agent_2D_vectorSharing_interval.m
+agent_vectorSharing_interval.m
 
 # EXPERIMENTAL
-agent_2D_VO_withComplex
-ARdrone_formation
-ARdrone_formation_VO
+agent_2D_VO_withComplex.m
+ARdrone_formation.m
+ARdrone_formation_VO.m
 
 # QUADCOPTER
-quadcopter_backup
-quadcopter_formation
-quadcopter_shiyu
+quadcopter_backup.m
+quadcopter_formation.m
+quadcopter_shiyu.m
