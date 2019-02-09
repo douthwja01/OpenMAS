@@ -1,8 +1,10 @@
 %%%% MATLAB OPENSOURCE MULTI-AGENT SIMULATOR (OpenMAS) %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%% Author James A. Douthwaite (douthwaiteja@gmail.com)
+%%%% Author James A. Douthwaite (douthwaiteja@gmail.com, jadouthwaite1sheffield.ac.uk)
 
-%%%% GENERAL README %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%
+%%% GENERAL README %%%
+%%%%%%%%%%%%%%%%%%%%%%
 
 OVERVIEW
 
@@ -15,6 +17,10 @@ Inside this directory:
 	+ The directory containing the simulation functions and utilities.
 		[it is advised you do not change anything within this folder]
 
+- events    
+	+ The simulations event set which are triggered throughout the runtime.
+	  [it is advised you do not change anything within this folder]
+
 - objects   
 	+ The directory of user/default object definitions.
 
@@ -22,11 +28,16 @@ Inside this directory:
 	+ A directory of scenario definitions. Functions within here are 
 	  designed to generate the object initial conditions in the global
 	  coordinate system. Scenario.fig, scenario.mat may be auto generated.
+- data 
+	+ The outputted simulation data and figures, ordered by simulation date 
+	 and time of execution.
 
 IMPORTANT: Please ensure that all these directories are on the system path when 
 	   creating a simulation setup function (see setup_example.m).
 
-%%% SIMULATION PROCEDURE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% SIMULATION PROCEDURE %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 An overivew of the complete process:
 1. Add the set of directories to the path of your script [i.e 'addpath('objects')'] 
@@ -41,7 +52,9 @@ An overivew of the complete process:
 
 This process can be seen described in 'setup_example.m'.
 
-%%% FIGURES AVAILABLE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% FIGURES AVAILABLE %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The figures currently available for auto-generation are defined in 
 'simuation_figureGenerator.m'. These figures will be generated from the data generated
@@ -66,7 +79,9 @@ example of passing figure requests to simulation_initialise:
 
 [DATA,META] = simulation_initialise('objects',agentArray,'figures',{'FIG','GIF'});
 
-%%% MAIN FUNCTIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%
+%%% MAIN FUNCTIONS %%%
+%%%%%%%%%%%%%%%%%%%%%%
 
 The main function the user will interact with is the simulation wrapper function
 named 'OMAS_initialise.m' and your desired object class. The rest of the 
@@ -102,7 +117,9 @@ below:
 		by default.
 	+ To request all figures, pass the input 'all' to figures.
 
-%%% FINAL COMMENTS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%
+%%% FINAL COMMENTS %%%
+%%%%%%%%%%%%%%%%%%%%%%
 
 To test and agent you define yourself, copy the example agent (agent_example) and 
 begin building its functions into it. Build a cell array of agents and hand them to
@@ -113,3 +130,6 @@ figures to be auto-generated.
 
 Run this setup script and the output data will be returned the working directory by
 default, unless a 'outputPath' properties defines another folder.
+
+
+		         
