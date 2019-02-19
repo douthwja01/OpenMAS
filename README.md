@@ -1,22 +1,22 @@
  % ////////////////////////////////////////////////////////////////////////// %
-   ___                   __  __    _    ____  
-  / _ \ _ __   ___ _ __ |  \/  |  / \  / ___| 
+   ___                   __  __    _    ____
+  / _ \ _ __   ___ _ __ |  \/  |  / \  / ___|
  | | | | '_ \ / _ \ '_ \| |\/| | / _ \ \___ \ 
  | |_| | |_) |  __/ | | | |  | |/ ___ \ ___) |
-  \___/| .__/ \___|_| |_|_|  |_/_/   \_\____/ 
-       |_|     
+  \___/| .__/ \___|_| |_|_|  |_/_/   \_\____/
+       |_| 
 
-  An open-source modelling environment for simulating multi-agent systems with 
-  complex agent decision mechanics and dynamic behaviour.
+An open-source modelling environment for simulating multi-agent systems with 
+complex agent decision mechanics and dynamic behaviour.
 
-  Author:	James A. Douthwaite Ph.D MEng 
-  			University Of Sheffield
-  			Department of Automatic Control & Systems Engineering
-  			United Kingdom
+Author:	James A. Douthwaite Ph.D MEng 
+  		University Of Sheffield
+  		Department of Automatic Control & Systems Engineering
+  		United Kingdom
 
-  For queries regarding the project, please email me at: douthwaiteja@gmail.com
+For queries regarding the project, please email me at: douthwaiteja@gmail.com
 
- % ////////////////////////////////////////////////////////////////////////// %
+% ////////////////////////////////////////////////////////////////////////// %
  
 %%%%%%%%%%%%%%%%%%%%%%
 %%% GENERAL README %%%
@@ -34,10 +34,6 @@ Inside this directory:
 - environment 
 	+ The directory containing the simulation functions and utilities.
 		[it is advised you do not change anything within this folder]
-
-- events    
-	+ The simulations event set which are triggered throughout the runtime.
-	  [it is advised you do not change anything within this folder]
 
 - objects   
 	+ The directory of user/default object definitions.
