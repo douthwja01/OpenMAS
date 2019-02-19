@@ -1,10 +1,28 @@
-%%%% MATLAB OPENSOURCE MULTI-AGENT SIMULATOR (OpenMAS) %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ % ////////////////////////////////////////////////////////////////////////// %
+   ___                   __  __    _    ____  
+  / _ \ _ __   ___ _ __ |  \/  |  / \  / ___| 
+ | | | | '_ \ / _ \ '_ \| |\/| | / _ \ \___ \ 
+ | |_| | |_) |  __/ | | | |  | |/ ___ \ ___) |
+  \___/| .__/ \___|_| |_|_|  |_/_/   \_\____/ 
+       |_|     
 
-%%%% Author James A. Douthwaite (douthwaiteja@gmail.com, jadouthwaite1sheffield.ac.uk)
+  An open-source modelling environment for simulating multi-agent systems with 
+  complex agent decision mechanics and dynamic behaviour.
 
+  Author:	James A. Douthwaite Ph.D MEng 
+  			University Of Sheffield
+  			Department of Automatic Control & Systems Engineering
+  			United Kingdom
+
+  For queries regarding the project, please email me at: douthwaiteja@gmail.com
+
+ % ////////////////////////////////////////////////////////////////////////// %
+ 
 %%%%%%%%%%%%%%%%%%%%%%
 %%% GENERAL README %%%
 %%%%%%%%%%%%%%%%%%%%%%
+
+OpenMAS is an open-source multi-agent simulator for Matlab. This software package provides a number of tools necessary for the simulation of multi-agent systems with complex agent definitions. The software packages environment is based upon Matlab's object orientated functionality; allowing users to build and define their own agent definitions and simulate their interactions in defined scenarios.
 
 OVERVIEW
 
