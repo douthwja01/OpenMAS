@@ -208,21 +208,22 @@ for entityA = 1:SIM.totalObjects
         %   agents in the field. However, this is NOT A SYMMETRIC operation
         %   as A may be able to detect B without B detecting A. 
         
-        % CHECK THE DETECTION OF A WAYPOINT IS AUTHORISED
-        if SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint
-        	waypointObject = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID};
-            if ~waypointObject.isIDAssociated(SIM.OBJECTS(entityA).objectID)
-                continue                                                   % Skip the detection if not authorised
-            end
+        % Detection check #1 - Authorisation
+        isAuthorised = logical(true);
+        isWaypoint = SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint;
+        if isWaypoint
+            isAuthorised = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID}.IdAssociationCheck(SIM.OBJECTS(entityA).objectID);
         end
-        
-        % CHECK WHETHER THERE IS A REMOTE POSSIBLITY THAT OBJECT B CAN BE OBSERVED BY A
-        if SIM.OBJECTS(entityA).detectionRadius < (norm(SIM.OBJECTS(entityA).relativePositions(entityB,:)) - SIM.OBJECTS(entityB).radius)
+        % Object is a way-point and is not detectable
+        if isWaypoint && ~isAuthorised
             continue
         end
-                    
-        % ///////// WAYPOINT DETECTION IS SATISIFED BY THIS CHECK /////////
-        if SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint
+        
+        % Detection check #2 - Spherical        
+        if ~OMAS_geometry.intersect_spheres(SIM.OBJECTS(entityA).globalState(1:3),SIM.OBJECTS(entityA).detectionRadius,SIM.OBJECTS(entityB).globalState(1:3),SIM.OBJECTS(entityB).radius)
+            continue
+        elseif isWaypoint
+            % This check is sufficient for way-points
             detectionLogicals(entityA,entityB) = 1;
             continue
         end
@@ -235,25 +236,44 @@ for entityA = 1:SIM.totalObjects
         % - We want to check if any vertices/edges can be observed. If any 
         %   edges are visible, then they are to be sent to the first object.
         
-        % GET THE TEST GEOMETRY (GEOMETRY OF B)
-        relativeR = SIM.OBJECTS(entityA).R'*SIM.OBJECTS(entityB).R;        % Rotate second geometry orientated relative to 
+        % Get the geometry of the second object (GEOMETRY OF B)
         geometryB = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID}.GEOMETRY;
-        geometryB.vertices = geometryB.vertices*relativeR + SIM.OBJECTS(entityB).globalState(1:3)';
-        % ASSESS EACH FACE AND VERTEX FOR DETECTION
+        % Assess detection condition
+        isDetected = OMAS_geometry.intersect_spheres(...
+                SIM.OBJECTS(entityA).globalState(1:3),...
+                SIM.OBJECTS(entityA).detectionRadius,...
+                SIM.OBJECTS(entityB).globalState(1:3),...
+                SIM.OBJECTS(entityB).radius);                              % Check for possible condition
+        
+        % Check if a better check is necessary
+        hasGeometry = isstruct(geometryB) && size(geometryB.vertices,1) > 0;    
+        if isDetected && ~hasGeometry 
+            detectionLogicals(entityA,entityB) = 1;                        % Detection occurred
+            break
+        end
+        isDetected = 0;     % Reset, potential false positive
+         
+        % Assess the polygon
+        relativeR = SIM.OBJECTS(entityA).R'*SIM.OBJECTS(entityB).R;        % Rotate second geometry orientated relative to
+        geometryB.vertices = geometryB.vertices*relativeR ...
+                           + SIM.OBJECTS(entityB).globalState(1:3)';       % Design the vertex set
+        % Assess each face and vertex for detection
         for face = 1:size(geometryB.vertices,1)
             % GET THE MEMBER IDs OF THE FACE
             faceMembers  = geometryB.faces(face,:);
             faceVertices = geometryB.vertices(faceMembers,:);
             % CHECK THE GEOMETRY AGAINST THE SPHERICAL CONSTRAINT
-            isDetected = OMAS_sphereTriangleIntersection(SIM.OBJECTS(entityA).globalState(1:3),...
-                                                         SIM.OBJECTS(entityA).detectionRadius,...
-                                                         faceVertices(1,:)',faceVertices(2,:)',faceVertices(3,:)');
+            isDetected = OMAS_sphereTriangleIntersection(...
+                SIM.OBJECTS(entityA).globalState(1:3),...
+                SIM.OBJECTS(entityA).detectionRadius,...
+                faceVertices(1,:)',faceVertices(2,:)',faceVertices(3,:)');
             % IF THE FACE IS DETECTED
             if isDetected
                 detectionLogicals(entityA,entityB) = 1;
-                break 
+                break
             end
         end
+        
         % NOTE:
         % - If any faces are within the constraint, then the detection
         %   logical is set true and then exited.
@@ -265,13 +285,15 @@ end
 % NOTES:
 % - The fields geometry based fields of SIM.OBJECTS are updated to this
 %   time-step. The event conditions can now be re-evaluted.
-% - Scenarios may occur where A 'detects' B but 'detect
+% - CHECKS MUST BE ASYMMETRICAL - A may detect B without B detecting A
+
 metaEVENTS = [];                                                           % Reset meta Events container
 for entityA = 1:SIM.totalObjects
     % CHECK OBJECTS HAVE THE CAPACITY TO OBSERVE OTHER OBJECTS
     if SIM.OBJECTS(entityA).type ~= OMAS_objectType.agent
         continue
     end
+    
     for entityB = 1:SIM.totalObjects
         % OMIT SELF-CHECK
         if SIM.OBJECTS(entityA).objectID == SIM.OBJECTS(entityB).objectID                                         
@@ -305,30 +327,39 @@ for entityA = 1:SIM.totalObjects
         end
                 
         % ///////////////// ASSESS WAYPOINT CONDITIONS ////////////////////
-        % WAYPOINT EVENT LOGIC
-        ABwaypointCondition        =  collisionLogicals(entityA,entityB) && SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint;
-        novelWaypointGetConstraint =  SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) == 0;
-        waypointGetEventCondition  =  ABwaypointCondition &&  novelWaypointGetConstraint;    % Is within a range and a collision event has not been issued.
-        waypointEventNullCondition = ~ABwaypointCondition && ~novelWaypointGetConstraint;    % Is outside a range and a waypoint-get condition is still toggled.
-        % EVALUATE OCCURANCE
-        if waypointGetEventCondition
-            % AMEND THE META OBJECT
-            SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) = 1;
-            % GENERATE THE WAYPOINT ACHIEVED EVENT
-            [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.waypoint);
-            metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
-        elseif waypointEventNullCondition
-            % AMEND THE META OBJECT
-            SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) = 0;
-            % GENERATE THE WAYPOINT NULLIFICATION EVENT
-            %[EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_waypoint);
-            %metaEVENTS = vertcat(metaEVENTS,EVENT);                                        % Add new META EVENTS to global structure
+        if SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint
+            % Check A is allowed to get B
+            waypointObj = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID};
+            hasAssociation = waypointObj.IdAssociationCheck(SIM.OBJECTS(entityA).objectID);
+            % WAYPOINT EVENT LOGIC
+            ABwaypointCondition        =  collisionLogicals(entityA,entityB) && hasAssociation;
+            novelWaypointGetConstraint =  SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) == 0;
+            waypointGetEventCondition  =  ABwaypointCondition &&  novelWaypointGetConstraint;    % Is within a range and a collision event has not been issued.
+            waypointEventNullCondition = ~ABwaypointCondition && ~novelWaypointGetConstraint;    % Is outside a range and a waypoint-get condition is still toggled.
+            % EVALUATE OCCURANCE
+            if waypointGetEventCondition
+                % AMEND THE META OBJECT
+                SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) = 1;
+                % GENERATE THE WAYPOINT ACHIEVED EVENT
+                [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.waypoint);
+                metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
+            elseif waypointEventNullCondition
+                % AMEND THE META OBJECT
+                SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) = 0;
+                % GENERATE THE WAYPOINT NULLIFICATION EVENT
+                %[EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_waypoint);
+                %metaEVENTS = vertcat(metaEVENTS,EVENT);                                        % Add new META EVENTS to global structure
+            end 
+            % Skip collision check
+            continue
         end
-        
+
         % ////////// CONFIRM THE OBJECT CAN BE COLLIDED WITH //////////////      
-        isBCollidable = SIM.OBJECTS(entityB).hitBox ~= OMAS_hitBoxType.none;
-        if ~isBCollidable || SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint
-            continue        % If not collidable, or is collidable and a way-point omit further events       
+        if SIM.OBJECTS(entityB).hitBox == OMAS_hitBoxType.none
+            % Check hit-box definition:
+            % -If no hitbox is assigned, no need to evaluate warnings or
+            % collisions.
+            continue              
         end
         
         % /////////////////// ASSESS WARNING CONDITIONS ///////////////////
@@ -338,13 +369,13 @@ for entityA = 1:SIM.totalObjects
         warningEventCondition     =  ABwarningConstraint &&  novelWarningConstraint;         % Is within a range and a warning event has not been issued.
         warningEventNullCondition = ~ABwarningConstraint && ~novelWarningConstraint;         % Is outside a range and a warning condition is still toggled.       
         % EVALUATE OCCURANCE
-        if warningEventCondition && isBCollidable
+        if warningEventCondition 
             % UPDATE WARNING STATUS
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.warning) = 1;
             % GENERATE THE WARNING EVENT
             [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.warning);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
-        elseif warningEventNullCondition && isBCollidable
+        elseif warningEventNullCondition
             % UPDATE WARNING-NULL STATUS
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.warning) = 0;
             % GENERATE THE WARNING NULLIFICATION EVENT
@@ -359,13 +390,13 @@ for entityA = 1:SIM.totalObjects
         collisionEventCondition     =  ABcollisionConstraint &&  novelCollisionConstraint;   % Is within a range and a collision event has not been issued.
         collisionEventNullCondition = ~ABcollisionConstraint && ~novelCollisionConstraint;   % Is outside a range and a collision condition is still toggled.     
         % EVALUATE OCCURANCE
-        if collisionEventCondition && isBCollidable
+        if collisionEventCondition
             % UPDATE COLLISIONL STATUS
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.collision) = 1;
             % GENERATE THE COLLISION EVENT
             [EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.collision);
             metaEVENTS = vertcat(metaEVENTS,EVENT);                                          % Add new META EVENTS to global structure
-        elseif collisionEventNullCondition && isBCollidable
+        elseif collisionEventNullCondition
         	% AMEND THE META OBJECT
             SIM.OBJECTS(entityA).objectStatus(entityB,eventType.collision) = 0;
             % GENERATE THE COLLISION NULLIFICATION EVENT
@@ -405,7 +436,15 @@ ENV.outputPath = SIM.outputPath;
 switch SIMfirstObject.type
     case OMAS_objectType.agent
         % AGENT - SIMULATION/ENVIROMENTAL FEEDBACK REQUIRED %%%%%%%%%%%%%%
-        observationPacket = []; % Container for agent detected objects
+        %
+        observationPacket = [];         % Container for agent detection packet
+        
+        if referenceObject.VIRTUAL.is3D
+            dimensionIndices = 1:3;     
+        else
+            dimensionIndices = 1:2;    
+        end
+        
         
         % //// PARSE THE ENVIRONMENTAL OBJECTS OBSERVABLE TO THE AGENT ////
         for ID2 = 1:SIM.totalObjects
@@ -439,7 +478,7 @@ switch SIMfirstObject.type
             % PRESENT SIZE PROPERTIES
             observedRadius    = SIMfirstObject.radius;     
             observedAngularWidth = 2*asin(observedRadius/(observedRange + observedRadius));               
-            
+                        
             % OBJECT GEOMETRY PREPARATION
             % In order for the agent to observe the object correctly. The
             % geometry must be translated and rotated into the relative
@@ -483,23 +522,23 @@ switch SIMfirstObject.type
             end
             
             %% PREPARE DETECTION PACKET BASED ON LOCAL DATA (FROM GLOBAL)
-            detectionObject = struct('objectID',SIMsecondObject.objectID,...     % The object ID (observed)
-                                     'name',SIMsecondObject.name,...             % The object name tag (observed)
-                                     'globalPosition',SIMsecondObject.globalState(1:3),... % Added for simplicity
-                                     'globalVelocity',SIMsecondObject.globalState(4:6),... % Added for simplicity
-                                     'type',SIMsecondObject.type,...             % The objects sim-type enum
-                                     'timeToCollision',tau,...                   % The objects geometric time to collision (velocity vector comparision)
-                                     'priority',observedPriority,...             % The objects global priority for that agent
-                                     'radius',observedRadius,...                   % The objects true size
-                                     'angularWidth',observedAngularWidth,...     % The apparent angular width at that range
-                                     'position',observedPosition,...             % The apparent position in the relative frame
-                                     'velocity',observedVelocity,...             % The apparent velocity in the relative frame
-                                     'range',observedRange,...                   % The apparent range
-                                     'inclinationAngle',observedElevation,...    % The apparent inclination angle
-                                     'azimuthAngle',observedAzimuth,...          % The apparent Azimuth angle
-                                     'geometry',observedGeometry,...             % The observable geometrical components
-                                     'colour',SIMsecondObject.colour);           % Finally the simulation's colourID          
-            observationPacket = vertcat(observationPacket,detectionObject);      % Append object to packet to agent
+            detectionObject = struct('objectID',SIMsecondObject.objectID,...            % The object ID (observed)
+                                     'name',SIMsecondObject.name,...                    % The object name tag (observed)
+                                     'globalPosition',SIMsecondObject.globalState(dimensionIndices),...     % Added for simplicity
+                                     'globalVelocity',SIMsecondObject.globalState(dimensionIndices + 3),... % Added for simplicity
+                                     'type',SIMsecondObject.type,...                    % The objects sim-type enum
+                                     'timeToCollision',tau,...                          % The objects geometric time to collision (velocity vector comparision)
+                                     'priority',observedPriority,...                    % The objects global priority for that agent
+                                     'radius',observedRadius,...                        % The objects true size
+                                     'angularWidth',observedAngularWidth,...            % The apparent angular width at that range
+                                     'position',observedPosition(dimensionIndices,1),...% The apparent position in the relative frame
+                                     'velocity',observedVelocity(dimensionIndices,1),...% The apparent velocity in the relative frame
+                                     'range',observedRange,...                          % The apparent range
+                                     'inclinationAngle',observedElevation,...           % The apparent inclination angle
+                                     'azimuthAngle',observedAzimuth,...                 % The apparent Azimuth angle
+                                     'geometry',observedGeometry,...                    % The observable geometrical components
+                                     'colour',SIMsecondObject.colour);                  % Finally the simulation's colourID          
+            observationPacket = vertcat(observationPacket,detectionObject);             % Append object to packet to agent
         end
 
         % /////////////// COMPUTE THE LOCAL AGENT CYCLE ///////////////////

@@ -1,9 +1,6 @@
-%% OPENMAS FIGURE TABBING UTILITY (OMAS_figureTabUtility.m) %%%%%%%%%%%%%%%
-% This function is designed to move a set of figures in a series of tabs
-% with their content. Functionality has been taken from the "figs2tabs"
-% function 
+%% TABBED FIGURE GENERATOR (GetTabbedFigure.m) $%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function varargout = OMAS_figureTabUtility(figHandles,groupName)
+function varargout = GetTabbedFigure(figHandles,groupName)
 
 % Creates a tabbed window with a figure contained in each tab.
 % 
