@@ -1,10 +1,6 @@
- % ////////////////////////////////////////////////////////////////////////// %
-   ___                   __  __    _    ____
-  / _ \ _ __   ___ _ __ |  \/  |  / \  / ___|
- | | | | '_ \ / _ \ '_ \| |\/| | / _ \ \___ \ 
- | |_| | |_) |  __/ | | | |  | |/ ___ \ ___) |
-  \___/| .__/ \___|_| |_|_|  |_/_/   \_\____/
-       |_| 
+% ////////////////////////////////////////////////////////////////////////// %
+
+<img src="environment/assets/logo.PNG">
 
 An open-source modelling environment for simulating multi-agent systems with 
 complex agent decision mechanics and dynamic behaviour.
@@ -18,13 +14,11 @@ For queries regarding the project, please email me at: douthwaiteja@gmail.com
 
 % ////////////////////////////////////////////////////////////////////////// %
  
-%%%%%%%%%%%%%%%%%%%%%%
 %%% GENERAL README %%%
-%%%%%%%%%%%%%%%%%%%%%%
 
 OpenMAS is an open-source multi-agent simulator for Matlab. This software package provides a number of tools necessary for the simulation of multi-agent systems with complex agent definitions. The software packages environment is based upon Matlab's object orientated functionality; allowing users to build and define their own agent definitions and simulate their interactions in defined scenarios.
 
-OVERVIEW
+%%% OVERVIEW %%%
 
 This file is intended to provide an brief introduction to this opensource multi-agent
 simulation (OpenMAS) tool. This directory contains a number of folders that 
@@ -49,9 +43,7 @@ Inside this directory:
 IMPORTANT: Please ensure that all these directories are on the system path when 
 	   creating a simulation setup function (see setup_example.m).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% SIMULATION PROCEDURE %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 An overivew of the complete process:
 1. Add the set of directories to the path of your script [i.e 'addpath('objects')'] 
@@ -66,9 +58,7 @@ An overivew of the complete process:
 
 This process can be seen described in 'setup_example.m'.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% FIGURES AVAILABLE %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The figures currently available for auto-generation are defined in 
 'simuation_figureGenerator.m'. These figures will be generated from the data generated
@@ -93,9 +83,7 @@ example of passing figure requests to simulation_initialise:
 
 [DATA,META] = simulation_initialise('objects',agentArray,'figures',{'FIG','GIF'});
 
-%%%%%%%%%%%%%%%%%%%%%%
 %%% MAIN FUNCTIONS %%%
-%%%%%%%%%%%%%%%%%%%%%%
 
 The main function the user will interact with is the simulation wrapper function
 named 'OMAS_initialise.m' and your desired object class. The rest of the 
@@ -131,9 +119,7 @@ below:
 		by default.
 	+ To request all figures, pass the input 'all' to figures.
 
-%%%%%%%%%%%%%%%%%%%%%%
 %%% FINAL COMMENTS %%%
-%%%%%%%%%%%%%%%%%%%%%%
 
 To test and agent you define yourself, copy the example agent (agent_example) and 
 begin building its functions into it. Build a cell array of agents and hand them to
@@ -144,6 +130,3 @@ figures to be auto-generated.
 
 Run this setup script and the output data will be returned the working directory by
 default, unless a 'outputPath' properties defines another folder.
-
-
-		         

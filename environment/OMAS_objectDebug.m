@@ -60,8 +60,12 @@ end
 % CONVERT THE .CSV TO A WORKBOOK
 [~,~,a] = xlsread(TEST.summaryFile);
 a = cellfun(@num2str, a,'UniformOutput',false);
-xlswrite([strrep(TEST.summaryFile,'.csv',''),'.xlsx'],a);
-
+try
+    xlswrite([strrep(TEST.summaryFile,'.csv',''),'.xlsx'],a);
+catch logError
+    warning('Unable to write to file, is it in use?');
+    rethrow(logError);
+end
 % Delete the .csv
 delete(TEST.summaryFile);
 end

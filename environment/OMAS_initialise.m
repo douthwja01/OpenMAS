@@ -23,12 +23,17 @@ type('logo.txt');
 % The user must be able to run a simulation for an intended amount of time,
 % or run with a maximal time for all goals to be complete. 
 
+% GET THE SIMULATIONS SUBDIRECTORIES (if not already added to path)
+configureDependencies(pwd,{'environment','objects','scenarios'});            % Check directory for sub-directory 
+configureDependencies([pwd,'\','environment'],{'events','assets','common'}); % Check 'environment' directory for the dependancies
+
 % /////////////////////// DEFAULT TIMING STRUCTURE ////////////////////////
 TIME = struct('duration',1E3,...                                           % Assign default simulation duration (for output matrix scaling)
                     'dt',0.5,...
              'startTime',0,...
            'idleTimeOut',1);
-         
+[TIME] = configurationParser(TIME,varargin);  
+
 % //////////////// DEFAULT GENERAL CONFIGURATION STRUCTURE ////////////////
 defaultConfig = struct('figures',{{'events','fig'}},...
                'warningDistance',5,...
@@ -46,18 +51,19 @@ defaultConfig = struct('figures',{{'events','fig'}},...
                  
 % ///////////////////// PARSE USER INPUT PARAMETERS ///////////////////////
 fprintf('[SETUP]\tConfirming input variables.\n');
-[SIM] = parseConfigurationVector(defaultConfig,varargin);
+[SIM] = configurationParser(defaultConfig,varargin);
 clear TIME defaultConfig
-% CONFIRM VARIABLE TYPES
+
+% Input sanity checks
 assert(islogical(SIM.monteCarloMode),'Please specify the monte-carlo mode as a logical.');
 assert(islogical(SIM.gui),'Please specify the use of gui elements as a logical.');
 assert(ischar(SIM.systemFile),'Please provide a valid file path.');
 assert(ischar(SIM.outputPath),'Please provide a valid output path.');
+
 SIM.threadPool = logical(SIM.threadPool);
 assert(islogical(SIM.threadPool),'Please specify the multi-threading mode as a logical.');
 SIM.verbosity = uint8(SIM.verbosity);
 if ~iscell(SIM.figures) 
-%     ,'Please provide cell array of figure names')
     SIM.figures = {SIM.figures};
 end
     
@@ -84,10 +90,6 @@ fprintf('[%s] --> Input parameters defined.\n',SIM.phase);
 fprintf('\n[%s]\tINITIALISING SIMULATION...\n\n',SIM.phase);
 close all; 
 
-% GET THE SIMULATIONS SUBDIRECTORIES (if not already added to path)
-configureDependencies(pwd,{'environment','objects','scenarios'});          % Check directory for sub-directory 
-configureDependencies([pwd,'\','environment'],{'events'});                 % Check 'environment' directory for the dependancies
-
 % MAKE ANY ADDITIONAL PREPERATIONS TO THE META DATA ///////////////////////
 fprintf('[%s]\tOMAS CONFIGURATION:\n',SIM.phase);
 clear META
@@ -105,6 +107,7 @@ if META.gui && ~META.monteCarloMode
 else
    fprintf('[%s]\t... STL importation supressed.\n',META.phase); 
 end
+
 % CONFIGURE THE OUTPUT SETTINGS ///////////////////////////////////////////
 fprintf('[%s]\tOUTPUT CONFIGURATION:\n',META.phase);
 % DEFINE THE RELATIVE OUTPUT PATH
@@ -332,32 +335,7 @@ for objectNumber = 1:SIM.totalObjects
     SIM.OBJECTS(objectNumber).geometry = objectPatch;
 end
 end
-% PARSE A PARAMETER VECTOR AGAINST A CONFIGURATION STRUCTURE
-function [config] = parseConfigurationVector(defaultConfig,parameterVector)
-% This function is designed to parse a generic set of user
-% inputs and allow them to be compared to a default input
-% structure. The function searches for associated properties and
-% re-allocates the named variable with the associated value.
 
-% INPUT HANDLING
-assert(mod(numel(parameterVector),2) == 0,' Please provide list of parameter:value pairs');
-% ASSIGN CONFIG TEMPLATE 
-config = defaultConfig;
-pairNum = numel(parameterVector)/2;
-for n = 1:pairNum
-    % PULL PARAMETER/VALUE PAIRS
-    parameterLabel = parameterVector{2*n - 1}; 
-    parameterValue = parameterVector{2*n};
-    % IF THE OBJECT HAS A PROPERTY BY THAT NAME
-    if isfield(config,parameterLabel)
-        config.(parameterLabel) = parameterValue;   % Make a substitution
-    end
-    % IF THE 'TIME' SUBSTRUCTURE HAS THAT PROPERTY
-    if isfield(config.TIME,parameterLabel)
-        config.TIME.(parameterLabel) = parameterValue;
-    end
-end
-end
 % CONFIGURE THE PARALLEL/MULTITHREADED WORKERS
 function [poolObject] = configureThreadpool()
 % This function is designed to generate a threadpool for the forth comming

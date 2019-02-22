@@ -47,7 +47,7 @@ switch upper(char(figureLabel))
             [figureNumber,figureSet(collisionNumber)] = get_objectCollision(SIM,objectIndex,DATA,figureNumber,DATA.uniqueCollisions(collisionNumber));
         end
         % ASSEMBLE TABBED FIGURE
-        windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Collision Overview');
+        windowHandle = GetTabbedFigure(figureSet,'OpenMAS Collision Overview');
         set(windowHandle,'Position',DATA.figureProperties.windowSettings);        % Maximise the figure in the tab
         savefig(windowHandle,strcat(SIM.outputPath,'collision_overview'));        % Save the output figure
         
@@ -58,7 +58,7 @@ switch upper(char(figureLabel))
             [figureNumber,figureSet(objectNum)] = get_objectTrajectory(SIM,DATA,figureNumber,objectNum);
         end
         % ASSEMBLE TABBED FIGURE
-        windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Trajectory Overview');
+        windowHandle = GetTabbedFigure(figureSet,'OpenMAS Trajectory Overview');
         set(windowHandle,'Position',DATA.figureProperties.windowSettings);        % Maximise the figure in the tab
         savefig(windowHandle,strcat(SIM.outputPath,'globalTrajectory_overview')); % Save the output figure
         
@@ -77,7 +77,7 @@ switch upper(char(figureLabel))
         end
         
         % ASSEMBLE TABBED FIGURE
-        windowHandle = OMAS_figureTabUtility(figureSet,'OpenMAS Separation Overview');
+        windowHandle = GetTabbedFigure(figureSet,'OpenMAS Separation Overview');
         set(windowHandle,'Position', DATA.figureProperties.windowSettings);       % Maximise the figure in the tab
         savefig(windowHandle,strcat(SIM.outputPath,'separations_overview'));      % Save the output figure
         
