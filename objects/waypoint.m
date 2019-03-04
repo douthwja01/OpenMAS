@@ -34,13 +34,10 @@ classdef waypoint < objectDefinition
             obj = obj@objectDefinition(varargin); % Call the super class
             
             % WAYPOINT VIRTUAL DEFINITION
-            obj.VIRTUAL.type       = OMAS_objectType.waypoint;            
-            obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.spherical;
-            obj.VIRTUAL.symbol     = 'v';
+            obj = obj.SetType(OMAS_objectType.waypoint);
+            obj = obj.SetHitBoxType(OMAS_hitBoxType.spherical);
+            obj = obj.SetSymbol('v');            
             
-            % IMPORT THE GEOMETRY IF IT EXISTS
-            [obj.GEOMETRY] = obj.getObjectGeometry(obj);
-      
             % IF SIMPLE CONSTRUCTION.. RETURN NOW
             if length(varargin) < 1
                 return
@@ -92,7 +89,7 @@ classdef waypoint < objectDefinition
                                   'priority',priority);
             % OVERRIDE 'all' CASE                        
             if isnan(obj.ownership(1).objectID)                            
-                obj.ownership(1) = newOwnership;    % If this is the first allocated object, redefine
+                obj.ownership(1) = newOwnership;            % If this is the first allocated object, redefine
                 obj.VIRTUAL.colour = agentObject.VIRTUAL.colour;
                 return
             end
@@ -108,12 +105,12 @@ classdef waypoint < objectDefinition
             end
         end
         % FETCH ASSOCIATION BETWEEN AGENT AND WAYPOINT
-        function [isAssociated] = isIDAssociated(obj,agentID)
+        function [isAssociated] = IdAssociationCheck(obj,agentID)
             % Simple binary check if is waypoint is associated with the
             % provided object ID number.           
             
+            % Input sanity check
             assert(isnumeric(agentID),'Agent ID must be a valid objectID');
-            
             % CHECK THE OWNERSHIP INDEX FOR THIS ID
             isAssociated = any(obj.ownership.objectID == agentID);
         end
@@ -142,10 +139,9 @@ classdef waypoint < objectDefinition
                 warning('Agent is not associated with waypoint.');
                 ownershipItem = [];
                 return
-            else
-                % RETURN THE ASSOCIATION
-                ownershipItem = obj.ownership(IDindex);
             end
+            % RETURN THE ASSOCIATION
+            ownershipItem = obj.ownership(IDindex);
         end
         % REMOVE ASSOCIATION BETWEEN AGENT AND WAYPOINT
         function [obj] = removeAgentAssociation(obj,agentObject)
@@ -166,10 +162,9 @@ classdef waypoint < objectDefinition
             if isempty(IDindex)
                 warning('Cannot remove; agent not associated with waypoint.');
                 return
-            else
-                % REMOVE THE AGENT FROM THE WAYPOINT OWNERSHIP
-                obj.ownership(IDindex) = [];
             end
+            % REMOVE THE AGENT FROM THE WAYPOINT OWNERSHIP
+            obj.ownership(IDindex) = [];
         end
     end
 end %%% STATE VECTOR IS DEFINED AS [x;y;z;v;u;w;psi;the;phi;p;q;r] %%%%%%%% 

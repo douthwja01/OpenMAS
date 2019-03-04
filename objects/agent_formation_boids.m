@@ -40,10 +40,10 @@ classdef agent_formation_boids < agent_formation
             desiredSpeed = obj.nominalSpeed;
             desiredHeadingVector = [1;0;0];
             desiredVelocity = desiredHeadingVector*desiredSpeed;
-            
+
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,~,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
+            [obj,~,agentSet] = obj.GetAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
 
             % ////////////////// FORMATION CONTROLLER /////////////////////
             % We wish to conduct formation control with the other agents
@@ -61,7 +61,7 @@ classdef agent_formation_boids < agent_formation
             
             % GET THE EQUIVALENT HEADING ANGLE
             desiredHeadingVector = desiredVelocity/desiredSpeed;
-            [dHeading,dPitch] = obj.getVectorHeadingAngles([1;0;0],desiredHeadingVector); % Relative heading angles   
+            [dHeading,dPitch] = obj.GetVectorHeadingAngles([1;0;0],desiredHeadingVector); % Relative heading angles   
             omega_k_plus = [0;dPitch;-dHeading]/dt;         
             
             % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////

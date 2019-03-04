@@ -11,9 +11,9 @@ classdef agent_2D < agent
     properties
         % PROPERTIES UNIQUE TO THE RECIPROCAL VO METHOD
     end
-%%   CLASS METHODS
+    %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % CONSTRUCTOR
         function [obj] = agent_2D(varargin)
             % This function is to construct the agent object using the
             % object defintions held in the 'objectDefinition' base class.
@@ -31,10 +31,9 @@ classdef agent_2D < agent
             % AGENT SENSES IN 3D
             obj.VIRTUAL.is3D = logical(false);          % Indicate the agent is operating in 2d
             % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            obj = obj.configurationParser(obj,varargin);
         end
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
-        % DEFAULT 2D STATE - [x y psi]
+        % SETUP - STATE [x y psi]
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
             % object.
@@ -47,7 +46,7 @@ classdef agent_2D < agent
             % RETAIN THE PRIOR STATE FOR REFERENCE
             obj.VIRTUAL.priorState = obj.localState;
         end
-        % ///////////////// AGENT MAIN CYCLE //////////////////////////////
+        % MAIN
         function [obj] = main(obj,TIME,varargin)
             % INPUTS:
             % TIME     - The TIME simulations structure
@@ -64,10 +63,10 @@ classdef agent_2D < agent
                         
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(varargin{1});
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
-            desiredHeadingVector = obj.getWaypointHeading();               % Design the current desired trajectory from the waypoint.  
+            desiredHeadingVector = obj.GetTargetHeading();                 % Design the current desired trajectory from the waypoint.  
             desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
                   
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -102,11 +101,12 @@ classdef agent_2D < agent
             [obj] = obj.updateGlobalProperties_ENU(dt,newState);
         end
     end
+    %% /////////////////// AUXILLARY METHODS METHODS //////////////////////
     
     % ///////////////////// (2D) SENSORY FUNCTIONS ////////////////////////
     methods
         % 2D SENSOR MODEL - LOCAL GPS & PITOT TUBE
-        function [position,velocity,radius] = getAgentMeasurements(obj)
+        function [position,velocity,radius] = GetAgentMeasurements(obj)
             % This function makes estimates of the agent's current position
             % and velocity states (defined in obj.localState).
             positionIndices = 1:2;
@@ -124,11 +124,16 @@ classdef agent_2D < agent
         % 2D CONTROLLER
         function [obj] = controller(obj,dt,desiredVelocity)
             % This function computes the agents change in state as a result
-            % of the desired velocity vector
+            % of the desired 2D velocity vector. This function is designed
+            % to act as a 2D override for the 3D controller function be the
+            % same name in 'agent'.
             
-            % NUMERICAL SANITY CHECK ONE
-            assert(~any(isnan(desiredVelocity)) && isnumeric(desiredVelocity),'Requested velocity vector must be a 2D local vector');
-            % NUMERICAL SANITY CHECK TWO
+            % Input sanity check #1 - Is feasible
+            assert(isnumeric(dt) && numel(dt) == 1,'The time step must be a numeric scalar.');
+            assert(isnumeric(desiredVelocity) && numel(desiredVelocity) == 2,'Requested velocity vector is not a 2D numeric vector');
+            assert(~any(isnan(desiredVelocity)),'The desired velocity vector contains NaNs.'); 
+            
+            % Input sanity check #2 - Zero vector
             [unitDirection,desiredSpeed] = obj.nullVelocityCheck(desiredVelocity);   
             
             % APPLY SPEED CONSTRAINT
@@ -137,7 +142,7 @@ classdef agent_2D < agent
             end  
             
             % GET THE EQUIVALENT HEADING ANGLE
-            [dHeading] = obj.getVectorHeadingAngles([1;0],unitDirection); % Relative heading angles   
+            [dHeading] = obj.GetVectorHeadingAngles([1;0],unitDirection); % Relative heading angles   
             omega = -dHeading/dt;
             desiredVelocity = [desiredSpeed;0];
             
@@ -184,7 +189,7 @@ classdef agent_2D < agent
             [achievedSpeed] = obj.boundValue(achievedSpeed,-obj.DYNAMICS.linearVelocityLimits(1),obj.DYNAMICS.linearVelocityLimits(1)); 
         end
         % INITIALISE 2D DYNAMIC PARAMETERS
-        function [obj] = getDynamicParameters(obj)
+        function [obj] = GetDynamicParameters(obj)
             % This function calls the dynamics structure that gives the
             % agent dynamic/kinematic limits and parameters.
             % BUILD THE DYNAMICS SUB-STRUCTURE

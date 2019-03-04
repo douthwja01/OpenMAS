@@ -17,8 +17,10 @@ classdef objectDefinition
                           'faces',[],...
                           'normals',[],...
                           'centroid',zeros(3,1));                          % If the object is something other than a point.
+    %end
+    %properties (Access = private)
         % VIRTUAL PROPERTIES (Virtual (SIMULATION) data container)
-        VIRTUAL = struct();                                                % Object operates in 3D logical
+        VIRTUAL;                                  % Object operates in 3D logical
     end
     % CLASS METHODS
     methods (Access = public)
@@ -32,20 +34,19 @@ classdef objectDefinition
             % OUTPUTS:
             % obj     - The generated object
             
-            % ///////////////////// OBJECT SETUP //////////////////////////
             % ASSIGN VIRTUAL PROPERTIES
-            [obj.VIRTUAL] = obj.getObjectVIRTUAL();
+            [obj.VIRTUAL]  = obj.GetVIRTUALstructure();
             % GET GEOMETRY IF POSSIBLE (FOR ALL CLASS SIBLINGS)
-            [obj.GEOMETRY] = obj.getObjectGeometry(obj);                   % Get the geometry of the object
+            [obj.GEOMETRY] = obj.GetObjectGeometry();                      % Get the geometry of the object
             % ALLOCATE OBJECT ID
             spawnNewObject = 0;
             if isempty(obj.objectID)                                       % Generate objectID if not allocated by a super class
                 spawnNewObject = 1;
-                [obj.objectID] = obj.getObjectID();                        % Assign the number as an ID tag
+                [obj.objectID] = obj.GetObjectID();                        % Assign the number as an ID tag
             end
             % GENERATE OBJECT NAME IF REQUIRED
             if isempty(obj.name) || numel(obj.name) < 1   
-                obj.name = obj.getObjectName(obj.objectID);                % No input name string specified, use greek naming scheme
+                obj.name = obj.GetObjectName(obj.objectID);                % No input name string specified, use greek naming scheme
             end            
             
             % ////////// HANDLING THE USERS INPUTS AS OVERRIDES ///////////
@@ -60,6 +61,7 @@ classdef objectDefinition
             end            
         end 
         % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % DEFAULT SETUP FUNCTION 
         function [obj] = setup(obj,localXYZvelocity,localXYZrotations)     % [x y z phi theta psi]
             % This function is called in order to build the initial state
             % vector for the generic agent class 'objectDefinition'.
@@ -76,7 +78,7 @@ classdef objectDefinition
             % RETAIN THE PRIOR STATE FOR REFERENCE
             obj.VIRTUAL.priorState = obj.localState;
         end
-        % ////////////////// THE DEFAULT OBJECT CYCLE /////////////////////
+        % /////////////////// DEFAULT MAIN CYCLE //////////////////////////
         function [obj] = main(obj,TIME,varargin)
             % This is a generic process cycle of an object that accepts no
             % input commands/feedback and simply updates its states based
@@ -102,12 +104,159 @@ classdef objectDefinition
             % UPDATE THE CLASS GLOBAL PROPERTIES
             obj = obj.updateGlobalProperties_ENU(dt,newState);
         end
-        
-        % ///////////////////// SET FUNCTIONS /////////////////////////////
-        % Define the objects radius
-        function [obj] = setObjectRadius(obj,radius)
+    end
+    %% //////////////////////// GET FUNCTIONS /////////////////////////////
+    methods
+        % Get the import the geometry associated with the class
+        function [GEOMETRY] = GetObjectGeometry(obj)
+            % This function prepares object STL files for representation.
+            % ASSUMPTIONS:
+            % - The object stl file has the same name as the object being simulated.
+            % - The STL is correctly rotated to match the axes of XYZ of the agents
+            %   local frame.
+            
+            % ABSOLUTE PATH TO THE OBJECT STL LOCATION
+            absPath = mfilename('fullpath');
+            absPath = strrep(absPath,'objectDefinition','');               % Get the current m-files directory
+            
+            % GET THE AGENT SUPERCLASSES
+            aliases = superclasses(obj);
+            aliases = vertcat(class(obj),aliases);
+            % MOVE THROUGH THE CLASS HEIRARCHY
+            for aliasNo = 1:numel(aliases)
+                % BUILD THE STL ASSOCIATION
+                filename = strcat(absPath,char(aliases(aliasNo)),'.stl');  % Build the associated STL path
+                % GET THE OBJECT PATCH FROM STL FILE (in the object directory)
+                [GEOMETRY,getFlag] = OMAS_graphics.importStlFromFile(filename);
+                if getFlag
+                    break                                                  % Successful import
+                end
+            end
+            
+            % IF PATCH RETURNED, PROCESS FOR SIMULATION
+            if isstruct(GEOMETRY)
+               % NORMALISE THE IMPORTED GEOMETRY
+                GEOMETRY = OMAS_graphics.normalise(GEOMETRY);                 % Normalise
+                GEOMETRY = OMAS_graphics.scale(GEOMETRY,obj.VIRTUAL.radius);  % Scale
+                GEOMETRY.normals = OMAS_graphics.normals(GEOMETRY);
+                % ADD CENTROID
+                GEOMETRY.centroid = zeros(1,3);                                 % Assume vertices are relative to a centroid
+            else
+                % GEOMETRIC PROPERTIES
+                GEOMETRY = struct('vertices',[],...
+                                  'faces',[],...
+                                  'normals',[],...
+                                  'centroid',zeros(1,3));                  % If the object is something other than a point.        
+            end
+            % Return patch, empty if not successful
+        end
+        % Get the VIRTUAL structure
+        function [VIRTUAL]  = GetVIRTUALparameters(obj)
+            VIRTUAL = obj.VIRTUAL;
+        end    
+        % Get the virtual parameter
+        function [value]    = GetVIRTUALparameter(obj,label)
+            % Input sanity check
+            assert(ischar(label),"The property must be specified as a string.");
+            assert(isprop(obj,'VIRTUAL'),"Object has no VIRTUAL property."); 
+            assert(isfield(obj.VIRTUAL,label),sprintf('%s is not a VIRTUAL parameter.',label));
+            % Set the parameter to the field
+            value = obj.VIRTUAL.(label);
+        end
+    end
+    % Only the objectDefinition class needs access
+    methods (Static, Access = private)   
+        % Get the object parameters
+        function [VIRTUAL]  = GetVIRTUALstructure()
+            % This is function that assembles the template desciption of an
+            % object
+            % DEFINE THE VIRTUAL STRUCTURE
+            VIRTUAL = struct(...
+                         'type',OMAS_objectType.misc,...
+                         'hitBoxType',OMAS_hitBoxType.none,...
+                         'radius',0.5,...                                  % Diameter of 1m
+                         'colour',rand(1,3,'single'),...                   % Virtual colour (for plotting)
+                         'symbol','square',...                             % Representative symbol
+                         'globalPosition',[0;0;0],...                      % Global Cartesian position
+                         'globalVelocity',[0;0;0],...                      % Global Cartesian velocity
+                         'quaternion',[1;0;0;0],...                        % Global quaternion pose
+                         'idleStatus',logical(true),...                    % Object idle logical
+                         'is3D',logical(true));                            % Object operates in 3D logical
+        end
+        % Get the object name
+        function [namestr]  = GetObjectName(objectID)
+            % No input name string specified, use greek naming scheme
+            defaultID = { 'alpha', 'beta','gamma', 'delta','epsilon'  ...
+                        ,  'zeta',  'eta','theta',  'iota','kappa'    ...
+                        ,'lambda',   'mu',   'nu',    'xi','omicron'  ...
+                        ,    'pi',  'rho','sigma',   'tau','upsilon'  ...
+                        ,   'phi',  'chi',  'psi', 'omega'}; 
+            % GENERATE DEFAULT NAME STRING
+            defLength = length(defaultID);
+            cycle = floor(double(objectID)/defLength);
+            IDvalue = mod(objectID,defLength);
+            if IDvalue == 0
+                IDvalue = 24;
+            end
+            namestr = sprintf('%s%03d',defaultID{IDvalue},cycle+1);
+        end
+        % Get the object ID
+        function [objectID] = GetObjectID()
+            % This function allocates a basic ID convention to the class
+            % heirarchy to provide object automatic numeration.
+            
+            persistent objectCount;
+            
+            % DEFINE ID BASED ON EXISTING OBJECTS
+            if isempty(objectCount)
+                % INITIAL OBJECT
+                objectCount = 1;
+            else
+                % OBJECTS EXIST
+                objectCount = objectCount + 1;
+            end
+            % ALLOCATE OBJECT ID
+            objectID = uint8(objectCount);
+        end 
+    end
+    %% //////////////////////// SET FUNCTIONS /////////////////////////////
+    methods 
+        % Set the objects radius
+        function [obj] = SetRadius(obj,radius)
             obj.radius = radius;            % Define the radius
             obj.VIRTUAL.radius = radius;    % Virtual representations
+        end
+        % Set the objects apparent colour
+        function [obj] = SetColour(obj,colour)
+            assert(ischar(colour) || isnumeric(colour),'The colour must be a character or rgb vector [1x3]');
+            obj.VIRTUAL.colour = colour;
+        end
+        % Set the objects symbol
+        function [obj] = SetSymbol(obj,symbol)
+            obj.VIRTUAL.symbol = symbol; 
+        end
+        % Set the hitbox type
+        function [obj] = SetHitBoxType(obj,hitBoxType)
+            % Input sanity check
+            assert(~ischar(hitBoxType),"Type must be specified as a OMAS object type.");
+            assert(isprop(obj,'VIRTUAL'),"The object does not have a VIRTUAL property.");
+            % Allocate the object hit-box type
+            obj.VIRTUAL.hitBoxType = hitBoxType;
+        end
+        % Set the object type
+        function [obj] = SetType(obj,type)
+            % Input sanity check
+            assert(~ischar(type),"Type must be specified as a OMAS object type.");
+            assert(isprop(obj,'VIRTUAL'),"The object does not have a VIRTUAL property.");
+            % Allocate the object type
+            obj.VIRTUAL.type = type;
+        end
+        % Set the virtual field
+        function [obj] = SetVIRTUAL(obj,VIRTUAL)
+            % Input sanity check
+            assert(isstruct(VIRTUAL),"The object's VIRTUAL field must be a structure.");
+            % Assign the virtual structure
+            obj.VIRTUAL = VIRTUAL;
         end
     end
     %% ///////////////// BASIC STATE UPDATE FUNCTIONS /////////////////////
@@ -122,8 +271,7 @@ classdef objectDefinition
         
         % The functions below provide the utilities to update both during
         % each time cycle.
-        
-        
+
         % UPDATE AGENT STATE VECTOR FROM LOCAL ACCELERATIONS
         function [dXdt] = dynamics_doubleIntegrator(obj,X,linearAcceleration,headingAcceleration)
             % This function provides a basic model for the agent
@@ -161,32 +309,7 @@ classdef objectDefinition
             dXdt = obj.dynamics_NIntegrator(X,systemOrder,linearRates,headingRates);
         end
     end
-    
     methods (Static)
-%         % DYNAMICS - DOUBLE INTEGRATOR
-%         function [dXdt] = dynamics_doubleIntegrator(X,a_linear,a_angular)
-%             
-%             if numel(a_angular) == 1
-%                 is3D = 0;
-%             else
-%                 is3D = 1;
-%             end
-%             
-%             numStates = numel(X);           % The number of states
-%             stateRepetitions = 2;
-%             
-%             assert(mod(numel(X),stateNum) == 0,'The number of states does not correspond to the input order.');
-%              
-%             length_q = numStates/stateRepetitions;
-%             
-%             U = [a_linear;a_angular];       % Concatinate inputs
-%             
-%             
-%             zeroMatrix = zeros(numStates);
-%             
-%             dXdt = [zeroMatrix,       eye(numStates);
-%                     zeroMatrix,zeroMatrix(numStates)]*X + [0;1]*U;   % Double integrator dynamics
-%         end
         % STATE UPDATE - TWO WHEELED DIFFERENTIAL ROBOT
         function [dXdt] = dynamics_differencialDrive(X,d,a_left,a_right)
             % Becker, M. (2006). Obstacle avoidance procedure for mobile robots. ABCM Symposium Series
@@ -428,25 +551,15 @@ classdef objectDefinition
                 error('State notation not recognised');
             end
             
-            % EQUIVALENT RATES
+            % Equivalent velocity
             velocity_k_plus = (eulerState(positionIndices) - obj.VIRTUAL.priorState(positionIndices))/dt;
-            
-            % IF ALL WAYPOINTS ARE ACHEIVED; FREEZE THE AGENT
-            if isprop(obj,'targetWaypoint')
-                if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                    obj.VIRTUAL.idleStatus = 1;
-                    velocity_k_plus = zeros(numel(positionIndices),1);     % Freeze the agent
-                end   
-            end
             
             % ROTATION RATES ABOUT THE GLOBAL AXES
             if numel(eulerState) ~= 6
                 velocity_k_plus = [velocity_k_plus;0];
             end
-            
             % NEW ROTATION MATRIX (G>B)            
             R_k_plus = OMAS_geometry.quaternionToRotationMatrix(obj.VIRTUAL.quaternion);
-         
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
             globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
             globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
@@ -468,13 +581,14 @@ classdef objectDefinition
             % obj.localState - The previous localState (independant of convention)
             % eulerState     - The new state as reported by the agent            
             
-            % SANITY CHECKS
+            % Input sanity check
             assert(numel(p) == 3 && size(p,2) == 1,'Global position must be a 3D column vector [3x1].');
             assert(numel(v) == 3 && size(v,2) == 1,'Global velocity must be a 3D column vector [3x1].');
             assert(numel(q) == 4 && size(q,2) == 1,'Global pose must be a 4D quaternion vector [4x1].');
-%             assert(numel(X) == numel(obj.localState) && size(obj.localState,2) == 1,'The length of the objects state update must match the its local state.');
+            assert(numel(X) == numel(obj.localState) && size(obj.localState,2) == 1,'The length of the objects state update must match the its local state.');       
             
             % ///////////////// REASSIGN K+1 PARAMETERS //////////////////////////
+            % Assign the global parameters
             obj.VIRTUAL.globalPosition = p;                                % Reassign the global position
             obj.VIRTUAL.globalVelocity = v;                                % Reassign the global velocity
             obj.VIRTUAL.quaternion = q;                                    % Reassign the quaternion
@@ -553,100 +667,5 @@ classdef objectDefinition
             end
             config = defaultConfig;
         end
-        % APPLY OMAS CONVENTION
-        function [VIRTUAL]  = getObjectVIRTUAL()
-            % This is function that assembles the template desciption of an
-            % object
-            % DEFINE THE VIRTUAL STRUCTURE
-            VIRTUAL = struct(...
-                         'type',OMAS_objectType.misc,...
-                         'hitBoxType',OMAS_hitBoxType.none,...
-                         'radius',0.5,...                                  % Diameter of 1m
-                         'colour',rand(1,3,'single'),...                   % Virtual colour (for plotting)
-                         'symbol','square',...                             % Representative symbol
-                         'globalPosition',[0;0;0],...                      % Global Cartesian position
-                         'globalVelocity',[0;0;0],...                      % Global Cartesian velocity
-                         'quaternion',[1;0;0;0],...                        % Global quaternion pose
-                         'idleStatus',logical(true),...                    % Object idle logical
-                         'is3D',logical(true));                            % Object operates in 3D logical
-        end
-        % IMPORT THE CLASS GEOMETRY FILE
-        function [geometry] = getObjectGeometry(obj)
-            % This function prepares object STL files for representation.
-            % ASSUMPTIONS:
-            % - The object stl file has the same name as the object being simulated.
-            % - The STL is correctly rotated to match the axes of XYZ of the agents
-            %   local frame.
-            
-            % ABSOLUTE PATH TO THE OBJECT STL LOCATION
-            absPath = mfilename('fullpath');
-            absPath = strrep(absPath,'objectDefinition','');               % Get the current m-files directory
-            
-            % GET THE AGENT SUPERCLASSES
-            aliases = superclasses(obj);
-            aliases = vertcat(class(obj),aliases);
-            % MOVE THROUGH THE CLASS HEIRARCHY
-            for aliasNo = 1:numel(aliases)
-                % BUILD THE STL ASSOCIATION
-                filename = strcat(absPath,char(aliases(aliasNo)),'.stl');  % Build the associated STL path
-                % GET THE OBJECT PATCH FROM STL FILE (in the object directory)
-                [geometry,getFlag] = OMAS_graphics.importStlFromFile(filename);
-                if getFlag
-                    break                                                  % Successful import
-                end
-            end
-            
-            % IF PATCH RETURNED, PROCESS FOR SIMULATION
-            if isstruct(geometry)
-               % NORMALISE THE IMPORTED GEOMETRY
-                geometry = OMAS_graphics.normalise(geometry);                 % Normalise
-                geometry = OMAS_graphics.scale(geometry,obj.VIRTUAL.radius);  % Scale
-                geometry.normals = OMAS_graphics.normals(geometry);
-                % ADD CENTROID
-                geometry.centroid = zeros(1,3);                                 % Assume vertices are relative to a centroid
-            else
-                % GEOMETRIC PROPERTIES
-                geometry = struct('vertices',[],...
-                                  'faces',[],...
-                                  'normals',[],...
-                                  'centroid',zeros(1,3));                  % If the object is something other than a point.        
-            end
-            % Return patch, empty if not successful
-        end
-        % APPLY NAMING CONVENTION
-        function [namestr]  = getObjectName(objectID)
-            % No input name string specified, use greek naming scheme
-            defaultID = { 'alpha', 'beta','gamma', 'delta','epsilon'  ...
-                        ,  'zeta',  'eta','theta',  'iota','kappa'    ...
-                        ,'lambda',   'mu',   'nu',    'xi','omicron'  ...
-                        ,    'pi',  'rho','sigma',   'tau','upsilon'  ...
-                        ,   'phi',  'chi',  'psi', 'omega'}; 
-            % GENERATE DEFAULT NAME STRING
-            defLength = length(defaultID);
-            cycle = floor(double(objectID)/defLength);
-            IDvalue = mod(objectID,defLength);
-            if IDvalue == 0
-                IDvalue = 24;
-            end
-            namestr = sprintf('%s%03d',defaultID{IDvalue},cycle+1);
-        end
-        % APPLY OBJECT-ID CONVENTION
-        function [objectID] = getObjectID()
-            % This function allocates a basic ID convention to the class
-            % heirarchy to provide object automatic numeration.
-            
-            persistent objectCount;
-            
-            % DEFINE ID BASED ON EXISTING OBJECTS
-            if isempty(objectCount)
-                % INITIAL OBJECT
-                objectCount = 1;
-            else
-                % OBJECTS EXIST
-                objectCount = objectCount + 1;
-            end
-            % ALLOCATE OBJECT ID
-            objectID = uint8(objectCount);
-        end  
     end
 end

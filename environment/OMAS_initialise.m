@@ -16,16 +16,15 @@ function [ DATA,META ] = OMAS_initialise(varargin)
 % OUTPUTS:
 % DATA       - The simulation output data structure
 
+% GET THE SIMULATIONS SUBDIRECTORIES (if not already added to path)
+configureDependencies(pwd,{'environment','objects','scenarios'});            % Check directory for sub-directory 
+configureDependencies([pwd,'\','environment'],{'events','assets','common'}); % Check 'environment' directory for the dependancies
+% Show logo
 type('logo.txt');
-%type('license.txt')
 
 % ///////////////// ASSIGN DEFAULT SIMULATION PARAMETERS //////////////////
 % The user must be able to run a simulation for an intended amount of time,
 % or run with a maximal time for all goals to be complete. 
-
-% GET THE SIMULATIONS SUBDIRECTORIES (if not already added to path)
-configureDependencies(pwd,{'environment','objects','scenarios'});            % Check directory for sub-directory 
-configureDependencies([pwd,'\','environment'],{'events','assets','common'}); % Check 'environment' directory for the dependancies
 
 % /////////////////////// DEFAULT TIMING STRUCTURE ////////////////////////
 TIME = struct('duration',1E3,...                                           % Assign default simulation duration (for output matrix scaling)

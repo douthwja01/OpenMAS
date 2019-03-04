@@ -4,13 +4,9 @@
 % Author: James A. Douthwaite
 
 classdef agent_2D_VO < agent_2D & agent_VO
-%% INITIALISE THE AGENT SPECIFIC PARAMETERS
-    properties
-        % PROPERTIES UNIQUE TO THE 2D VO METHOD
-    end
-%%  CLASS METHODS
+    %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % CONSTRUCTOR METHOD
         function [obj] = agent_2D_VO(varargin)
             % Construct the agent object and initialise with the following
             % specific parameters.
@@ -22,19 +18,23 @@ classdef agent_2D_VO < agent_2D & agent_VO
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent_2D(varargin); 
             % Omit superclass field
-            obj.feasabliltyMatrix = []; % Omit parent field
+            obj.feasabliltyMatrix = [];  % Omit parent field
+            
+            % //////////////////// SENSOR PARAMETERS //////////////////////
+            [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
+            %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
+            % /////////////////////////////////////////////////////////////
             
             % CHECK FOR USER OVERRIDES
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
             [obj] = obj.configurationParser(obj,varargin);
         end
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
         % SETUP - x = [x y psi dx dy dpsi]
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
-        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
+        % MAIN
         function [obj] = main(obj,TIME,varargin)
             % INPUTS:
             % obj      - The agent object
@@ -58,11 +58,11 @@ classdef agent_2D_VO < agent_2D & agent_VO
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
-%             [obj,obstacleSet,agentSet] = obj.getSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
+%             [obj,obstacleSet,agentSet] = obj.GetSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
-            desiredHeadingVector = obj.getWaypointHeading();                    % Design the current desired trajectory from the waypoint.  
+            desiredHeadingVector = obj.GetTargetHeading();                    % Design the current desired trajectory from the waypoint.  
             desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
@@ -72,7 +72,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             if ~isempty(avoidanceSet) && avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(dt,desiredVelocity,avoidanceSet,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(dt,desiredVelocity,avoidanceSet,visualiseProblem);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
@@ -94,11 +94,12 @@ classdef agent_2D_VO < agent_2D & agent_VO
             obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);         % Record the control inputs
         end
     end
+    %% /////////////////////// AUXILLARY METHODS //////////////////////////
     
     % //////////////////// VELOCITY OBSTACLE METHODS //////////////////////
     methods 
         % CALCULATE THE NECESSARY 2D AVOIDANCE VELOCITY
-        function [headingVector,speed] = getAvoidanceCorrection(obj,dt,desiredVelocity,knownObstacles,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(obj,dt,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the 2D avoidance velocity command
             % and returns it to be achieved by the controller.
             
@@ -134,7 +135,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             % GET THE CAPABLE VELOCITIES
 %             capableVelocities = obj.feasabliltyMatrix;                     % Get all the feasible velocities this timestep 
             % SUBTRACT THE VELOCITY OBSTACLES FROM THE VELOCITY FIELDS
-%             escapeVelocities = obj.getEscapeVelocities(capableVelocities,VO);              % The viable velocities from the capable 
+%             escapeVelocities = obj.GetEscapeVelocities(capableVelocities,VO);              % The viable velocities from the capable 
             % SEARCH THE VIABLE ESCAPE VELOCITIES FOR THE VELOCITY WITH THE 
             % SMALLEST DEVIATION FROM THE DESIRED VELOCITY
 %             [avoidanceVelocity] = obj.strategy_minimumDifference(desiredVelocity,escapeVelocities);

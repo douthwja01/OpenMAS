@@ -45,18 +45,18 @@ classdef agent_test < agent
             desiredVelocity = [1;0;0]*obj.nominalSpeed;
             
             % UPDATE THE AGENT WITH THE NEW INFORMATION
-            [obj,obstacleSet,agentSet,waypointSet] = obj.getAgentUpdate(varargin{1});  
+            [obj,obstacleSet,agentSet,waypointSet] = obj.GetAgentUpdate(varargin{1});  
                             
             % PLOTTING THE COMPLETE OBJECT SURROUNDINGS
             if obj.objectID == 1
                 figureHandle = figure(1);
-                [figureHandle] = obj.getObjectScene([obstacleSet;agentSet;waypointSet],figureHandle);   % Plot the objects
-                [figureHandle] = obj.getAnimationFrame(ENV,figureHandle,'objectScene.gif');             % Store the annimations
+                [figureHandle] = obj.GetObjectScene([obstacleSet;agentSet;waypointSet],figureHandle);   % Plot the objects
+                [figureHandle] = obj.GetAnimationFrame(ENV,figureHandle,'objectScene.gif');             % Store the annimations
             end
             
 %             % GET THE COMPLEX OBSTACLE REPRESENTATION
 %             for i = 1:numel(obstacleSet)
-%                 [VO_complex] = obj.getComplexObstacles(zeros(3,1),...
+%                 [VO_complex] = obj.GetComplexObstacles(zeros(3,1),...
 %                     obj.localState(7:9),...
 %                     obj.VIRTUAL.radius,...
 %                     obstacleSet.position,...

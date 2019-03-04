@@ -10,7 +10,7 @@ classdef ARdrone < agent
     % This class defines the ARdrone specific properties for importing a
     % small quadrotor into the environment.
     
-%% INITIALISE THE ADRONE SPECIFIC PARAMETERS
+    %% ////////////////// ADRONE SPECIFIC PARAMETERS //////////////////////
     properties
         % Performance Parameters
         battery_capacity  = 1000;     % Maximum battery capacity (mAh)
@@ -18,9 +18,9 @@ classdef ARdrone < agent
         flight_time       = 720;      % Rated flight time (s)
         dt = -1;                      % The linearisation time-step (Assume continuous intially)
     end
-%%  CLASS METHODS
+    %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % CONSTRUCTOR
         function obj = ARdrone(varargin)
             % This function is to construct the ARdrone object using the
             % object defintions held in the 'agent' class.
@@ -40,18 +40,17 @@ classdef ARdrone < agent
             [obj] = obj.configurationParser(obj,varargin);
             
             % GET THE ARDRONE DYNAMIC PROPERTIES
-            DYNAMICS = obj.getDyanamicProperties(obj.dt);
+            DYNAMICS = obj.GetDyanamicProperties(obj.dt);
             obj.DYNAMICS = obj.configurationParser(DYNAMICS,varargin);
             
             % GET THE ARDRONE SENSOR PROPERTIES
-            [SENSORS] = obj.getSensorProperties();
+            [SENSORS] = obj.GetSensorProperties();
             obj.SENSORS = obj.configurationParser(SENSORS,varargin);
             
             % VIRTUAL DEFINITIONS
             obj.VIRTUAL.radius = obj.DYNAMICS.length/2;                    % Body just used to determine the size parameter        
         end
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
-        % INTIALISE A LOCAL STATE [x;x_dot]'
+        % SETUP - LOCAL STATE [x;x_dot]'
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % This function generates the initial state vector for the
             % ARdrone model from the global parameters provided from the
@@ -80,8 +79,7 @@ classdef ARdrone < agent
         % ARdrone quadrotor MAV.
         
     end
-
-    % /////////////////////////// PLANT MODELS ////////////////////////////
+    %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % GET THE STATE UPDATE (USING ODE45)
         function [X] = updateNonLinearPlant(obj,TIME,X0,U)
@@ -209,7 +207,7 @@ classdef ARdrone < agent
             setpoint(4) = throttle + roll + pitch + yaw; % This distributes the control inputs to the respective 
         end        
         % DYNAMIC PROPERTIES
-        function [DYNAMICS] = getDyanamicProperties(dt,config)
+        function [DYNAMICS] = GetDyanamicProperties(dt,config)
             % This function imports the complete set of dynamic properties
             % for the ARdrone 2.0 quadrotor UAV. 
             
@@ -299,7 +297,7 @@ classdef ARdrone < agent
             DYNAMICS.omega_min = 0;
         end
         % SENSOR PROPERTIES
-        function [SENSORS]  = getSensorProperties()
+        function [SENSORS]  = GetSensorProperties()
             % This function gets the ARdrone 2.0's sensor-specific data and
             % imports them to OMAS's obj.SENSOR structure.
             

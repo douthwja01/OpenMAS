@@ -27,11 +27,10 @@ classdef ISS < agent
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Create the super class 'agent' 
             % GET THE DYNAMICS PROPERTIES
-            [obj.DYNAMICS] = obj.getDynamicsProperties();
+            [obj.DYNAMICS] = obj.GetDynamicsProperties();
             
             % VIRTUAL DEFINITION
-            obj.VIRTUAL.radius = sqrt((obj.length/2)^2 + (obj.width/2)^2 + (obj.height/2)^2);
-            
+            obj = obj.SetRadius(sqrt((obj.length/2)^2 + (obj.width/2)^2 + (obj.height/2)^2));
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
             
@@ -67,7 +66,7 @@ classdef ISS < agent
                 return
             else
                 % UPDATE THE AGENT WITH THE NEW INFORMATION
-                [obj,~,~] = obj.getAgentUpdate(observationSet);
+                [obj,~,~] = obj.GetAgentUpdate(observationSet);
             end
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
@@ -94,7 +93,7 @@ classdef ISS < agent
     
     methods (Static)
         % GET THE REPRESENTATIVE DYNAMICS PROPERTIES OF THE ISS
-        function [DYNAMICS] = getDynamicsProperties() 
+        function [DYNAMICS] = GetDynamicsProperties() 
             % Some general information:
 %             orbitPerigee 403km
 %             orbitApogee 406km

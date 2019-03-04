@@ -20,7 +20,7 @@ classdef ARdrone_LQR < ARdrone
             % GET THE CLOSED LOOP LINEAR MODEL
             % This function overrides the linear plant model with the
             % closed loop plant
-            [obj.DYNAMICS.K_lqr] = obj.getLQRFeedback(obj.DYNAMICS.SS);
+            [obj.DYNAMICS.K_lqr] = obj.GetLQRFeedback(obj.DYNAMICS.SS);
             
             % DYNAMIC CONSTRAINTS
             obj.nominalSpeed = 1; 
@@ -45,18 +45,14 @@ classdef ARdrone_LQR < ARdrone
                 error('Object TIME packet is invalid.');
             end
             
-            % DEFAULT BEHAVIOUR 
-            desiredHeadingVector = [1;0;0];
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,~,~] = obj.getAgentUpdate(varargin{1});
+            [obj,~,~] = obj.GetAgentUpdate(varargin{1});
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            if ~isempty(obj.targetWaypoint)
-                desiredHeadingVector = obj.targetWaypoint.position/norm(obj.targetWaypoint.position);
-            end
+            desiredHeadingVector = obj.GetTargetHeading();
             
             mapAngle = pi;
             XYZ2NED = [ 1             0              0;
@@ -143,7 +139,7 @@ classdef ARdrone_LQR < ARdrone
     % ///////////////////////// CONTROLLER ////////////////////////////////    
     methods (Static)    
         % GET LINEAR-QUADRATIC-REGULATOR(LQR) CONTROLLER
-        function [K_lqr] = getLQRFeedback(SYS_openLoop)
+        function [K_lqr] = GetLQRFeedback(SYS_openLoop)
             % This function designs the LQR controller used to provide
             % error feedback.
             

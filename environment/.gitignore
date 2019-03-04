@@ -1,0 +1,7 @@
+# Ommited directories
+#resources/
+# Ommitted file types
+*.mat
+*.csv
+*.xlsx
+*.asv

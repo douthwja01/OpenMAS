@@ -1,6 +1,6 @@
 %% EXAMPLE SETUP (setup_example.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This script is designed as an example of how to simulate a multiple agent
-% collision scenario using the Multi-Agent System Simulation (MASS) tool set.
+% collision scenario using the Open Multi-Agent Simulation (OpenMAS) suite.
 
 % For descriptions of how to create objects see:
 % /objects/readme-objects.txt
@@ -8,53 +8,86 @@
 % For a general overview see:
 % /readme.txt
 
-% Author: James A. Douthwaite 16/05/2016
+% Author: James A. Douthwaite 23/11/2018
 
 clear all; close all;
 
-%% ADD THE PROGRAM PATHS
+%% ADD ADDITIONAL THE PROGRAM PATHS
 addpath('environment');
 addpath('objects');  
 addpath('scenarios');   
 
-%% 1. GENERATE SCENARIO/OBSTACLE SET
+%% DEFINE SIMULATION PARAMETERS
+[~, userdir]   = system('echo %USERPROFILE%');              % Get desktop path
+sim_outputPath = strcat(userdir,'\desktop\OpenMAS_data');   % Set it as output path
+sim_vebosity   = 1;
+sim_warningDistance = 2;
+sim_maxDuration = 10; 
+sim_timeStep   =  0.1;           
+% sim_figureSet = {'collisions'};         % SEE 'OMAS_figureGenerator.m' for options
+sim_figureSet = {'events','plan','gif'};
+
+%% SCENARIO PARAMETERS 
+sim_agentNumber = 2;                   % TOTAL NUMBER OF AGENTS
+sim_agentOrbit  = 5;                   
+sim_waypointOrbit = 10;
+sim_offsetAngle = 0;
+sim_agentVelocity = 0;
+sim_obstacleNumber = 4;
+sim_noiseSigma = 0.2;
+sim_plotScenario = logical(true);
+
+%% GENERATE SCENARIO/OBSTACLE SET
 fprintf('|| Assigning agent definitions:\n');
-agentNumber = 5;                                                           % The number of instances of the given test objects
-for index = 1:agentNumber
+for index = 1:sim_agentNumber
+%     agentIndex{index} = agent();
+%     agentIndex{index} = agent_2D();
+
 %     agentIndex{index} = agent_test();
-%     agentIndex{index} = agent_example();
-    agentIndex{index} = agent_VO();
+    agentIndex{index} = agent_example();
+
+% 3D COLLISION AVOIDANCE
+%     agentIndex{index} = agent_VO();
 %     agentIndex{index} = agent_RVO();
-%     agentIndex{index} = agent_HRVO();                                    % Try out some of the working instances
-%     agentIndex{index} = agent_vectorSharing();                           % Define a cell array of test objects (full list available in /objects)
+%     agentIndex{index} = agent_HRVO();
+%     agentIndex{index} = agent_vectorSharing();
+
+% DYNAMICAL EXAMPLES
+%     agentIndex{index} = ARdrone_LQR();
+%     agentIndex{index} = quadcopter();
 end
 
-%% 2. GET A PRE-DEFINED CONCENTRIC SCENARIO
-objectIndex = getScenario_concentric('agents',agentIndex,...               % The list of agent objects (agent_example,agent_example)
-                                     'radius',50,...                       % The radius of the agent distribution
-                                     'velocities',5,...                    % Define the initial forward velocity of the agents
-                                     'plot',0);                            % Request the scenario be plotted
+%% PLACE AGENT OBJECTS IN PRE-DEFINED SCENARIO
+% OBSTACLE TESTS
+% [ objectIndex ] = getScenario_fourCuboidObstacles('agents',agentIndex,'plot',sim_plotScenario);
+% [ objectIndex ] = getScenario_obstacleTrack('agents',agentIndex,'plot',sim_plotScenario);
 
-% BUILD GLOBAL OBJECT SET
-clearvars -except objectIndex                                              % Clean up
+% AGENT TESTS 
+[ objectIndex ] = getScenario_concentricRing('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',sim_offsetAngle,'plot',sim_plotScenario,'noiseFactor',sim_noiseSigma);
+% [ objectIndex ] = getScenario_concentricRing('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',pi/2,'plot',sim_plotScenario,'noiseFactor',sim_noiseSigma);
+% [ objectIndex ] = getScenario_concentricSphere('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'plot',sim_plotScenario);
+% [ objectIndex ] = getScenario_concentricAngle('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'angle',pi/4,'plot',sim_plotScenario);
+% [ objectIndex ] = getScenario_SWIMSMART('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',pi/2,'plot',sim_plotScenario);
+% [ objectIndex ] = getScenario_UKACC('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',pi/2,'plot',sim_plotScenario);
 
-%% 3. DEFINE THE SIMULATION PARAMETERS
-% A full list of the available figures can be found in:
-% /environment/simulation_figureIndex.m
-% figureSet = {'all'};
-figureSet = {'eventoverview','fig'}; 
+% WAYPOINT TESTS                            
+% [ objectIndex ] = getScenario_waypointCurve('agents',agentIndex,'agentVelocity',sim_agentVelocity,'plot',sim_plotScenario);
+% [ objectIndex ] = getScenario_waypoint_90Degrees('agents',agentIndex,'agentVelocity',sim_agentVelocity,'plot',sim_plotScenario);
 
-%%\\\\\\ INITIALISE THE SIMULATION WITH THE OBJECT INDEX \\\\\\\\\\\\\\\\\\
-% A full list of the available simulation options can be found in:
-% \environment\simulation_initialise.m within 'validateSimulationInputs()'
+%% //////////// INITIALISE THE SIMULATION WITH THE OBJECT INDEX ///////////
+[DATA,META] = OMAS_initialise('objects',objectIndex,...
+                             'duration',sim_maxDuration,... 
+                                   'dt',sim_timeStep,...
+                              'figures',sim_figureSet,...
+                      'warningDistance',sim_warningDistance,...
+                            'verbosity',sim_vebosity,...
+                           'outputPath',sim_outputPath);
+clearvars -except DATA META
+% /////////////////////////////////////////////////////////////////////////
+% Upon completion of the simulation all the trajectory, figures and
+% statistics will be pushed to the output directory, or held in 'DATA'. 
 
-[DATA,META] = simulation_initialise('objects',objectIndex,...              % Pass the list of initialised object/agents
-                                    'simTime',30,...                       % Pass the max simulation time
-                                         'dt',0.05,...                     % Pass the simulation step size
-                                    'figures',figureSet);                  % Pass the requested figure list
-
-% \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-% clearvars -except DATA META
-load(strcat(META.outputPath,'META.mat'));                                  % Load the META file that was saved
-load(strcat(META.outputPath,'EVENTS.mat'));                                % Load the EVENTS file that was saved
-fprintf('..Complete.\n');
+% IMPORT DATA (from 'outputPath')
+load(strcat(META.outputPath,'META.mat'));
+load(strcat(META.outputPath,'EVENTS.mat'));
+fprintf('Complete...\n');

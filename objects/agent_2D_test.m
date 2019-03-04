@@ -53,15 +53,10 @@ classdef agent_2D_test < agent_2D
             
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             observationSet = varargin{1}; % The detected objects
-            [obj,obstacleSet,agentSet,waypointSet] = obj.getAgentUpdate(observationSet);
+            [obj,obstacleSet,agentSet,waypointSet] = obj.GetAgentUpdate(observationSet);
 
             % GET WAYPOINT (TARGET) HEADING VECTOR \\\\\\\\\\\\\\\\\\\\\\\\
-            if ~isempty(obj.targetWaypoint)  
-               % GET THE WAYPOINT HEADING VECTOR
-               targetHeading = obj.targetWaypoint.state(1:2)/norm(obj.targetWaypoint.state(1:2));
-            else
-               targetHeading = [1;0];
-            end
+            targetHeading = obj.GetTargetHeading();
                        
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %                                                             %

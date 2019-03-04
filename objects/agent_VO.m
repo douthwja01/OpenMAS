@@ -7,8 +7,6 @@
 classdef agent_VO < agent
 %% INITIALISE THE AGENT SPECIFIC PARAMETERS
     properties
-        % AGENT PARMETERS
-        radius = 0.5;
         % AVOIDANCE PARAMETERS
         epsilon = 1E-5;                     % Some reasonably small tolerance
         neighbourDist = 15;                 % The horizon of avoidance consideration
@@ -16,7 +14,7 @@ classdef agent_VO < agent
         feasabliltyMatrix;                  % The stored achievable velocity matrix     
         pointDensity = 15;                  % Must be odd to allow a zero value
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % CONSTRUCTION METHOD
         function [obj] = agent_VO(varargin)
@@ -28,29 +26,28 @@ classdef agent_VO < agent
             obj@agent(varargin);                                           % Get super class 'agent'
          
             % VELOCITY OBSTACLE PARAMETERS
-            obj.feasabliltyMatrix = obj.getFeasabilityGrid(-ones(3,1)*obj.maxSpeed,...
+            obj.feasabliltyMatrix = obj.GetFeasabilityGrid(-ones(3,1)*obj.maxSpeed,...
                                                             ones(3,1)*obj.maxSpeed,...
                                                             obj.pointDensity); 
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
-            [obj] = obj.getDefaultSensorParameters();       % Default sensing
-            %[obj] = obj.getCustomSensorParameters();       % Experimental sensing
+            [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
+            %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
-                                                        
+                             
             % VIRTUAL DEFINITION (SIMULATOR PARAMETERS)
-            obj.VIRTUAL.radius = obj.radius; 
-            obj.VIRTUAL.detectionRadius = obj.SENSORS.range;
+            obj = obj.SetRadius(0.5);
+            obj = obj.SetDetectionRadius(inf);
             
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
         % SETUP - X = [x;x_dot]' 3D STATE VECTOR
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
             [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end
-        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
+        % MAIN
         function [obj] = main(obj,TIME,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
@@ -79,12 +76,12 @@ classdef agent_VO < agent
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
-%             [obj,obstacleSet,agentSet] = obj.getSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
+%             [obj,obstacleSet,agentSet] = obj.GetSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            [headingVector] = obj.getWaypointHeading();
+            [headingVector] = obj.GetTargetHeading();
             desiredVelocity = headingVector*obj.nominalSpeed;
 
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
@@ -94,7 +91,7 @@ classdef agent_VO < agent
             if ~isempty(avoidanceSet) && avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm      
@@ -107,24 +104,13 @@ classdef agent_VO < agent
             obj.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs
         end
-        % INITIALISE SENSORS (NOISY SENSOR PARAMETERS)
-        function [obj] = getCustomSensorParameters(obj)
-            % This function is designed to populate the SENSOR field with
-            % representative sensor uncertainty.
-            % ADD ADDITIONAL PARAMETERS TO THE SENSOR DESCRIPTIONS
-            obj.SENSORS.range = inf;               % Assume the agent has perfect environmental knowledge (m)
-            obj.SENSORS.sigma_position = 0.5;      % Accurate to within 0.5m
-            obj.SENSORS.sigma_velocity = 0.1;      % Accurate to within 0.1m/s
-            obj.SENSORS.sigma_rangeFinder = 0.1;   % Accurate to within 0.1m
-            obj.SENSORS.sigma_camera = 5.21E-5;    % One pixel in a 1080p image
-            obj.SENSORS.sampleFrequency = inf;     % Sensing has perfect precision
-        end
     end
-
+    %% /////////////////////// AUXILLARY METHODS //////////////////////////
+    
     % //////////////////// VELOCITY OBSTACLE METHODS //////////////////////
     methods
         % GET THE VO VELOCITY CORRECTION
-        function [headingVector,speed] = getAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the collision avoidance heading and
             % velocity correction.
             
@@ -151,7 +137,7 @@ classdef agent_VO < agent
                 tau_b = 0;
                 if knownObstacles(item).type == OMAS_objectType.obstacle && ~isempty(g_b)
                     g_b.vertices = g_b.vertices + p_a';
-                    [VO_i] = obj.getComplexObstacles(p_a,v_a,r_a,p_b,v_b,g_b,tau_b);
+                    [VO_i] = obj.GetComplexObstacles(p_a,v_a,r_a,p_b,v_b,g_b,tau_b);
                 else
                     % DEFINE THE VELOCITY OBSTACLE PROPERTIES
                     [VO_i] = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau_b,visualiseProblem);
@@ -164,7 +150,7 @@ classdef agent_VO < agent
             capableVelocities = obj.feasabliltyMatrix;                     % Get all the feasible velocities this timestep 
 
             % SUBTRACT THE VELOCITY OBSTACLES FROM THE VELOCITY FIELDS
-            escapeVelocities = obj.getEscapeVelocities(capableVelocities,VO); % The viable velocities from the capable 
+            escapeVelocities = obj.GetEscapeVelocities(capableVelocities,VO); % The viable velocities from the capable 
             
             % APPLY THE MINIMUM DIFFERENCE SEARCH STRATEGY
             [avoidanceVelocity] = obj.strategy_minimumDifference(desiredVelocity,escapeVelocities);
@@ -200,7 +186,7 @@ classdef agent_VO < agent
             end
         end
         % GET THE VIABLE ESCAPE VELOCITIES
-        function [escapeVelocities] = getEscapeVelocities(obj,velocityMatrix,VOlist)
+        function [escapeVelocities] = GetEscapeVelocities(obj,velocityMatrix,VOlist)
             % This function takes a matrix of potential velocities and
             % compares them against the agents Velocity Obstacle set. A
             % matrix of escape velocities is then produced.
@@ -391,6 +377,18 @@ classdef agent_VO < agent
                 end
             end
         end
+        % INITIALISE SENSORS (NOISY SENSOR PARAMETERS)
+        function [obj] = GetCustomSensorParameters(obj)
+            % This function is designed to populate the SENSOR field with
+            % representative sensor uncertainty.
+            % ADD ADDITIONAL PARAMETERS TO THE SENSOR DESCRIPTIONS
+            obj.SENSORS.range = inf;               % Assume the agent has perfect environmental knowledge (m)
+            obj.SENSORS.sigma_position = 0.5;      % Accurate to within 0.5m
+            obj.SENSORS.sigma_velocity = 0.1;      % Accurate to within 0.1m/s
+            obj.SENSORS.sigma_rangeFinder = 0.1;   % Accurate to within 0.1m
+            obj.SENSORS.sigma_camera = 5.21E-5;    % One pixel in a 1080p image
+            obj.SENSORS.sampleFrequency = inf;     % Sensing has perfect precision
+        end
     end   
     % ///////////////// STATIC VELOCITY OBSTACLE METHODS //////////////////
     methods (Static)
@@ -496,7 +494,7 @@ classdef agent_VO < agent
             end            
         end
         % BUILD A UNIT, CUBOID N-DIMENSIONAL POINT CLOUD
-        function [cubePoints] = getFeasabilityGrid(minVector,maxVector,pointDensity)
+        function [cubePoints] = GetFeasabilityGrid(minVector,maxVector,pointDensity)
             % This function generates an n-dimensional cube of points defined
             % by the minimum and maximum vector arguements. 
             % INPUTS:

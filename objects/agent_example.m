@@ -32,9 +32,9 @@ classdef agent_example < agent
         % EXAMPLE PROPERTIES (Unique to this agent)
         % noOfWings = 2;
     end
-    % REQUIRED METHODS
+    %% //////////////////// MAIN (required) METHODS ///////////////////////
     methods 
-        % CONSTRUCTOR METHOD
+        % CONSTRUCTOR
         function obj = agent_example(varargin)
             % This function is called to create the 'agent_example' class,
             % which then takes on the new parameters specified.
@@ -46,10 +46,10 @@ classdef agent_example < agent
             
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Create the super class 'agent'            
-
-            % VIRTUAL DEFINITION
-            obj.VIRTUAL.detectionRange = 50;                               % Update the range attribute to the SIM VIRTUAL property            
-            % CHECK FOR USER OVERRIDES
+            % Set some of the parameters
+            obj = obj.SetRadius(0.5);
+            obj = obj.SetDetectionRadius(50);                              % Update the range attribute to the SIM VIRTUAL property            
+            % Parse any overrides
             [obj] = obj.configurationParser(obj,varargin);
         end
         % AGENT MAIN CYCLE 
@@ -74,7 +74,7 @@ classdef agent_example < agent
             end
 
             % PARSE THE ENTITY PROPERTIES FROM THE ENVIRONMENT 
-            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE       
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE       
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
             %        INSERT ALGORITHM/DECISION MAKING PROCESS HERE
@@ -102,7 +102,7 @@ classdef agent_example < agent
             obj = obj.updateGlobalProperties(dt,state_k_plus);
         end
     end
-    % UNIQUE METHODS
+    %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % ASSIGNED STATE UPDATE FUNCTION (USING ODE45)
         function [X] = updateLocalState(obj,TIME,X,velocity,omega)

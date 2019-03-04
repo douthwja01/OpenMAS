@@ -12,7 +12,7 @@ TEST.tempDir = strcat(userdir,'\desktop\temp');
 TEST.objectsPath  = '\objects';
 TEST.objectNumber = 2;
 TEST.phase        = 'DEBUG';
-TEST.summaryFile  = [pwd,'\objectDebug.csv'];
+TEST.summaryFile  = [pwd,'\ObjectDebugReport.csv'];
 isIssue = 0;
 
 % DETERMINE THE INPUTS 

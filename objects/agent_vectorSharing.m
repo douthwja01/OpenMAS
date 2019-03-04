@@ -7,8 +7,6 @@
 classdef agent_vectorSharing < agent
 %%% INITIALISE THE AGENT SPECIFIC PARAMETERS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties
-        % AGENT PARMETERS
-        radius = 0.5;
         % AVOIDANCE PARAMETERS
         neighbourDist = 15;  
         maxNeighbours = 10;
@@ -25,16 +23,16 @@ classdef agent_vectorSharing < agent
             obj@agent(varargin);                                           % Get super class 'agent'
             
             % DYNAMIC PARAMETERS
-            [obj] = obj.getDynamicParameters();
+            [obj] = obj.GetDynamicParameters();
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
-            [obj] = obj.getDefaultSensorParameters();       % Default sensing
-            %[obj] = obj.getCustomSensorParameters();       % Experimental sensing
+            [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
+            %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
             
             % RE-ESTABLISH THE (SIMULATOR PARAMETERS)
-            obj.VIRTUAL.radius = obj.radius; 
-            obj.VIRTUAL.detectionRadius = obj.SENSORS.range;
+            obj = obj.SetRadius(0.5);
+            obj = obj.SetDetectionRadius(obj.SENSORS.range);
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
         end
@@ -74,12 +72,12 @@ classdef agent_vectorSharing < agent
                         
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.getAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
-%             [obj,obstacleSet,agentSet] = obj.getSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(varargin{1});       % IDEAL INFORMATION UPDATE
+%             [obj,obstacleSet,agentSet] = obj.GetSensorUpdate(dt,varargin{1}); % REALISTIC INFORMATION UPDATE
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            headingVector   = obj.getWaypointHeading();
+            headingVector   = obj.GetTargetHeading();
             desiredVelocity = headingVector*obj.nominalSpeed;
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
@@ -89,7 +87,7 @@ classdef agent_vectorSharing < agent
             if ~isempty(avoidanceSet) && avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                 [desiredHeadingVector,desiredSpeed] = obj.getAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
+                 [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
                  desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
@@ -102,28 +100,23 @@ classdef agent_vectorSharing < agent
             obj.DATA.inputNames = {'dx (m/s)','dy (m/s)','Yaw Rate (rad/s)'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);  
         end
-        % INITIALISE SENSORS (NOISY SENSOR PARAMETERS)
-        function [obj] = getCustomSensorParameters(obj)
-            % This function is designed to populate the SENSOR field with
-            % representative sensor uncertainty.
-            % ADD ADDITIONAL PARAMETERS TO THE SENSOR DESCRIPTIONS
-            obj.SENSORS.range = inf;                                       % Assume the agent has perfect environmental knowledge (m)
-            obj.SENSORS.sigma_position = 0.5;                              % Accurate to within 0.5m
-            obj.SENSORS.sigma_velocity = 0.1;                              % Accurate to within 0.1m/s
-            obj.SENSORS.sigma_rangeFinder = 0.1;                           % Accurate to within 0.1m
-            obj.SENSORS.sigma_camera = 5.21E-5;                            % One pixel in a 1080p image
-            obj.SENSORS.sampleFrequency = inf;                             % Sensing has perfect precision
-        end
     end
     % AGENT SPECIFIC METHODS
     methods
         % GET THE AVOIDANCE CORRECTION
-        function [headingVector,speed] = getAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(obj,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the collision avoidance velocity in
             % light of the current obstacles
             
+            % Check we aren't stopping
+            if iszero(desiredVelocity)
+               headingVector = [1;0;0];
+               speed = 0;
+               return
+            end
+            
             % AGENT KNOWLEDGE
-            [p_a,v_a,r_a] = obj.getAgentMeasurements(); % Its own position, velocity and radius
+            [p_a,v_a,r_a] = obj.GetAgentMeasurements(); % Its own position, velocity and radius
             
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             optimalSet = [];
@@ -145,10 +138,8 @@ classdef agent_vectorSharing < agent
             end
             
             % INTERPRETING THE AVOIDANCE VELOCITY SET
-            inputDim = 3;
             if ~isempty(optimalSet)
-                % THE CLOSEST OBSTACLE
-                %                 avoidanceVelocity = optimalSet(1:inputDim,1);
+                inputDim = 3;
                 % FIND THE MINIMUM MAGNITUDE DEVIATION FROM THE DESIRED
                 [~,minIndex] = min(optimalSet((inputDim+1),:),[],2);       % Return the index of the smallest vector
                 avoidanceVelocity = optimalSet(1:inputDim,minIndex);
@@ -186,28 +177,25 @@ classdef agent_vectorSharing < agent
             % Define the current velocity as optimal
             U_a = desiredVelocity;
             
+            % Input sanity #1 - No relative velocity.
+            if ~any(v_b) || any(isnan(v_b))
+                return
+            end      
+            
             % DEFINE THE INITIAL PROBLEM PARAMETERS
             r   = p_b - p_a;                          % The relative position vector = relative seperation
             c_b = v_b - v_a;                          % Define absolute velocity of b
             c_b_unit = c_b/norm(c_b);                 % Unit relative velocity of v_b
             
-            % COLLISION CHECK #1 - No relative velocity.
-            if ~any(c_b)                                              
-                return                                
-            end
-            
             % ///////////////// VECTOR SHARING PROBLEM ////////////////////
             
             % THE 'NEAR-MISS' VECTOR
             r_m = cross(c_b_unit,cross(r,c_b_unit));
-
-%             c_temp = [c_b_unit;0]; r_temp = [r;0];
-%             r_m = cross(c_temp,cross(r_temp,c_temp));
-
+            
             % CATCHA: No miss vector -> compensate
-            if norm(r_m) == 0               
+            if norm(r_m) == 0
                 r_m = 0.01*rand(3,1);
-            end    
+            end
             
             % DEFINE THE TIME TO COLLISION (+ve converging)
             tau = -(dot(r,c_b)/dot(c_b,c_b));

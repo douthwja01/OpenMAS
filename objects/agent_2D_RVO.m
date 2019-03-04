@@ -31,15 +31,15 @@ classdef agent_2D_RVO < agent_2D_VO & agent_RVO
         % be the same as the super-class.
         
         % CALCULATE THE NECESSARY 2D AVOIDANCE VELOCITY
-        function [headingVector,speed] = getAvoidanceCorrection(obj,dt,desiredVelocity,knownObstacles,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(obj,dt,desiredVelocity,knownObstacles,visualiseProblem)
             % This function calculates the 2D avoidance velocity command
             % and returns it to be achieved by the controller.
             
             % AGENT KNOWLEDGE
             p_a = obj.localState(1:2,1);
             v_a = obj.localState(4:5,1);
-            r_a = obj.VIRTUAL.radius;
-%             [p_a,v_a,r_a] = obj.getAgentMeasurements();
+            r_a = obj.radius;
+%             [p_a,v_a,r_a] = obj.GetAgentMeasurements();
             
 
 
@@ -75,7 +75,7 @@ classdef agent_2D_RVO < agent_2D_VO & agent_RVO
             % GET THE CAPABLE VELOCITIES
 %             capableVelocities = obj.feasabliltyMatrix;                     % Get all the feasible velocities this timestep 
             % SUBTRACT THE VELOCITY OBSTACLES FROM THE VELOCITY FIELDS
-%             escapeVelocities = obj.getEscapeVelocities(capableVelocities,VO);      % The viable velocities from the capable        
+%             escapeVelocities = obj.GetEscapeVelocities(capableVelocities,VO);      % The viable velocities from the capable        
             % SEARCH THE VIABLE ESCAPE VELOCITIES FOR THE VELOCITY WITH THE 
             % SMALLEST DEVIATION FROM THE DESIRED VELOCITY
 %             [avoidanceVelocity] = obj.strategy_minimumDifference(desiredVelocity,escapeVelocities);

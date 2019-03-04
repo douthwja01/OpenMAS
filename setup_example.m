@@ -44,8 +44,8 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_2D();
 
 %     agentIndex{index} = agent_test();
-%     agentIndex{index} = agent_example();
-    agentIndex{index} = agent_VO();
+    agentIndex{index} = agent_example();
+
 % 3D COLLISION AVOIDANCE
 %     agentIndex{index} = agent_VO();
 %     agentIndex{index} = agent_RVO();

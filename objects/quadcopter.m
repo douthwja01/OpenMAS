@@ -51,17 +51,17 @@ classdef quadcopter < agent
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet,waypointSet] = obj.getAgentUpdate(varargin{1});                   % IDEAL INFORMATION UPDATE 
+            [obj,obstacleSet,agentSet,waypointSet] = obj.GetAgentUpdate(varargin{1});                   % IDEAL INFORMATION UPDATE 
             
             % GET THE CONTROLLER REFERENCE STATE
-            [obj,X_desired] = obj.getControllerType('velocity',dt); 
+            [obj,X_desired] = obj.GetControllerType('velocity',dt); 
             
 %             % PLOT THE WORLD
 %             if obj.objectID == 1
 %                 observedObjects = [obstacleSet;agentSet;waypointSet];
 %                 figureHandle = figure(1);
-%                 [figureHandle] = obj.getObjectScene(observedObjects,figureHandle);
-%                 obj.getAnimationFrame(ENV,figureHandle);
+%                 [figureHandle] = obj.GetObjectScene(observedObjects,figureHandle);
+%                 obj.GetAnimationFrame(ENV,figureHandle);
 %             end
             
             % UPDATE THE LOCAL STATE
@@ -76,7 +76,7 @@ classdef quadcopter < agent
     end
     methods
         % CONTROL 
-        function [obj,Xref] = getControllerType(obj,type,dt)
+        function [obj,Xref] = GetControllerType(obj,type,dt)
             % This functional allows multiple types of LQR control to be
             % applied. 
             
