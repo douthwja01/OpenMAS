@@ -22,10 +22,11 @@ systemStates = size(trajectoryMatrix,1);
 
 % INPUT HANDLING
 assert(mod(systemStates,numberOfGlobalStates) == 0,'The dimensions of the state matrix provided is incorrect.');
+assert(any(globalIDvector == objectID),'The query objectID must belong to the global ID vector.');
 
 % DEFINE THE INDEX OF THE OBJECT FROM ITS OBJECT ID 
 logicalIndices = globalIDvector == objectID;                                        % The logical position of the ID
-indexPosition = inf;
+indexPosition = 0;
 for i = 1:numel(logicalIndices)
    if logicalIndices(i)
       indexPosition = i; 
@@ -48,9 +49,6 @@ if step > size(trajectoryMatrix,2)
     indexOfLastState = uint32(size(objectStateData,2));                               % Indices of the last state
     return
 end
-
-% assert(isnumeric(step),'Step provided must be an integer number.');
-
 % RETURN ALL STATES UPTO THE POINT OF INACTIVITY (INDICATED BY NaNs)
 if isnan(step)
         % RETURN ONLY VALID STATES (ALL STATES UPTO TERMINATION 'NaN')
@@ -78,12 +76,3 @@ else
 end
 
 end
-
-% if ischar(step) 
-%     if strncmp(step,'last',4)
-%         % LAST STATE REQUESTED
-%         objectStateData = trajectoryMatrix(objectStateIndices(1):objectStateIndices(2),:);   % Full timeseries
-%         validStates = ~any(isnan(objectStateData(1:3,:)));                            % non-NaN states
-%         indicesOfFinalState = find(validStates,1,'last');
-%         objectStateData = objectStateData(:,indicesOfFinalState);                              % Final valid object state
-%     elseif strncmp(step,'valid',5)

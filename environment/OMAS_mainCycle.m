@@ -436,7 +436,6 @@ ENV.outputPath = SIM.outputPath;
 switch SIMfirstObject.type
     case OMAS_objectType.agent
         % AGENT - SIMULATION/ENVIROMENTAL FEEDBACK REQUIRED %%%%%%%%%%%%%%
-        %
         observationPacket = [];         % Container for agent detection packet
         
         if referenceObject.VIRTUAL.is3D
@@ -444,7 +443,6 @@ switch SIMfirstObject.type
         else
             dimensionIndices = 1:2;    
         end
-        
         
         % //// PARSE THE ENVIRONMENTAL OBJECTS OBSERVABLE TO THE AGENT ////
         for ID2 = 1:SIM.totalObjects

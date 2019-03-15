@@ -17,21 +17,4 @@ classdef eventType < uint8
       null_collision(7) % Collision-clear
       null_waypoint(8)  % Waypoint drop
    end
-%    enumeration
-%       event(0)          % Generic event
-%       detection(1)      % Detection
-%       warning(2)        % Proximity warning 
-%       collision(3)      % Collision 
-%       waypoint(4)       % Waypoint achieve      
-%       null_collision(5) % Collision-clear
-%       null_warning(6)   % Warning-clear 
-%       null_detection(7) % Detection loss 
-%       null_waypoint(8)  % Waypoint drop
-%    end
-   methods (Static)
-%     function [enumList] = getAllEventTypes()
-%         [m,s] = enumeration(eventType)
-%         enumList = m;
-%     end
-    end
 end

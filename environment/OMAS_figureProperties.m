@@ -19,6 +19,7 @@ figureProperties.tailLength = 4;                                           % The
 figureProperties.titleFontSize = 24;
 figureProperties.axisFontSize = 18;
 figureProperties.fontWeight = 'bold';
+figureProperties.interpreter = 'latex';
 figureProperties.markerSize = 10;
 figureProperties.markerEdgeColor = 'k';
 figureProperties.lineWidth = 2;                                            % Applies to both the marker and trails

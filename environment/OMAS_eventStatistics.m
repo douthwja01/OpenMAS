@@ -49,11 +49,11 @@ agentSet = SIM.OBJECTS([SIM.OBJECTS.type] == OMAS_objectType.agent);   % The com
 collidedAgents = SIM.OBJECTS(ismember([agentSet.objectID],collisionIDs));
 % SUMMARISE COLLISIONS
 EVENTstatistics.collisions = numel(collidedAgents);
-EVENTstatistics.collisionPercentage = 100*(EVENTstatistics.collisions/SIM.totalAgents);
+EVENTstatistics.collisionPercentage = 100*(EVENTstatistics.collisions/double(SIM.totalAgents));
 
 % >>>>>>> GET WAYPOINT STATISTICS
 [EVENTstatistics.waypointsAchieved,~] = getEventSummary(SIM,parsedEVENTS.waypoint);
-EVENTstatistics.waypointPercentage = 100*(EVENTstatistics.waypointsAchieved/SIM.totalWaypoints);
+EVENTstatistics.waypointPercentage = 100*(EVENTstatistics.waypointsAchieved/double(SIM.totalWaypoints));
 if isnan(EVENTstatistics.waypointPercentage)
     EVENTstatistics.waypointPercentage = 0;
 end

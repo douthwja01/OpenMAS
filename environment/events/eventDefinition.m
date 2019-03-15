@@ -39,7 +39,6 @@ classdef eventDefinition
                 obj.time = time;
             end
             % CONFIRM NAME STRING
-            %             if ~exist('name','var') || isnumeric(name) || isempty(name)    % Default name setting
             if isnumeric(name) || isempty(name)    % Default name setting
                 obj.name = 'EVENT';
             else
@@ -60,10 +59,10 @@ classdef eventDefinition
             else
                 eventcount = eventcount + 1;
             end
-            obj.eventID = eventcount;   % Assign the number as an ID tag
+            obj.eventID = uint16(eventcount);   % Assign the number as an ID tag
             
             % ASSIGN THE DEFAULT TYP
-            obj.type = eventType.event;     % Assign default enumeration of 'event'
+            obj.type = eventType.event;         % Assign default enumeration of 'event'
        end
     end
     % PRIVATE METHODS (CLASS SPECIFIC TOOLS)

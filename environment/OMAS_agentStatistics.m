@@ -19,51 +19,42 @@ if isempty(objectIndex)
     return
 end
 % BUILD THE "MEANS" DATA STRUCTURE
-MEANS = struct(); global_mean_dt = 0;
+MEANS = struct('global_mean_dt',0,...
+               'global_max_dt',0,...
+               'global_min_dt',0); 
+           
 % Isolate the agent set
 agentOBJECTS = objectIndex([SIM.OBJECTS(:).type] == OMAS_objectType.agent);  %(SIM.globalIDvector == objectIndex{ind}.objectID);
 % MOVE THROUGH THE OBJECT SET 
 for ind = 1:SIM.totalAgents
+    
     % Check if a 'DATA' structure is present
-    if isprop(agentOBJECTS{ind},'DATA') || isempty(objectIndex{ind}.DATA)
+    if ~isprop(agentOBJECTS{ind},'DATA') || isempty(agentOBJECTS{ind}.DATA)
        continue 
     end
     % Query the agent.DATA property
-    agentDATA = objectIndex{ind}.DATA; 
+    agentDATA = agentOBJECTS{ind}.DATA; 
     
     % GET THE ALGORIHM TIMESERIES DATA & SUMMARY INFORMATION
     if isfield(agentDATA,'dt')
-        [agentDATA] = get_algorithmTimeData(agentDATA);
+        % Get the analysis of the mean computation where the algorithm was
+        % executed
+
+        % Get the temporal parameters of the algorithm
+        [mean_dt,max_dt,min_dt] = GetAgentTemporalStatistics(agentDATA.dt,agentDATA.indicator);
+        
         % STORE THE AGENT'S MEAN TIME
-        fieldName = sprintf('objectID%d_mean_dt',objectIndex{ind}.objectID);
-        MEANS.(fieldName) = agentDATA.mean_dt;
+        MEANS.(sprintf('ID%d_mean_dt',objectIndex{ind}.objectID)) = mean_dt;
+        
         % GET THE (GLOBAL) ALGORITHM COMPUTATION-TIME DATA
-        global_mean_dt = global_mean_dt + agentDATA.mean_dt/SIM.totalAgents;
+        MEANS.global_mean_dt = MEANS.global_mean_dt + mean_dt/double(SIM.totalAgents);
+        MEANS.global_max_dt  = MEANS.global_max_dt  + max_dt/double(SIM.totalAgents);
+        MEANS.global_min_dt  = MEANS.global_min_dt  + min_dt/double(SIM.totalAgents);
+%     else
+%         warning('Agent %s[ID-%d] does not have a "dt" property for temporal analysis.',...
+%             agentOBJECTS{ind}.name,agentOBJECTS{ind}.objectID);
     end
     % Reassign the DATA to agent structure
-    objectIndex{ind}.DATA = agentDATA;                                     % Update object-side data
+    objectIndex{[SIM.OBJECTS(:).objectID] == agentOBJECTS{ind}.objectID}.DATA = agentDATA;% Update object-side data                           
 end
-end
-
-% GENERATE THE TIMING PARAMETERS FROM THE ALGORITHM TIMESERIES
-function [updatedAgentData] = get_algorithmTimeData(agentDATA)
-% This function calculates all the timing parameters for the algorithm data
-% deposited in the .DATA attribute of each agent.
-
-% INITIALISE THE OUTPUT DATA CONTAINER
-updatedAgentData = agentDATA;
-
-if ~isfield(agentDATA,'indicator')
-    % ASSUME ACTIVE CONSTANTLY
-    agentDATA.indicator = ones(size(agentDATA.dt));
-end
-
-% DETERMINE THE ALGORITHM COMPUTATION TIME TIME-SERIES
-executedSteps = logical(agentDATA.indicator);                              % Convert algorithm ran indicators into logicals
-valid_algorithm_dt = agentDATA.dt(executedSteps);                          % Get the times where the computations were ran
-
-% GET THE (AGENT) ALGORITHM COMPUTATION-TIME DATA
-updatedAgentData.mean_dt = sum(valid_algorithm_dt)/numel(valid_algorithm_dt);
-updatedAgentData.max_dt = max(valid_algorithm_dt);
-updatedAgentData.min_dt = min(valid_algorithm_dt);
 end

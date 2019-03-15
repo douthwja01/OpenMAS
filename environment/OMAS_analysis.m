@@ -18,10 +18,14 @@ function [DATA] = OMAS_analysis(META,objectIndex,EVENTS,DATA)
 % OUTPUT:
 % DATA              - The comprehensive DATA output data structure
 
-global plotnum
+% Input sanity check
+assert(iscell(objectIndex),'Expecting a cell array of objects.');
+assert(isstruct(META),'Expecting an OpenMAS META structure');
+assert(isstruct(EVENTS),'Expecting an OpenMAS EVENTS structure');
+assert(isstruct(DATA),'Expecting an OpenMAS DATA structure');
 
-%% INPUT HANDLING
 % DETERMINE PLOT PROPERTIES
+global plotnum
 if ~exist('plotnum','var') || isempty(plotnum)
     plotnum = 1;    % Default to first plot
 end
@@ -29,7 +33,7 @@ end
 fprintf('[%s]\tOMAS ANALYSIS TOOL...\n[%s]\n',META.phase,META.phase);
 
 % CONFIRM INPUT DATA STRUCTURE
-if ~exist('DATA','var') || ~isstruct(DATA)
+if ~isstruct(DATA)
     warning('The output data structure invalid.')
     return
 elseif ~isfield(DATA,'timeVector')
@@ -53,9 +57,10 @@ try
         end
     end
 catch agentParseError
-    warning('[ERROR] A problem occurred parsing the event history data.');
+    warning('[OMAS-error] A problem occurred parsing the event history data.');
     warning(agentParseError.message);
     fprintf('\n');
+    rethrow(agentParseError);
 end
 
 %% GET AGENT-SIDE STATISTICS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -63,9 +68,10 @@ fprintf('[%s]\tMoving to agent data parser...\n',META.phase);
 try
     [objectIndex,DATA.MEANS] = OMAS_agentStatistics(META,objectIndex);
 catch agentParseError
-    warning('[ERROR] A problem occurred parsing the agent data.');
+    warning('[OMAS-error] A problem occurred parsing the agent data.');
     warning(agentParseError.message);
     fprintf('\n');
+    rethrow(agentParseError);
 end
 
 % //////////////// GENERATE THE DEFAULT FIGURE PARAMETERS /////////////////
@@ -83,15 +89,16 @@ end
 sendOutputToFiles(META,EVENTS,DATA,objectIndex)
 
 % ///////////////////// FIGURE GENERATION PROCEDURE ///////////////////////
-% GENERATE OUTPUT FIGURES
 for figNum = 1:length(figureList)
-%     try
+    try
+        % Generate output figures
         [plotnum] = OMAS_figureGenerator(META,objectIndex,DATA,plotnum,figureList(figNum)); % Jump to the figure index
-%     catch figureGenerationError
-%         warning('[ERROR] A problem occurred generating the output figures.');
-%         warning(figureGenerationError.message);
-%         fprintf('\n');
-%     end
+    catch figureGenerationError
+        warning('[OMAS-error] A problem occurred generating the output figures.');
+        warning(figureGenerationError.message);
+        fprintf('\n');
+        rethrow(figureGenerationError);
+    end
 end
 end
 

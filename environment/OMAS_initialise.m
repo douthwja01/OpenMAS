@@ -31,7 +31,7 @@ TIME = struct('duration',1E3,...                                           % Ass
                     'dt',0.5,...
              'startTime',0,...
            'idleTimeOut',1);
-[TIME] = configurationParser(TIME,varargin);  
+[TIME] = ParseConfiguration(TIME,varargin);  
 
 % //////////////// DEFAULT GENERAL CONFIGURATION STRUCTURE ////////////////
 defaultConfig = struct('figures',{{'events','fig'}},...
@@ -50,7 +50,7 @@ defaultConfig = struct('figures',{{'events','fig'}},...
                  
 % ///////////////////// PARSE USER INPUT PARAMETERS ///////////////////////
 fprintf('[SETUP]\tConfirming input variables.\n');
-[SIM] = configurationParser(defaultConfig,varargin);
+[SIM] = ParseConfiguration(defaultConfig,varargin);
 clear TIME defaultConfig
 
 % Input sanity checks
@@ -127,7 +127,7 @@ clear figureList
 fprintf('[%s]\tCONFIGURATION SUMMARY:\n',META.phase);
 fprintf('[%s]\tObjects: %s\tAgents: %s\tObstacles: %s\tWaypoints: %s\n',...
         META.phase,num2str(META.totalObjects),num2str(META.totalAgents),...
-        num2str(META.totalObstacles),num2str(META.totalWaypoints));                      % Object summary
+        num2str(META.totalObstacles),num2str(META.totalWaypoints));                     % Object summary
 fprintf('[%s]\tDuration: %ss\tSampling: %ss\tSteps: %s\n',META.phase,...
         num2str(META.TIME.duration),num2str(META.TIME.dt),num2str(META.TIME.numSteps)); % Timing summary
    
@@ -139,13 +139,13 @@ OMAS_finish = toc(OMAS_start);
 fprintf('[%s]\tOperation lasted %ss.\n',META.phase,num2str(OMAS_finish));
 
 %% ///////////// ONCE COMPLETE - RUN EXTERNAL ANALYSIS ////////////////////
-% try
+try
     fprintf('[%s]\tMoving to post-simulation analysis...\n[%s]\n',META.phase,META.phase);
     [DATA] = OMAS_analysis(META,objectIndex,EVENTS,DATA);                  % Jump to external analysis program
-% catch analysisError
-%     warning('[ERROR] A problem occurred interpreting the output data');
-%     rethrow(analysisError);
-% end
+catch analysisError
+    warning('[ERROR] A problem occurred interpreting the output data');
+    rethrow(analysisError);
+end
 
 % DELETE THE SYSTEM TEMPORARY FILE
 delete([META.outputPath,META.systemFile]);
