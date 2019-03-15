@@ -80,7 +80,6 @@ classdef agent_2D_VO < agent_2D & agent_VO
             % APPLY SPEED CONSTRAINT
             desiredSpeed = norm(desiredVelocity);
             if desiredSpeed > obj.maxSpeed
-                desiredSpeed = obj.maxSpeed;
                 desiredHeadingVector = desiredVelocity/norm(desiredVelocity);
                 desiredVelocity = desiredHeadingVector*obj.maxSpeed;
             end  

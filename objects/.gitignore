@@ -13,6 +13,7 @@ agent_formation_RVO2.m
 agent_formation_VO.m
 
 # INTERVAL
+agent_interval.m
 agent_2D_vectorSharing_interval.m
 agent_vectorSharing_interval.m
 

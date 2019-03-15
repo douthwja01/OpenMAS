@@ -126,8 +126,6 @@ classdef agent_interval < agent
             objectData1.elevation = theta_measured;
             objectData1.alpha     = alpha_measured;
             
-                
-            
             % Equivalent position
             [measuredPosition] = obj.GetCartesianFromSpherical(d_measured,psi_measured,theta_measured);
             % Equivalent radius
@@ -149,7 +147,7 @@ classdef agent_interval < agent
     % //////////////// INTERVAL SENSOR PARAMETER IMPORTS  /////////////////
     methods (Static)
         % GET EMPTY MEMORY STRUCTURE
-        function [entry] = GetMemoryEntryTemplate()
+        function [entry]   = GetMemoryEntryTemplate()
             % Create emptry memory structure
             entry = struct(...
                 'name',[],...
@@ -562,19 +560,19 @@ classdef agent_interval < agent
             
             % Input sanity check
             assert(ischar(field),'Memory sort method must be a string.');
-            if ~any(strcmp(fieldnames(obj.memory),field))
+            if ~any(strcmp(fieldnames(obj.MEMORY),field))
                 error('Field does not belong to the memory structure.')                
             end
             
             % Handle interval parameters
-            if isintval([obj.memory.(field)])
+            if isintval([obj.MEMORY.(field)])
                 % Reorder the memory structure based on fieldname
-                [~,ind] = sort(mid([obj.memory.(field)]),2,'descend');     % Ordered indices of the object IDs
+                [~,ind] = sort(mid([obj.MEMORY.(field)]),2,'descend');     % Ordered indices of the object IDs
             else
-                [~,ind] = sort([obj.memory.(field)],2,'descend');          % Ordered indices of the object IDs
+                [~,ind] = sort([obj.MEMORY.(field)],2,'descend');          % Ordered indices of the object IDs
             end
             % Sort the memory structure 
-            reorderedMemory = obj.memory(ind);
+            reorderedMemory = obj.MEMORY(ind);
         end 
     end
 end

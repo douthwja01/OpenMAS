@@ -15,7 +15,7 @@ classdef agent < objectDefinition
     % aerial or ground based.
     properties
         % OBSTACLE OBJECT MATRIX (record of sightings)
-        memory;                         % Record of last known [objectID;positions;velocities]
+        MEMORY;                         % Record of last known [objectID;positions;velocities]
         % DEFAULT BEHAVIOUR
         nominalSpeed = 2;               % Default nominal speed (m/s)
         maxSpeed = 4;                   % Default maximumal speed (m/s)
@@ -153,18 +153,21 @@ classdef agent < objectDefinition
                 obj = obj.UpdateMemoryByEntry(memoryEntry);
             end
             
+%             obj = obj.UpdateMemoryFromObjects(observedObjects);
+            
+            
             % SORT OBJECT SET BY PRIORITY
-            [obj.memory] = obj.SortMemoryByField('priority');
+            [obj.MEMORY] = obj.SortMemoryByField('priority');
             
             % DECERN OBJECT TYPES
-            % obj.memory now contains an updated understanding of all the
+            % obj.MEMORY now contains an updated understanding of all the
             % objects in its visual horizon. From this, the waypoints and
             % obstacles must be parsed.
             
             % PULL MEMORY ITEMS FOR LATER MANIPULATION
-            agentSet    = obj.memory([obj.memory.type] == OMAS_objectType.agent);
-            waypointSet = obj.memory([obj.memory.type] == OMAS_objectType.waypoint);
-            obstacleSet = obj.memory([obj.memory.type] == OMAS_objectType.obstacle); % Differenciate between the different object types
+            agentSet    = obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent);
+            waypointSet = obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.waypoint);
+            obstacleSet = obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle); % Differenciate between the different object types
             
             % UPDATE THE TARGET WAYPOINT, PRIORTIES 
             [obj,~] = obj.UpdateTargetWaypoint(waypointSet);                    % Update the target waypoint and heading vector
@@ -232,78 +235,78 @@ classdef agent < objectDefinition
             end
             
             % SORT OBJECT SET BY PRIORITY
-            [obj.memory] = obj.SortMemoryByField('priority');
+            [obj.MEMORY] = obj.SortMemoryByField('priority');
             
             % DECERN OBJECT TYPES
-            % obj.memory now contains an updated understanding of all the
+            % obj.MEMORY now contains an updated understanding of all the
             % objects in its visual horizon. From this, the waypoints and
             % obstacles must be parsed.
             
             % PULL MEMORY ITEMS FOR LATER MANIPULAT
-            agentSet    = obj.memory([obj.memory.type] == OMAS_objectType.agent);
-            waypointSet = obj.memory([obj.memory.type] == OMAS_objectType.waypoint);
-            obstacleSet = obj.memory([obj.memory.type] == OMAS_objectType.obstacle); % Differenciate between the different object types
+            agentSet    = obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent);
+            waypointSet = obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.waypoint);
+            obstacleSet = obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle); % Differenciate between the different object types
             
             % UPDATE THE TARGET WAYPOINT, PRIORTIES
             [obj,~] = obj.UpdateTargetWaypoint(waypointSet);  % Update the target waypoint and heading vector
         end
         % GET OBJECT DATA STRUCTURE (SENSORS)
         function [memoryEntry] = GetObjectUpdateFromSensors(obj,dt,observedObject)
-                        
-                % INFORMATION DIMENSIONALITY
-                if obj.VIRTUAL.is3D
-                    variableIndices = 1:3; 
-                else
-                    variableIndices = 1:2;
-                end
-
-                % DEFINE THE SENSED VARIABLES
-                % EMULATE MEASURED POSITIONAL VARIABLES (measured = range(true) + distortion)
-                [measuredRange,measuredAzimuth,measuredElevation,measuredAlpha] = obj.GetSensorMeasurments(observedObjects(item));
-                % Get the cartesian measurements from the spherical
-                measuredPosition = obj.GetCartesianFromSpherical(measuredRange,measuredAzimuth,measuredElevation);  % Calculate new relative position
-                % Calculate the radius from the angular measurements
-                measuredRadius   = obj.GetObjectRadius(measuredRange,measuredAlpha);   % Calculate the apparent radius                
-                % Map to 2D/3D
-                measuredPosition = measuredPosition(variableIndices,1);
-
-                % Pull priori measurements for the given object
-                [priorPosition,priorVelocity] = obj.GetLastStateFromMemory(observedObjects(item).objectID);         % Get prior obstacle knowledge
-                
-                if isempty(priorPosition)
-                    % FIRST SIGHT OF OBSTACLE
-                    measuredVelocity = NaN(max(variableIndices),1);
-                else
-                    % CALCULATE THE STATE UPDATE
-                    [measuredPosition,measuredVelocity] = obj.linearStateEstimation(...
-                        dt,priorPosition,priorVelocity,measuredPosition);
-                end   
-                
-                % DEFINE ITS APPARENT PRIORITY
-                if ~isnan(observedObject.priority)
-                    objectPriority = observedObject.priority;              % Assign priority to memory
-                else
-                    objectPriority = 1/observedObject.timeToCollision; 
-                end
-                
-                % MEMORY ITEM CONSTRUCTIONS (TRUE TO CURRENT STEP)
-                [memoryEntry] = obj.GetMemoryTemplate_sensor();
-                % Allocate the object parmaeters
-                memoryEntry.name = observedObject.name;
-                memoryEntry.objectID = observedObject.objectID;
-                memoryEntry.type     = observedObject.type;
-                memoryEntry.globalPosition = observedObject.globalPosition(variableIndices,1);
-                memoryEntry.globalVelocity = observedObject.globalVelocity(variableIndices,1);
-                % Measured parameters
-                memoryEntry.position = measuredPosition;
-                memoryEntry.velocity = measuredVelocity;
-                memoryEntry.radius   = measuredRadius;
-                memoryEntry.range    = measuredRange;
-                memoryEntry.azimuth  = measuredAzimuth;
-                memoryEntry.elevation = measuredTheta;
-                memoryEntry.alpha    = measuredAlpha;
-                memoryEntry.TTC      = observedObjects.timeToCollision;
-                memoryEntry.priority = objectPriority; 
+            
+            % INFORMATION DIMENSIONALITY
+            if obj.VIRTUAL.is3D
+                variableIndices = 1:3;
+            else
+                variableIndices = 1:2;
+            end
+            
+            % DEFINE THE SENSED VARIABLES
+            % EMULATE MEASURED POSITIONAL VARIABLES (measured = range(true) + distortion)
+            [measuredRange,measuredAzimuth,measuredElevation,measuredAlpha] = obj.GetSensorMeasurments(observedObjects(item));
+            % Get the cartesian measurements from the spherical
+            measuredPosition = obj.GetCartesianFromSpherical(measuredRange,measuredAzimuth,measuredElevation);  % Calculate new relative position
+            % Calculate the radius from the angular measurements
+            measuredRadius   = obj.GetObjectRadius(measuredRange,measuredAlpha);   % Calculate the apparent radius
+            % Map to 2D/3D
+            measuredPosition = measuredPosition(variableIndices,1);
+            
+            % Pull priori measurements for the given object
+            [priorPosition,priorVelocity] = obj.GetLastStateFromMemory(observedObjects(item).objectID);         % Get prior obstacle knowledge
+            
+            if isempty(priorPosition)
+                % FIRST SIGHT OF OBSTACLE
+                measuredVelocity = NaN(max(variableIndices),1);
+            else
+                % CALCULATE THE STATE UPDATE
+                [measuredPosition,measuredVelocity] = obj.linearStateEstimation(...
+                    dt,priorPosition,priorVelocity,measuredPosition);
+            end
+            
+            % DEFINE ITS APPARENT PRIORITY
+            if ~isnan(observedObject.priority)
+                objectPriority = observedObject.priority;              % Assign priority to memory
+            else
+                objectPriority = 1/observedObject.timeToCollision;
+            end
+            
+            % MEMORY ITEM CONSTRUCTIONS (TRUE TO CURRENT STEP)
+            [memoryEntry] = obj.GetMemoryTemplate_sensor();
+            % Allocate the object parmaeters
+            memoryEntry.name = observedObject.name;
+            memoryEntry.objectID = observedObject.objectID;
+            memoryEntry.type     = observedObject.type;
+            memoryEntry.globalPosition = observedObject.globalPosition(variableIndices,1);
+            memoryEntry.globalVelocity = observedObject.globalVelocity(variableIndices,1);
+            % Measured parameters
+            memoryEntry.position = measuredPosition;
+            memoryEntry.velocity = measuredVelocity;
+            memoryEntry.radius   = measuredRadius;
+            memoryEntry.range    = measuredRange;
+            memoryEntry.azimuth  = measuredAzimuth;
+            memoryEntry.elevation = measuredTheta;
+            memoryEntry.alpha    = measuredAlpha;
+            memoryEntry.TTC      = observedObjects.timeToCollision;
+            memoryEntry.priority = objectPriority;
         end
     end
     % ///////////////////////// SENSING FUNCTIONS /////////////////////////
@@ -879,7 +882,8 @@ classdef agent < objectDefinition
             obj.DATA.time(TIME.currentStep) = TIME.currentTime;
         end 
     end
-    % //////////////////// AGENT MEMORY/WAYPOINT LOGIC ////////////////////
+    
+    %% //////////////////// AGENT MEMORY/WAYPOINT LOGIC ////////////////////
     methods
         % SELECT WAYPOINT
         function [obj,waypointVector] = UpdateTargetWaypoint(obj,waypointSet)
@@ -996,6 +1000,44 @@ classdef agent < objectDefinition
             end
         end 
         
+%         % APPEND NEW SENSOR READINGS
+%         function [obj] = UpdateMemoryFromObjects(obj,observedObjects)
+%             % This function is designed to update the memory structure
+%             % based on information of all current objects.
+%             % TO DO:
+%             % - We need to remove entries for entries no longer visible.
+%             % - We need to append state knowledge to known targets..
+%             
+%             % The agents current list of known objects
+%             priorIDSet = [obj.MEMORY(:).objectID];
+%             visibleIDSet = [observedObjects(:).objectID];
+%             % Reduce the agents knowledge to only those that are seen
+%             IDlogicals = ismember(priorIDSet,visibleIDSet);                % true where A are in B
+%             % Remove now-unknown targets
+%             modifiedIDSet     = priorIDSet(IDlogicals);
+%             modifiedMemorySet = obj.MEMORY(IDlogicals);                     % Now contains those that existed and now seen
+%             
+%             % Get the visible targets not in memory 
+%             newVisibleLogicals = ~ismember(visibleIDSet,modifiedIDSet);    % false where A are in B
+%             newObjects = observedObjects(newVisibleLogicals);
+%             existingObjects = observedObjects(~newVisibleLogicals);
+% 
+%             % Append data to existing memory structures
+%             for item = 1:numel(existingObjects)
+%                 % Get the memory structure
+%                 [memoryEntry] = obj.GetObjectUpdateNoSensor(existingObjects(item));
+%                 
+%                 
+%             end
+%             
+%             % Create new memory structures and append
+%             for item = 1:numel(newObjects)
+%                 [memoryEntry] = obj.GetObjectUpdateNoSensor(newObjects(item));
+%                 obj.MEMORY = cat(obj.MEMORY,memoryEntry);
+%             end
+%             
+%             
+%         end        
         % UPDATE OBSTACLE KNOWLEDGE
         function [obj] = UpdateMemoryByEntry(obj,newEntry)
             % Updates the agents knowledge based on the new information
@@ -1014,14 +1056,14 @@ classdef agent < objectDefinition
             end
 
             % CHECK CURRENT KNOWLEDGE STATUS
-            if isempty(obj.memory)
+            if isempty(obj.MEMORY)
                 % No knowledge at all
-                obj.memory = newEntry; 
+                obj.MEMORY = newEntry; 
                 return
             end
             
             % GET THE LOGICAL INDICES OF ID OCCURANCES
-            logicalIDIndex = [obj.memory.objectID] == newEntry.objectID;   % Appearance of object ID in memory
+            logicalIDIndex = [obj.MEMORY.objectID] == newEntry.objectID;   % Appearance of object ID in memory
             IDoccurances = sum(logicalIDIndex);
             
             % CHECK FOR THE APPEARANCE OF THE OBJECT IN MEMORY
@@ -1029,10 +1071,10 @@ classdef agent < objectDefinition
                 error('MEMORY DUPLICATE DETECTED.');
             elseif IDoccurances == 0
                 % APPEND ENTRY FOR NEW OBJECT
-                obj.memory = vertcat(obj.memory,newEntry); % Append to knowledge to other records
+                obj.MEMORY = vertcat(obj.MEMORY,newEntry); % Append to knowledge to other records
             else
                 % UPDATE THE MEMORY STRUCTURE WITH THE NEW ENTRY
-                obj.memory(logicalIDIndex) = newEntry;                     % Update existing knowledge of  that agent
+                obj.MEMORY(logicalIDIndex) = newEntry;                     % Update existing knowledge of  that agent
             end
         end
         % MEMORY SORTER
@@ -1042,35 +1084,33 @@ classdef agent < objectDefinition
             
             % Input sanity check
             assert(ischar(field),'Memory sort method must be a string.');
-            if ~any(strcmp(fieldnames(obj.memory),field))
+            if ~any(strcmp(fieldnames(obj.MEMORY),field))
                 error('Field does not belong to the memory structure.')                
             end
             % Reorder the memory structure based on fieldname
-            [~,ind] = sort([obj.memory.(field)],2,'descend');         % Ordered indices of the object IDs
+            [~,ind] = sort([obj.MEMORY.(field)],2,'descend');         % Ordered indices of the object IDs
             % Sort the memory structure 
-            reorderedMemory = obj.memory(ind);
+            reorderedMemory = obj.MEMORY(ind);
         end
-        
-                
         % GET OBJECT MEMORY ITEM FOR OBJECT-ID 
         function [lastMemoryItem]    = GetLastEntryFromMemory(obj,objectID)
             % This function is designed to return the complete memory item
             % for a given object ID
             % INPUT:
-            % obj.memory - The agents knowledge matrix 
+            % obj.MEMORY - The agents knowledge matrix 
             % objectID            - The obstacles ID field
             % OUTPUT:
             % lastMemoryItem - The agents last memory record of that ID
                        
             % CASE - ZERO KNOWLEDGE
-            if isempty(obj.memory) || ~any([obj.memory.objectID] == objectID)
+            if isempty(obj.MEMORY) || ~any([obj.MEMORY.objectID] == objectID)
                 lastMemoryItem = [];
 %                 isSuccess = 0;
                 return
             end
             % EXTRACT THE LAST KNOWN STATE OF THE OBSTACLE 
-            IDindex = [obj.memory.objectID] == objectID;
-            lastMemoryItem = obj.memory(IDindex); 
+            IDindex = [obj.MEMORY.objectID] == objectID;
+            lastMemoryItem = obj.MEMORY(IDindex); 
 %             isSuccess = 1;
         end
         % GET STATE FOR OBSTACLE ID 
@@ -1078,25 +1118,24 @@ classdef agent < objectDefinition
             % This function is designed to return the last known state
             % vector for given obstacle object ID.
             % INPUT:
-            % obj.memory - The agents knowledge matrix 
+            % obj.MEMORY - The agents knowledge matrix 
             % objectID            - The obstacles ID field
             % OUTPUT:
             % lastState - The agents last state record of that ID
                        
             % CASE - ZERO KNOWLEDGE
-            if isempty(obj.memory) || ~any([obj.memory.objectID] == objectID)
+            if isempty(obj.MEMORY) || ~any([obj.MEMORY.objectID] == objectID)
                 position = [];
                 velocity = [];
                 return
             end
             % EXTRACT THE LAST KNOWN STATE OF THE OBSTACLE 
-            IDindex = [obj.memory.objectID] == objectID;
-            position = obj.memory(IDindex).position; 
-            velocity = obj.memory(IDindex).velocity; 
+            IDindex = [obj.MEMORY.objectID] == objectID;
+            position = obj.MEMORY(IDindex).position; 
+            velocity = obj.MEMORY(IDindex).velocity; 
         end
     end
     methods (Static)
-
         % GET EMPTY MEMORY STRUCTURE
         function [entry] = GetMemoryTemplate_ideal()
             % Create emptry memory structure
