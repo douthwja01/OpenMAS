@@ -1,0 +1,22 @@
+# Ommitted directories
+/stls/
+/legacy/
+# Ommitted file types
+*.mat
+*.asv
+# Ommitted files
+*_interval*
+agent_2D_VO_withComplex.m
+agent_2D_formation_RVO2.m
+agent_2D_formation_HRVO.m
+agent_2D_formation_RVO.m
+agent_2D_formation_VO.m
+agent_formation_RVO2.m
+agent_formation_HRVO.m
+agent_formation_RVO.m
+agent_formation_VO.m
+
+ARdrone_formation.m
+ARdrone_formation_VO.m
+
+quadcopter_shiyu.m

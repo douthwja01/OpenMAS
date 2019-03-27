@@ -1,0 +1,5 @@
+# Omitted files
+codegen/
+# Omitted file types
+*.prj
+*.asv

@@ -1,0 +1,9 @@
+# Ommited directories
+legacy/
+codegen/
+# Ommitted file types
+*.mat
+*.asv
+*.csv
+*.xlsx
+*.asv
