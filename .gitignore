@@ -1,9 +1,0 @@
-# Ignore directories
-resources/
-studies/
-toolboxes/
-
-# File types
-*.mat
-*.csv
-*.xls
