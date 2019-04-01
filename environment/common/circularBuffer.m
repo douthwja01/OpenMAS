@@ -17,20 +17,26 @@ classdef circularBuffer
             
             switch s(1).type
                 case '()'
-                    % Get the buffer dimensions
-                    bufferDim = size(obj.data);
-                    % Get the input dimensions
-                    inputDim = s(1).subs;
+                    sizePerDim = size(obj.data);                           % Get the buffer dimensions
+                    dimSelect = repmat({':'},1,numel(sizePerDim));         % Default to all on unselected dimensions
+                    % Accessed as a vector
+                    if numel(s(1).subs) == 1
+                        % Accessed as a vector
+                        [~,b] = max(sizePerDim);
+                        dimSelect{b} = s(1).subs{1};
+                        refDim = dimSelect;
+                    else
+                        % Accessed as a matrix
+                        refDim = s(1).subs;
+                    end
                     % Move through each input dimension and assign the
                     % input to that dimension
-                    for i = 1:numel(inputDim)
-                        % For each of the requested dimensions
-                        if ~strcmp([inputDim{i}],':')
-                            % if the dimension is numeric
-                            newDim{i} = mod(inputDim{i}-1,bufferDim(i)) + 1;
+                    newDim = cell(size(refDim));
+                    for i = 1:numel(refDim)                                % For each of the requested dimensions
+                        if ~strcmp([refDim{i}],':')                        
+                            newDim{i} = mod(refDim{i}-1,sizePerDim(i)) + 1;% if the dimension is numeric
                         else
-                            % All entries
-                            newDim{i} = inputDim{i};
+                            newDim{i} = refDim{i};
                         end
                     end
                     out = obj.data(newDim{:});
@@ -51,43 +57,62 @@ classdef circularBuffer
             % Input sanity check
             inputSize = size(input);
             bufferSize = size(obj.data);
-            for i = 1:numel(s(1).subs)
-                % Where ":" is assigned, dimensions must match
-                if strcmp([s(1).subs{i}],':')
-                    Astr = sprintf('Dimension %d: Buffer dimension is %d, where Input dimension is %d.',i,bufferSize(i),inputSize(i));
-                    assert(inputSize(i) == bufferSize(i),Astr);
-                end
-            end
+%             for i = 1:numel(s(1).subs)
+%                 % Where ":" is assigned, dimensions must match
+%                 if strcmp([s(1).subs{i}],':')
+%                     Astr = sprintf('Dimension %d: Buffer dimension is %d, where Input dimension is %d.',i,bufferSize(i),inputSize(i));
+%                     assert(inputSize(i) == bufferSize(i),Astr);
+%                 end
+%             end
 
-            % Type of sub-reference
+            % Type of sub-assign
             switch s(1).type
-                case '()'
+                case '()'                   
                     % Get the buffer dimensions
-                    bufferDim = size(obj.data);
-                    % Get the input dimensions
-                    inputDim = s(1).subs;
+                    sizePerDim = size(obj.data);
+                    assignmentDim = s(1).subs;
+                    
+                    % Default behaviour when incorrect dimensions are given
+%                     dimSelect = repmat({':'},1,numel(sizePerDim));
+                    dimSelect = repmat({1},1,numel(sizePerDim));           
+                    % We cannot allow allocation of one value to entire row
+                    
+                    % Accessed as a vector
+                    if numel(assignmentDim) == 1 
+                        % Accessed as a vector
+                        [~,b] = max(sizePerDim);
+                        dimSelect{b} = assignmentDim{1};
+                        assignmentDim = dimSelect;
+                    else
+                        % Accessed as a matrix
+                        assignmentDim = s(1).subs;
+                    end
+                                      
+                    % if accessed as var(5):
+                    % - Define var(:,5) if row
+                    % - Define var(5,:) if column
                     
                     % Move through each input dimension and assign the
                     % input to that dimension
-                    for i = 1:numel(inputDim)
+                    for i = 1:numel(assignmentDim)
                         % For each of the requested dimensions
-                        if ~strcmp([inputDim{i}],':')
+                        if ~strcmp([assignmentDim{i}],':')
                             % if the dimension is numeric
-                            newDim{i} = mod(inputDim{i}-1,bufferDim(i)) + 1;
+                            newDim{i} = mod(assignmentDim{i}-1,sizePerDim(i)) + 1;
                         else
                             % All entries
-                            newDim{i} = inputDim{i};
+                            newDim{i} = assignmentDim{i};
                         end
                     end
-                    % Convert the double matrix back to a circular buffer
-                    obj.data(newDim{:}) = input;
+
+                    obj.data(newDim{:}) = input;                           % Assign new value to buffer
                 otherwise
                     error(['Error(circularBuffer): Use bracket always... Currently used ',s(1).type,' !!!']);
             end
         end
         
         % Unpack procedure
-        function [dataSeq] = unpack(obj,unpackDim,ind0)
+        function [dataSequence] = unpack(obj,unpackDim,ind0)
             % This function will unpack a provided buffer along the
             % dimension provided given an initial starting position
             % startInd.
@@ -102,21 +127,37 @@ classdef circularBuffer
             
             % Assume we are only moving along the second axis
             assert(numel(unpackDim) == 1 && unpackDim <= numel(bufferDim),'The unpack dimension is invalid.');
+            assert(isnumeric(unpackDim) && isnumeric(ind0),'Dimension specifier must be numeric.');
             
+            ind0 = double(ind0); % To remove issues with unsigned indicies
+            
+            % Default dimension selection
             dimSelectA = repmat({':'},1,numel(bufferDim));
             dimSelectB = dimSelectA;
-            dataSeq = obj.data;     % Container of same type and size
+            dataSequence = obj.data;        % Container of same type and size
+
+            % while t is less than the length of the buffer in the unpack
+            % dimension
+%             t = 1;                          % Steps back
+%             while t ~= (bufferDim(unpackDim) + 1)
+%                 bInd = mod(((ind0 + t)-2),bufferDim(unpackDim)) + 1;
+%                 % Modify data based on the selected unpacking dimension
+%                 dimSelectA{unpackDim} = t;
+%                 dimSelectB{unpackDim} = bInd;
+%                 dataSequence(dimSelectA{:}) = obj.data(dimSelectB{:});
+%                 t = t + 1;                  % Iterate
+%             end
             
-            t = 0; % Steps back
-            while t < bufferDim(unpackDim)
-                tind = ind0 - t;
-                bInd = mod(tind - 1,bufferDim(unpackDim)) + 1;
-                t = t + 1;
-                
+            % while t is less than the length of the buffer in the unpack
+            % dimension
+            t = 1;                          % Steps back
+            while t < (bufferDim(unpackDim) + 1)
+                bInd = mod((ind0 - t),bufferDim(unpackDim)) + 1;
                 % Modify data based on the selected unpacking dimension
                 dimSelectA{unpackDim} = t;
                 dimSelectB{unpackDim} = bInd;
-                dataSeq(dimSelectA{:}) = obj.data(dimSelectB{:});
+                dataSequence(dimSelectA{:}) = obj.data(dimSelectB{:,:});
+                t = t + 1;                  % Iterate index of new array
             end
         end
     end
