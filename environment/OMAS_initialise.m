@@ -17,11 +17,10 @@ function [ DATA,META ] = OMAS_initialise(varargin)
 % DATA       - The simulation output data structure
 
 % ////////// GET OMAS DEPENDENCIES (if not already added to path) /////////
-configureDependencies(pwd,{'environment','objects','scenarios'});          % Check directory for sub-directory 
-configureDependencies([pwd,'\environment'],'events');                      % Check 'environment' directory for the dependancies
-configureDependencies([pwd,'\environment'],'assets');
-configureDependencies([pwd,'\environment'],'common');
-configureDependencies([pwd,'\environment'],'figures');
+if ~OMAS_system.GetFileDependancies()
+    error('Error getting the OpenMAS file dependancies.');
+end
+
 % Show logo
 type('logo.txt');
 
@@ -243,7 +242,6 @@ for entity = 1:SIM.totalObjects
     end 
     % INITIALISE THE OBJECTS LOCAL STATE VECTOR (INDEPENDANT OF THE GLOBAL)
     try
-        %objectIndex{entity} = objectIndex{entity}.initialise_localState(localXYZVelocity,localXYZrotations);
         objectIndex{entity} = objectIndex{entity}.setup(localXYZVelocity,localXYZrotations);
     catch initialisationError
         warning('Unable to initialise the local state of object %s :%s',objectIndex{entity}.name);
@@ -366,29 +364,29 @@ simCluster = parcluster('local');
 poolObject = parpool(simCluster,'IdleTimeout', 120);   % Generate thread pool, 2hour timeout
 fprintf('[SETUP]\t... Thread pool ready.\n');
 end
-% GET THE SIMULATION SUBDIRECTORY SET
-function configureDependencies(wrkDir,dirList)
-
-% Parse known paths
-pathCell = regexp(path, pathsep, 'split');                                 % The name of the paths
-% If a cell array is passed
-if iscell(dirList)
-    for i = 1:size(dirList,2)                                              % Windows is not case-sensitive
-        pathName = OMAS_system.GetOSPathString([wrkDir,'\',dirList{i}]);   % Get the dependancy path string, ensure aligned with host OS
-        if ~any(strcmpi(pathName, pathCell))
-            addpath(pathName);
-        end
-    end
-elseif ischar(dirList)
-    % Windows is not case-sensitive
-    pathName = OMAS_system.GetOSPathString([wrkDir,'\',dirList]);          % Get the dependancy path string, ensure aligned with host OS
-    if ~any(strcmpi(pathName, pathCell))
-        addpath(pathName);
-    end
-else
-    error('Dependency not valid/recognised, please provide a string or cell array of strings.');
-end
-end
+% % GET THE SIMULATION SUBDIRECTORY SET
+% function configureDependencies(wrkDir,dirList)
+% 
+% % Parse known paths
+% pathCell = regexp(path, pathsep, 'split');                                 % The name of the paths
+% % If a cell array is passed
+% if iscell(dirList)
+%     for i = 1:size(dirList,2)                                              % Windows is not case-sensitive
+%         pathName = OMAS_system.GetOSPathString([wrkDir,'\',dirList{i}]);   % Get the dependancy path string, ensure aligned with host OS
+%         if ~any(strcmpi(pathName, pathCell))
+%             addpath(pathName);
+%         end
+%     end
+% elseif ischar(dirList)
+%     % Windows is not case-sensitive
+%     pathName = OMAS_system.GetOSPathString([wrkDir,'\',dirList]);          % Get the dependancy path string, ensure aligned with host OS
+%     if ~any(strcmpi(pathName, pathCell))
+%         addpath(pathName);
+%     end
+% else
+%     error('Dependency not valid/recognised, please provide a string or cell array of strings.');
+% end
+% end
 % CONFIGURE THE OUTPUT DIRECTORY
 function [outputPath,fileString] = configureOutputDirectory(MCenableFlag,absolutePath)
 % INPUTS:

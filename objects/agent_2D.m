@@ -23,11 +23,9 @@ classdef agent_2D < agent
             % obj     - The constructed object
             
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);                        % Call the super class
-            
+            obj@agent(varargin);                        % Call the super class            
             % INPUT HANDLING (Clean up nested loops)
             [varargin] = obj.inputHandler(varargin);
-            
             % AGENT SENSES IN 3D
             obj.VIRTUAL.is3D = logical(false);          % Indicate the agent is operating in 2d
             
@@ -57,17 +55,10 @@ classdef agent_2D < agent
             % varargin - Cell array of inputs
             % OUTPUTS:
             % obj      - The updated project
-            
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-                        
+                                    
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(dt,varargin{1});
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             desiredHeadingVector = obj.GetTargetHeading();                 % Design the current desired trajectory from the waypoint.  
@@ -104,9 +95,9 @@ classdef agent_2D < agent
             
             % GET THE NEW STATE VECTOR
             [dXdt] = obj.dynamics_singleIntegrator(obj.localState,[speed;0],headingRate);
-            newState = obj.localState + dXdt*dt;
+            newState = obj.localState + dXdt*ENV.dt;
             % UPDATE THE CLASS GLOBAL PROPERTIES 
-            [obj] = obj.updateGlobalProperties_ENU(dt,newState);
+            [obj] = obj.updateGlobalProperties_ENU(ENV.dt,newState);
         end
     end
     
@@ -161,7 +152,7 @@ classdef agent_2D < agent
             obj.localState(4:6) = dX; 
             
             % ///////////// UPDATE OBJECT GLOBAL PROPERTIES /////////////// 
-            if obj.VIRTUAL.idleStatus
+            if obj.isIdle()
                 obj.localState(4:5) = zeros(2,1);
             end
             
@@ -279,11 +270,11 @@ classdef agent_2D < agent
             
             % Create emptry memory structure
             memStruct = struct(...
-                'name','',...
+                'name','temp',...
                 'objectID',uint8(0),...
                 'type',OMAS_objectType.misc,...
                 'sampleNum',uint8(1),...
-                't_lastSeen',[],...
+                'time',circularBuffer(NaN(1,horizonSteps)),...
                 'position',circularBuffer(NaN(2,horizonSteps)),...
                 'velocity',circularBuffer(NaN(2,horizonSteps)),...
                 'radius',circularBuffer(NaN(1,horizonSteps)),...
@@ -291,7 +282,6 @@ classdef agent_2D < agent
                 'heading',circularBuffer(NaN(1,horizonSteps)),...
                 'width',circularBuffer(NaN(1,horizonSteps)),...
                 'geometry',struct('vertices',[],'faces',[],'normals',[],'centroid',[]),...
-                'TTC',[],...
                 'priority',[]);
         end
     end

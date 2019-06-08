@@ -15,13 +15,11 @@ classdef agent_vectorSharing < agent
     methods
         % CONSTRUCTOR
         function obj = agent_vectorSharing(varargin)
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Get super class 'agent'
             
+            % INPUT HANDLING (Clean up nested loops)
+            [varargin] = obj.inputHandler(varargin);
             % DYNAMIC PARAMETERS
             [obj] = obj.GetDynamicParameters();
             
@@ -43,7 +41,7 @@ classdef agent_vectorSharing < agent
             [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end        
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
-        function [obj] = main(obj,TIME,varargin)
+        function [obj] = main(obj,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
@@ -52,18 +50,11 @@ classdef agent_vectorSharing < agent
             % >objects - The detectable objects cell array of structures
             % OUTPUTS:
             % obj      - The updated project
-            
-            % INPUT HANDLING
-            if isstruct(TIME)
-                dt = TIME.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
+                        
             % PLOT AGENT FIGURE
-            visualiseProblem = 0;
+            visualiseFlag = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
+            if obj.objectID == visualiseAgent && visualiseFlag == 1
                 overHandle = figure(100+obj.objectID);
                 hold on; grid on;
                 axis equal;
@@ -72,7 +63,7 @@ classdef agent_vectorSharing < agent
                         
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj] = obj.GetAgentUpdate(dt,varargin{1});       % IDEAL INFORMATION UPDATE
+            [obj] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
@@ -86,18 +77,18 @@ classdef agent_vectorSharing < agent
             if avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,visualiseFlag);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
                        
             % /////// COMPUTE STATE CHANGE FROM CONTROL INPUTS ////////////
-            [obj] = obj.controller(dt,desiredVelocity);
+            [obj] = obj.controller(ENV.dt,desiredVelocity);
                         
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
+            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
             obj.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{\phi}$ (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);  
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);  
         end
     end
     % AGENT SPECIFIC METHODS

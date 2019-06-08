@@ -8,6 +8,7 @@ classdef OMAS_system
         % Default system description
         system = OMAS_systemType.windows;
         delimiter = '\';
+        root;
     end
   
     methods (Static)
@@ -28,6 +29,7 @@ classdef OMAS_system
                     error('System architecture not recognised.');
             end
             systemEnum = obj.system;
+            obj.rootPath = getenv('SYSTEMROOT');
         end
         % Get the system information
         function [archstr] = GetSystemInfo()
@@ -43,6 +45,51 @@ classdef OMAS_system
     end
     % /////////////////////////// UTILITIES ///////////////////////////////
     methods (Static)
+        % Get a the program dependancies
+        function [isSuccessful] = GetFileDependancies()
+            % This function ensures that OpenMAS has access to the complete
+            % set of file dependancies.
+            
+            % Get the path to the install directory
+            repoString = mfilename('fullpath');
+            ind = strfind(repoString,'environment');
+            repoString = repoString(1:(ind-1));
+            
+            % Known file dependancies
+            relativePaths = {...
+                'environment',...
+                'objects',...
+                'scenarios'...
+                'toolboxes',...
+                'environment\assets',...
+                'environment\events',...
+                'environment\assets',...
+                'environment\common',...
+                'environment\figures'};
+            
+            % Parse known matlab paths
+            pathCell = regexp(path, pathsep, 'split');                                 % The name of the paths
+            
+            % Move through the relative path list
+            for i = 1:numel(relativePaths)
+                % The dependency paths
+                dependencyPath = OMAS_system.GetOSPathString([repoString,relativePaths{i}]); 
+                % If it the dependancy is not on the system path
+                if any(strcmpi(dependencyPath, pathCell))
+                    continue
+                end
+                % Attempt to add the dependancy
+                try
+                    addpath(dependencyPath);
+                catch depError
+                    warning(depError.message);
+                    isSuccessful = 0;
+                    return
+                end
+            end
+            % Indicate successful
+            isSuccessful = 1;
+        end
         % Get a string path in the correct OS
         function [pathString] = GetOSPathString(pathString)
             % Input sanity check

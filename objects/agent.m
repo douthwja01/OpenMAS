@@ -9,14 +9,11 @@
 
 % Author: James A. Douthwaite
 
-classdef agent < objectDefinition
+classdef agent < objectDefinition & agent_tools
 %%% AGENT BASE CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % This class contains the basic properties of a generic agent, neither
     % aerial or ground based.
     properties
-        % OBSTACLE OBJECT MATRIX (record of sightings)
-        MEMORY;                         % Record of relative scene
-        maxSamples = 1;                 % The maximum number of states retained
         % DEFAULT BEHAVIOUR
         nominalSpeed = 2;               % Default nominal speed (m/s)
         maxSpeed = 4;                   % Default maximumal speed (m/s)
@@ -44,7 +41,7 @@ classdef agent < objectDefinition
             % obj     - The constructed object
             
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@objectDefinition(varargin); % Call the super class
+            obj@objectDefinition(varargin);         
             
             % INPUT HANDLING (Clean up nested loops)
             [varargin] = obj.inputHandler(varargin);
@@ -62,8 +59,9 @@ classdef agent < objectDefinition
             
             % Define default sensor model
             [obj.SENSORS] = obj.GetCustomSensorParameters();
+            
             % Initialise memory structure (with 3D varient)
-            [obj] = obj.SetBufferSize(obj.maxSamples);
+            [obj] = obj.SetBufferSize(5);
             
             % CHECK FOR USER OVERRIDES
             obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
@@ -78,18 +76,23 @@ classdef agent < objectDefinition
             % varargin - Cell array of inputs
             % OUTPUTS:
             % obj      - The updated project
-            
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
+                       
+            % PLOT AGENT FIGURE
+            visualiseProblem = 0;
+            visualiseAgent = 1;
+            if obj.objectID == visualiseAgent && visualiseProblem == 1
+                %overHandle = figure('name','testFigure');
+                overHandle = gcf;
+                ax = gca;
+                hold on; grid on;
+                axis equal;
+                xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
+            end 
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(dt,varargin{1});
-
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});          
+            
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
             [headingVector] = obj.GetTargetHeading();
@@ -106,21 +109,14 @@ classdef agent < objectDefinition
 %             [figureHandle] = obj.GetObjectScene(gcf);
             
             % PASS THE DESIRED VELOCITY TO THE DEFAULT CONTROLLER
-            [obj] = obj.controller(dt,desiredVelocity);
+            [obj] = obj.controller(ENV.dt,desiredVelocity);
         end
+        
     end
     
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     % SET METHODS
     methods 
-        % Set the maximum sample number
-        function [obj] = SetBufferSize(obj,horizon)
-            assert(numel(horizon) == 1 && isnumeric(horizon),'Horizon must be a scalar number of steps.');
-            % define the size of the buffer
-            obj.maxSamples = horizon;
-            % Initialise memory structure (with 3D varient)
-            [obj.MEMORY]  = obj.GetMemoryStructure(obj.maxSamples);
-        end
         % Set the idle status
         function [obj] = SetIdleStatus(obj,idleStatus)
             assert(islogical(idleStatus),'The logical status must be a logical.');
@@ -149,20 +145,16 @@ classdef agent < objectDefinition
             obj.radius = radius;
             obj.VIRTUAL.radius = radius;        
         end
-        % Check dimensionality of object
-        function [flag] = is3D(obj)
-           flag = obj.VIRTUAL.is3D;
-        end
     end
     % ////////////////////// BASIC UPDATE FUNCTIONS ///////////////////////
     methods
         %%%% AGENT UPDATE (IDEAL) %%%%
         % Update from perfect environmental knowledge
-        function [obj,obstacleSet,agentSet,waypointSet] = GetAgentUpdate(obj,dt,observedObjects)
+        function [obj,obstacleSet,agentSet,waypointSet] = GetAgentUpdate(obj,ENV,observedObjects)
             % This function computes the agents process for updating its
             % knowledge of the environment.
             % INPUTS:
-            % dt              - The unit timstep
+            % ENV.dt              - The unit timstep
             % observedObjects - The full observed object structure
             % OUTPUTS:
             % obj             - The updated object
@@ -171,7 +163,9 @@ classdef agent < objectDefinition
             
             agentSet = []; obstacleSet = []; waypointSet = [];             % No observed objects 
             
-            assert(isnumeric(dt),'First parameter must be a numeric timestep.');
+            % Input sanity check
+            assert(isstruct(ENV),'Expecting environment update structure.');
+            assert(isnumeric(ENV.dt),'The time-step must be a numeric timestep.');
             assert(isstruct(observedObjects),'Second parameter is a vector of observation structures.');
             % Check #1 - Nothing is observed..
             if isempty(observedObjects)
@@ -181,9 +175,9 @@ classdef agent < objectDefinition
             % Update agent memory structure
             for entry = 1:numel(observedObjects)
                 % Apply sensor model if there is one
-                sensedObject = obj.SensorModel(dt,observedObjects(entry));
+                sensedObject = obj.SensorModel(ENV.dt,observedObjects(entry));  
                 % Update memory structure from measurements
-                obj = obj.UpdateMemoryFromObject(sensedObject);
+                obj = obj.UpdateMemoryFromObject(ENV.currentTime,sensedObject);
             end
             
             % SORT OBJECT SET BY PRIORITY
@@ -200,24 +194,41 @@ classdef agent < objectDefinition
             obstacleSet = obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle); % Differenciate between the different object types
             
             % UPDATE THE TARGET WAYPOINT, PRIORTIES 
-            [obj,~] = obj.UpdateTargetWaypoint(waypointSet);                    % Update the target waypoint and heading vector
+            [obj] = obj.UpdateTargetWaypoint(waypointSet);                    % Update the target waypoint and heading vector
         end
         % Default sensor model
         function [observedObject] = SensorModel(obj,dt,observedObject)
+            % This function provides an overridable method resembling the
+            % sensor model through which all objects are processed.
             
             % Get measurements from a camera
-            [d_i,psi_i,theta_i,alpha_i] = obj.GetCameraMeasurements(observedObject);
+            [psi_j,theta_j,alpha_j] = obj.GetCameraMeasurements(observedObject);
             % Override ideal parameters with camera model
-            observedObject.range = d_i;
-            observedObject.heading = psi_i;
-            observedObject.elevation = theta_i;
-            observedObject.width = alpha_i;
+            observedObject.heading = psi_j;
+            observedObject.elevation = theta_j;
+            observedObject.width = alpha_j;
+            % Get the range estimate
+            [observedObject.range] = obj.GetRangeFinderMeasurements(observedObject);
         end
     end
     % ///////////////////////// SENSING FUNCTIONS /////////////////////////
     methods
+        % CALCULATE THE NEW STATE ESTIMATE
+        function [position,velocity] = linearStateEstimation(obj,dt,p0,v0,p1)
+           % This function takes the previous known state of the obstacle
+           % and estimates its new state.
+                      
+           % GET THE POSITION
+           dX = (p1 - p0);
+           velocity = dX/dt;    % Defines the average velocity
+           position = p1;
+           % NO PREVIOUS VELOCITY RECORDED
+           if any(isnan(v0))
+              return
+           end          
+        end
         % SENSOR MODEL - CAMERA & RANGE FINDER
-        function [d_j,psi_j,theta_j,alpha_j] = GetCameraMeasurements(obj,observedObject) 
+        function [psi_j,theta_j,alpha_j] = GetCameraMeasurements(obj,observedObject) 
             % This function takes the simulation data and calculates the
             % spherical position and radius that would otherwise be sensed 
             % by the system.
@@ -228,13 +239,20 @@ classdef agent < objectDefinition
             % azimuth      - The obstacles angular position in the XY plane
             % elevation    - The obstacles angular position in the XZ plane
             % angularWidth - The obstacles angular width in the azimuth
-
-            % EMULATE MEASURED POSITIONAL VARIABLES (measured = range(true) + distortion)
-            d_j     = observedObject.range + obj.SENSORS.sigma_rangeFinder*randn(1);     
+            
+            % Observed pixel coordinates
             psi_j   = observedObject.heading + obj.SENSORS.sigma_camera*randn(1);
             theta_j = observedObject.elevation + obj.SENSORS.sigma_camera*randn(1);
-            % OBSERVED RADIUS
+            % Observed width
             alpha_j = observedObject.width + obj.SENSORS.sigma_camera*randn(1);      % Uncertainty in the angular measurement
+        end
+        % SENSOR MODEL - RANGE FINDER
+        function [d_j] = GetRangeFinderMeasurements(obj,observedObject)
+            % This function takes a simulation data resembling an object
+            % and calculates the apparent range to the agent.
+            
+            % EMULATE MEASURED POSITIONAL VARIABLES (measured = range(true) + distortion)
+            d_j = observedObject.range + obj.SENSORS.sigma_rangeFinder*randn(1);      
         end
         % SENSOR MODEL - LOCAL GPS & PITOT TUBE
         function [p_i,v_i,r_i] = GetAgentMeasurements(obj)
@@ -304,7 +322,7 @@ classdef agent < objectDefinition
             omega = dHeading/dt;
             
             % OMIT TRAJECTORY CHANGES IF IDLE
-            if obj.VIRTUAL.idleStatus
+            if obj.isIdle()
                 omega = zeros(3,1);
                 desiredSpeed = 0;
                 obj.nominalSpeed = 0;
@@ -420,30 +438,6 @@ classdef agent < objectDefinition
     end
     % ////////////////////// GENERAL STATIC METHODS ///////////////////////
     methods (Static)
-        % CALCULATE THE NEW STATE ESTIMATE
-        function [position,velocity] = linearStateEstimation(dt,p0,v0,p1)
-           % This function takes the previous known state of the obstacle
-           % and estimates its new state.
-                      
-           % GET THE POSITION
-           dX = (p1 - p0);
-           velocity = dX/dt;    % Defines the average velocity
-           position = p1;
-           % NO PREVIOUS VELOCITY RECORDED
-           if any(isnan(v0))
-              return
-           end          
-        end
-        % BASIC VELOCITY VECTOR CHECK (2D & 3D)
-        function [v_unit,v_mag] = nullVelocityCheck(v)
-            v_mag = norm(v);
-            if v_mag == 0 
-                v_unit = zeros(numel(v),1);
-                v_unit(1) = 1;      % [1 0 0] % Default to current local forward direction
-            else
-                v_unit = v/v_mag;
-            end
-        end
         % DEFINE THE PITCH AND YAW TO MEET TARGET HEADING (2D & 3D)
         function [lambda,theta] = GetVectorHeadingAngles(V,U)
             % This function calculates the Line Of Sight (LOS) [horezontal]
@@ -480,32 +474,9 @@ classdef agent < objectDefinition
             end
         end
         % CALCULATE THE RADIUS 
-        function [r] = GetObjectRadius(d,alpha)
+        function [r] = GetRadiusFromAngularWidth(d,alpha)
         	% Calculate the radius of the object
         	r = (sin(alpha/2)/(1-sin(alpha/2)))*d;     
-        end
-        % CONVERT SPHERICAL TO CARTESIAN
-        function [p] = GetCartesianFromSpherical(r,phi,theta)
-           % This function calculates the relative position from a spherical 
-           % coordinate system that assumes angles are measured from the 
-           % agents heading vector Xref.
-           % INPUTS:
-           % range     - The objects radial seperation (m)
-           % azimuth   - The objects relative azimuth angle (rad)
-           % elevation - The objects relative elevation (rad)
-           % OUTPUTS:
-           % cartesianPosition  - The new 3D position in local coordinates (m)
-
-           % DEFINE THE POSITION AS A VECTOR INTERVAL
-           p = [cos(phi)*cos(theta);...
-                sin(phi)*cos(theta);...
-                         sin(theta)]*r;
-        end
-        % CONVERT CARTESIAN TO SPHERICAL
-        function [r,phi,theta]  = GetSphericalFromCartesian(p)
-            r = norm(p);                                        % The range
-            phi = atan2(p(2),p(1));                             % The angle made in the azimuth (bearing)
-            theta = atan2(p(3),sqrt(p(1).^2 + p(2).^2));        % The elevation (vertical bearing)
         end
         % VALIDATE THE OBSTACLE
         function [tau]  = validateCollision(p,v)
@@ -516,6 +487,16 @@ classdef agent < objectDefinition
             end                 
             % Define the time to closest approach (+ve converging)
             tau = -(dot(p,v)/dot(v,v));
+        end
+        % BASIC VELOCITY VECTOR CHECK (2D & 3D)
+        function [v_unit,v_mag] = nullVelocityCheck(v)
+            v_mag = norm(v);
+            if v_mag == 0 
+                v_unit = zeros(numel(v),1);
+                v_unit(1) = 1;      % [1 0 0] % Default to current local forward direction
+            else
+                v_unit = v/v_mag;
+            end
         end
     end  
     % ////////// AGENT/DERIVATIVES GLOBAL UPDATE/STATE FUNCTIONS //////////
@@ -648,310 +629,7 @@ classdef agent < objectDefinition
             obj.localState = X;                                            % Update the current state
         end
     end
-    %% ////////////////////// SIMULATION INTERFACES ///////////////////////
-    methods
-        % UPDATE OBJECTIVE
-        function [obj,waypointVector] = UpdateTargetWaypoint(obj,waypointSet)
-            % This function returns the heading for the waypoint with the
-            % highest listed priority. The agent retains a matrix of
-            % objectID's for the waypoints it has achieved. This is used to
-            % select the next priority waypoint.
-            
-            % INPUT HANDLING
-            if ~exist('waypointSet','var') || isempty(waypointSet)
-                obj.targetWaypoint = [];                % No waypoints are available
-                waypointVector = [];                    % Default heading
-                obj = obj.SetIdleStatus(logical(true)); % Set idle
-                return
-            end
-            
-            % WAYPOINT SET IS POPULATED -> GET THE PRIORITY VECTOR
-            priorityVector = [waypointSet.priority];                       % The vector of priorities
-            waypointIndex  = linspace(1,length(priorityVector),length(priorityVector)); % Memory of their position in the waypoint set
-            waypointIDset  = [waypointSet.objectID];                       % The vector of IDs 
-            waypointMatrix = [waypointIndex;waypointIDset;priorityVector];
-            
-            % WAYPOINT MATRIX IS OF THE FORM
-            % [ 1 2 3 ] - Positions in the waypoint set.
-            % [ 2 7 4 ] - Waypoint IDs.
-            % [ 3 5 9 ] - Waypoint priorities.
-                        
-            % TARGET WAYPOINT IS EMPTY -> POPULATE WITH NEW WAYPOINTS
-            if isempty(obj.targetWaypoint)
-                % NO WAYPOINTS HAVE BEEN SELECTED
-                if isempty(obj.achievedWaypoints)
-                    [~,maxPriorityIndex] = max(waypointMatrix(3,:));       % Index of maximum priority value in waypoint matrix
-                    waypointSetIndex = waypointMatrix(1,maxPriorityIndex); % Gets the associated waypoint set index of the highest priority
-                    obj.targetWaypoint = waypointSet(waypointSetIndex);    % Update with the highest priority waypoint
-                else
-                    % SELECT HIGHEST PRIORITY, BUT NOT ACHIEVED
-                    invalidWaypointIDs = obj.achievedWaypoints;            % Get the achieved waypoint IDs
-                    availableWaypointIDs = waypointMatrix(2,:);            % Get those visable IDs
-                    validWaypoints = availableWaypointIDs ~= invalidWaypointIDs;   % Get those visible IDs that are valid
-                    % IF NO FURTHER VALID IDs
-                    if ~any(validWaypoints)
-                        obj.targetWaypoint = [];
-                        waypointVector = [];
-                        obj = obj.SetIdleStatus(logical(true));            % Set the idle status
-                        return
-                    else
-                        % SELECT REMAINING WAYPOINTS
-                        validWaypoints = waypointMatrix(:,validWaypoints); % Get waypoinSet location, IDs and priority of valid waypoints
-                        % SELECT WAYPOINT OF NEXT HIGHEST PRIORITY                        
-                        [~,maxValidIndex ] = max(validWaypoints(3,:));       % Get the index of max priority waypoint
-                        waypointSetIndex = validWaypoints(1,maxValidIndex);  % Get the location of the target waypoint in the waypoint set
-                        obj.targetWaypoint = waypointSet(waypointSetIndex);  % Select waypoint object
-                    end
-                end
-            end
-            
-            % EVALUATE CURRENT TARGET WAYPOINT ////////////////////////////          
-            % CHECK THE TOLERANCES ON THE CURRENT TARGET WAYPOINT
-            waypointGetCondition = obj.GetTargetCondition();
-            
-            % IF THE CRITERIA IS MET AND THE ID IS NOT LOGGED
-            if waypointGetCondition && ~any(ismember(obj.achievedWaypoints,obj.targetWaypoint.objectID))
-                obj.achievedWaypoints = horzcat(obj.achievedWaypoints,obj.targetWaypoint.objectID); % Add achieved objectID to set
-            end
-            
-            % CHECK IF CURRENT TARGET IS VALID ////////////////////////////
-            % ASSESS THE ACHIEVED WAYPOINT SET AGAINST THE CURRENT TARGET
-            invalidTargetCondition = any(ismember(obj.achievedWaypoints,obj.targetWaypoint.objectID)); % Is the current target ID in the achieved set
-            if invalidTargetCondition
-               % TARGET WAYPOINT HAS BEEN ACHIEVED, REALLOCATE ONE
-               selectionVector = priorityVector < obj.targetWaypoint.priority;   % Only those with lower priority
-               if ~any(selectionVector)
-                   obj.targetWaypoint = [];
-                   waypointVector = [];
-                   return
-               else
-                   reducedMatrix = waypointMatrix(:,selectionVector);            % Build vector of priorities less than 
-                   [~,reducedIndex] = max(reducedMatrix(3,:));                   % Finds the max priority index where less than current
-                   waypointIndex = reducedMatrix(1,reducedIndex);                % Get the waypoint index from the reduced priority matrix               
-                   obj.targetWaypoint = waypointSet(waypointIndex);              % Select the next highest priority waypoint
-               end
-            else          
-                currentWaypointID = obj.targetWaypoint.objectID;                 % Get the ID of the current target waypoint
-                selector = (waypointMatrix(2,:) == currentWaypointID);           % Find where the ID appears in the waypoint matrix
-                waypointIndex = waypointMatrix(1,selector);                      % Get the waypoint Set index from the waypoint matrix
-                obj.targetWaypoint = waypointSet(waypointIndex);                 % Update with the highest priority waypoint  
-            end           
-            % THE CORRECT TARGET WAYPOINT IS NOW DEFINED, GENERATE HEADING                      
-            [waypointVector] = obj.GetTargetHeading();
-        end
-        % GET TARGET HEADING VECTOR OF VISIBLE OBJECT
-        function [headingVector] = GetTargetHeading(obj,targetObject)
-            % This function calculates the heading vector to the current
-            % obj.targetWaypoint, or to the provided object with a position
-            % field.
-            
-            % If a target is provided
-            if nargin > 1
-                targetPosition = obj.GetLastMeasurement(targetObject.objectID,'position');
-            elseif ~isempty(obj.targetWaypoint)
-                targetPosition = obj.targetWaypoint.position(:,obj.targetWaypoint.sampleNum);
-            else
-                % Default heading
-                if obj.VIRTUAL.is3D
-                    targetPosition = [1;0;0];
-                else
-                    targetPosition = [1;0];
-                end
-            end
-            % Get the vector heading of the target
-            headingVector = targetPosition/norm(targetPosition);
-        end
-        % GET TARGET-GET CONDITION
-        function [targetLogical] = GetTargetCondition(obj)
-            % Get the current measurements
-            currentPosition = obj.targetWaypoint.position(:,obj.targetWaypoint.sampleNum);
-            currentRadius   = obj.targetWaypoint.radius(obj.targetWaypoint.sampleNum);
-            % Check the current achieve-tolerances on a given target
-            targetLogical = 0 > norm(currentPosition) - (currentRadius + obj.VIRTUAL.radius);
-        end
-    end
-    % MEMORY OPERATIONS
-    methods
-        % //////////////////// MEMORY MANIPULATION ////////////////////////
-        % SORT MEMORY   - DEFINED FIELD
-        function [obj] = SortMemoryByField(obj,field)
-            % INPUTS:
-            % type - Sort option; memory field label.
-            
-            % Input sanity check
-            assert(ischar(field),'Memory sort method must be a string.');
-            assert(isfield(obj.MEMORY,field),'Field must belong to the memory structure.');
-            
-            % Reorder the memory structure based on fieldname
-            [~,ind] = sort([obj.MEMORY.(field)],2,'descend');         % Ordered indices of the object IDs
-            % Sort the memory structure 
-            obj.MEMORY = obj.MEMORY(ind);
-        end
-        
-        % ///////////////////////// MEMORY I/O ////////////////////////////
-        % UPDATE MEMORY - FROM OBSERVATIONS
-        function [obj] = UpdateMemoryFromObject(obj,observedObject)
-            
-            % This program is designed to parse the sensor data recieved into memory
-            % for access in main agent code.
-            
-            % Input sanity check #1
-            if numel(observedObject) == 0
-                return
-            end
-                       
-            % [TO-DO] REMOVE MEMORY ENTRIES NOT VISIBLE ///////////////////
-            % Get the indices of objects still visible
-            % visibleIDs = ismember([obj.MEMORY.objectID],[observedObject.objectID]);
-            % Remove entries no longer visible
-            % obj.MEMORY = obj.MEMORY(visibleIDs);                              % Removes all entries not visible 
-            
-            % ////////// UPDATE MEMORY WITH NEW ENTRIES AND EXISTING ENTRIES //////////
-            % Get the logical indices of ID occurances
-            logicalIDIndex = [obj.MEMORY.objectID] == observedObject.objectID;  % Appearance of object ID in memory
-            IDoccurances   = sum(logicalIDIndex);
-            % Determine memory behaviour
-            switch IDoccurances
-                case 0 % ///////////////// IS NOT IN MEMORY YET ///////////////////
-                    % Override the template if its the first reading
-                    if numel(obj.MEMORY) == 1 && obj.MEMORY(1).objectID == 0
-                        logicalIDIndex = 1;                                     % The memory address to be overwritten
-                    else
-                        % Get new memory structure with associated fields
-                        obj.MEMORY = vertcat(obj.MEMORY,obj.GetMemoryStructure(obj.maxSamples));        % Append the new structure
-                        logicalIDIndex = numel(obj.MEMORY);                     % Address is the end address
-                    end
-                    % UPDATE MEMORY FIELDS FROM OBSERVATIONS
-                    memFields = fieldnames(obj.MEMORY(logicalIDIndex));         % Update fields by dynamic association
-                    for entry = 1:numel(memFields)
-                        if ~isfield(observedObject,memFields{entry})            % Check the memory field is observable
-                            continue                                            % Field cannot be updated from observations
-                        end
-                        % Data is available
-                        if isa(obj.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
-                            % Update circular-buffers
-                            data = obj.MEMORY(logicalIDIndex).(memFields{entry});
-                            data(:,obj.MEMORY(logicalIDIndex).sampleNum) = observedObject.(memFields{entry});
-                            obj.MEMORY(logicalIDIndex).(memFields{entry}) = data;
-                        else
-                            % Direct value override
-                            obj.MEMORY(logicalIDIndex).(memFields{entry}) = observedObject.(memFields{entry});
-                        end
-                    end
-                case 1 % ////////// IS IN MEMORY ALREADY AND SINGUAR //////////////
-                    % Indicate new sample
-                    obj.MEMORY(logicalIDIndex).sampleNum = obj.MEMORY(logicalIDIndex).sampleNum + 1;
-                    % Get the new sample number
-                    t = obj.MEMORY(logicalIDIndex).sampleNum;
-                    % Update dynamic fields by association
-                    memFields = fieldnames(obj.MEMORY(logicalIDIndex));
-                    for entry = 1:numel(memFields)
-                        % Isolate circular-buffers
-                        if isa(obj.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
-                            data = obj.MEMORY(logicalIDIndex).(memFields{entry});
-                            data(:,t) = observedObject.(memFields{entry});
-                            obj.MEMORY(logicalIDIndex).(memFields{entry}) = data;
-                        end
-                    end
-                otherwise
-                    error('[ERROR] Agent memory structure is distorted.');
-            end
-            % /////////// DEDUCTIONS FROM THE MEASUREMENTS ////////////
-            % [TO-DO] non-proximity based priority for now
-            obj.MEMORY(logicalIDIndex).priority = 1/norm(obj.MEMORY(logicalIDIndex).position(:,obj.MEMORY(logicalIDIndex).sampleNum));
-        end
-        % FROM MEMORY   - WHOLE STRUCTURE BY ID
-        function [memStruct] = GetObjectMemoryStruct(obj,objectID)
-            % Get the location of data in the memory structure
-            memoryLogicals = [obj.MEMORY(:).objectID] == objectID;
-            % The memory structure
-            memStruct = obj.MEMORY(memoryLogicals);
-        end
-        % FROM MEMORY   - TRAJECTORY BY FIELD
-        function [trajectoryData] = GetTrajectoryByObjectID(obj,objectID,field)
-            % Input sanity check
-            assert(isnumeric(objectID),'ObjectID must be a numeric ID.');
-            assert(ichar(field),'Field must be a defined as a string label.');
-            
-            % Get the location of data in the memory structure
-            memoryLogicals = [obj.MEMORY(:).objectID] == objectID;
-            % Get the associated buffer data
-            trajectoryData = obj.MEMORY(memoryLogicals).(field);
-            % Reorder the fields in the data
-            trajectoryData = NaN(size(trajectoryData));
-            for step = 0:(obj.maxSamples - 1)
-                bufferIndex = obj.MEMORY(memoryLogicals).sampleNum - step; % Index in the circular buffer
-                trajectoryData(:,ind) = trajectoryData(:,bufferIndex);                   % Write the trajectory in (t,t-1,t-2) order
-            end
-        end
-        % FROM MEMORY   - LAST MEASUREMENT BY FIELD
-        function [latestData] = GetLastMeasurementByObjectID(obj,objectID,field)
-            % Input sanity check
-            assert(isnumeric(objectID),'ObjectID must be a numeric ID.');
-            assert(ischar(field),'Field must be a defined as a string label.');
-            
-            % Get the location of data in the memory structure
-            memoryLogicals = [obj.MEMORY(:).objectID] == objectID;
-            % Get the associated buffer data
-            latestData = obj.MEMORY(memoryLogicals).(field);
-            % Get the latest samples data from buffer  
-            if isa(latestData,'circularBuffer')
-                latestData = latestData(:,obj.MEMORY(memoryLogicals).sampleNum);
-            else
-                latestData = latestData(:,1);
-            end
-        end
-    end
-    methods (Static)
-        % //////////////////// MEMORY INITIALISATION //////////////////////
-        % FROM MEMORY - LAST MEASUREMENT FROM STRUCTURE
-        function [latestData] = GetLastMeasurementFromStruct(memStruct,field)
-            % Input sanity check
-            assert(ischar(field),'Field must be a defined as a string label.');
-            
-            % Get the associated buffer data
-            latestData = memStruct.(field);
-            % Get the latest samples data from buffer  
-            if isa(latestData,'circularBuffer')
-                latestData = latestData(:,memStruct.sampleNum);
-            else
-                latestData = latestData(:,1);
-            end
-        end
-        % GET EMPTY MEMORY STRUCTURE (3D trajectories)
-        function [memStruct]  = GetMemoryStructure(horizonSteps)
-            % This function contains a basic agent-memory structure. This
-            % is used to retain information on observed objects and maintain 
-            % a regular structure.
-            
-            % Input sanity check
-            if nargin < 1
-                horizonSteps = 10; % Duration retained in memory
-            end
-            
-            % The fields of memory structure define the fields of the
-            % simulation 'observation' structure that are retained.
-            
-            % Create empty memory structure
-            memStruct = struct(...
-                'name','',...
-                'objectID',uint8(0),...
-                'type',OMAS_objectType.misc,...
-                'sampleNum',uint8(1),...
-                't_lastSeen',[],...
-                'position',circularBuffer(NaN(3,horizonSteps)),...
-                'velocity',circularBuffer(NaN(3,horizonSteps)),...
-                'radius',circularBuffer(NaN(1,horizonSteps)),...
-                'range',circularBuffer(NaN(1,horizonSteps)),...
-                'heading',circularBuffer(NaN(1,horizonSteps)),...
-                'elevation',circularBuffer(NaN(1,horizonSteps)),...
-                'width',circularBuffer(NaN(1,horizonSteps)),...
-                'geometry',struct('vertices',[],'faces',[],'normals',[],'centroid',[]),...
-                'TTC',[],...
-                'priority',[]);
-        end
-    end
-
+    % VISUALISATION AND GENERAL TOOLS
     methods
         % PLOT ALL THE OBSERVABLE OBSTACLES IN THE LOCAL FRAME
         function [figureHandle] = GetObjectScene(obj,figureHandle)

@@ -14,7 +14,8 @@
   			Department of Automatic Control & Systems Engineering
   			United Kingdom
 
-  For queries regarding the project, please email me at: douthwaiteja@gmail.com
+  For queries regarding the project, please email associated authors: 
+  douthwaiteja@gmail.com, l.s.mihaylova@sheffield.ac.uk
 
  % ////////////////////////////////////////////////////////////////////////// %
  

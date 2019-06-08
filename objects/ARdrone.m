@@ -61,17 +61,11 @@ classdef ARdrone < agent
             
             eulerIndices = 4:6;
             velocityIndices = 7:9;
-            
-            % MAPPING FROM XYZ CONVENTION TO THE NED CONVENTION
-            mapAngle = pi;
-            XYZ2NED = [ 1             0              0;
-                        0 cos(mapAngle) -sin(mapAngle);
-                        0 sin(mapAngle)  cos(mapAngle)];
-            
             % DEFINE THE INITIAL STATE
-            X = zeros(12,1);
-            X(eulerIndices) = XYZ2NED*localXYZrotations;
-            X(velocityIndices) = XYZ2NED*localXYZVelocity;
+            X = zeros(12,1);            
+            % MAPPING FROM XYZ CONVENTION TO THE NED CONVENTION
+            X(eulerIndices)    = obj.GetNEDFromENU(localXYZrotations);
+            X(velocityIndices) = obj.GetNEDFromENU(localXYZVelocity);
             % APPEND TO VIRTUAL PROPERTIES
             obj.VIRTUAL.priorState = X;                                    % Record the previous state
             obj.localState = X;  
@@ -80,9 +74,10 @@ classdef ARdrone < agent
         % THIS CLASS HAS NO 'main' CYCLE
         % The ARdrone class is designed to simply provide the dynamics of a
         % ARdrone quadrotor MAV.
-        
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
+    
+    % //////////////////////// MODELLING/DYNAMICS /////////////////////////
     methods
         % GET THE STATE UPDATE (USING ODE45)
         function [X] = updateNonLinearPlant(obj,TIME,X0,U)
@@ -117,7 +112,6 @@ classdef ARdrone < agent
             end
         end
     end
-    % //////////////////////// MODEL PROPERTIES ///////////////////////////
     methods (Static)
         % THE NONLINEAR AR-DRONE PLANT ODES
         function [dX] = ARdrone_nonLinear_openLoop(X,U)
@@ -153,7 +147,7 @@ classdef ARdrone < agent
             dX = [x_dot;y_dot;z_dot;PHI_dot;THETA_dot;PSI_dot;t5.*(-9.81e2./1.0e2)+THETA_dot.*t4.*y_dot+THETA_dot.*t2.*z_dot-PSI_dot.*t2.*t3.*y_dot+PSI_dot.*t3.*t4.*z_dot;-PHI_dot.*z_dot+t3.*t4.*(9.81e2./1.0e2)+PSI_dot.*t5.*z_dot-THETA_dot.*t4.*x_dot+PSI_dot.*t2.*t3.*x_dot;t6.*(-3.73475e-5)-t8.*3.73475e-5-t9.*3.73475e-5-t10.*3.73475e-5+PHI_dot.*y_dot+t2.*t3.*(9.81e2./1.0e2)-PSI_dot.*t5.*y_dot-THETA_dot.*t2.*x_dot-PSI_dot.*t3.*t4.*x_dot;t11+t12+THETA_dot.*omega_1.*3.231842180365297e-3-THETA_dot.*omega_2.*3.231842180365297e-3+THETA_dot.*omega_3.*3.231842180365297e-3-THETA_dot.*omega_4.*3.231842180365297e-3-t6.*t7.*8.516167950913242e-5-t7.*t8.*8.516167950913242e-5-THETA_dot.^2.*t4.*9.996789383561644e-1-PSI_dot.*THETA_dot.*t2-t3.*t4.*t13+PSI_dot.*THETA_dot.*t2.*t3.*9.996789383561644e-1;-t11+t12+PHI_dot.*PSI_dot-PHI_dot.*omega_1.*3.231842180365297e-3+PHI_dot.*omega_2.*3.231842180365297e-3-PHI_dot.*omega_3.*3.231842180365297e-3+PHI_dot.*omega_4.*3.231842180365297e-3+t6.*t7.*8.516167950913242e-5-t7.*t8.*8.516167950913242e-5-t5.*t13+PHI_dot.*THETA_dot.*t4.*9.996789383561644e-1-PHI_dot.*PSI_dot.*t2.*t3.*9.996789383561644e-1;t6.*4.175141847767905e-4-t8.*4.175141847767905e-4+t9.*4.175141847767905e-4-t10.*4.175141847767905e-4-PHI_dot.*THETA_dot.*1.000321164757521+PHI_dot.*THETA_dot.*t2.*1.000321164757521+PSI_dot.*THETA_dot.*t5.*1.000321164757521+PHI_dot.*PSI_dot.*t3.*t4.*1.000321164757521];
         end
         % THE LINEAR (SS) AR-DRONE PLANT
-        function [dX] = ARdrone_linear_openLoop(SYS,X,U)
+        function [dX] = ARdrone_linear_openLoop(X,U)
             % This function computes the state update using the derived
             % linear model of the ARdrone. The system is assumed linearised
             % around the hover condition, therefore the state-space model is
@@ -182,6 +176,20 @@ classdef ARdrone < agent
             t8 = t3.*t6.*1.703233590182648e-4;
             dX = [x_dot;y_dot;z_dot;PHI_dot;THETA_dot;PSI_dot;THETA_t.*(-9.81e2./1.0e2);PHI_t.*(9.81e2./1.0e2);t2.*(-7.4695e-5)-t4.*7.4695e-5-t5.*7.4695e-5-t6.*7.4695e-5;t7+t8-t2.*t3.*1.703233590182648e-4-t3.*t4.*1.703233590182648e-4;-t7+t8+t2.*t3.*1.703233590182648e-4-t3.*t4.*1.703233590182648e-4;t2.*8.35028369553581e-4-t4.*8.35028369553581e-4+t5.*8.35028369553581e-4-t6.*8.35028369553581e-4];
 
+        end 
+    end
+    % //////////////////////// MODEL PROPERTIES ///////////////////////////
+    methods (Static)
+        % Map vector from ENU to NED
+        function [v] = GetNEDFromENU(v)
+            % Input sanity check
+            assert(isColumn(v,3),'Expecting 3D column vector.');
+            % Rotate the vector through pi
+            mapAngle = pi;
+            R_pi = [ 1             0              0;
+                     0 cos(mapAngle) -sin(mapAngle);
+                     0 sin(mapAngle)  cos(mapAngle)];
+            v = R_pi*v;        
         end
         % GET THE NOMINAL THRUST INPUTS FROM CURRENT STATE
         function [Uss] = ARdrone_nominalInput(X)
@@ -201,13 +209,14 @@ classdef ARdrone < agent
             Uss = [t7;t7;t7;t7];
         end
         % CONTROL MAPPING FOR ARDRONE
-        function [setpoint] = ARdrone_controlMapping(throttle,roll,pitch,yaw)
+        function [Vin] = ARdrone_controlMapping(throttle,roll,pitch,yaw)
             % This function maps the body axis torques onto the angular
             % rate set points of the motors (omega_(1-4))
-            setpoint(1) = throttle - roll + pitch - yaw;
-            setpoint(2) = throttle - roll - pitch + yaw;
-            setpoint(3) = throttle + roll - pitch - yaw;
-            setpoint(4) = throttle + roll + pitch + yaw; % This distributes the control inputs to the respective 
+            Vin = zeros(4,1);
+            Vin(1) = throttle - roll + pitch - yaw;
+            Vin(2) = throttle - roll - pitch + yaw;
+            Vin(3) = throttle + roll - pitch - yaw;
+            Vin(4) = throttle + roll + pitch + yaw; % This distributes the control inputs to the respective 
         end        
         % DYNAMIC PROPERTIES
         function [DYNAMICS] = GetDyanamicProperties(dt,config)

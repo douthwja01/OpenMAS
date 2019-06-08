@@ -6,10 +6,14 @@ classdef ARdrone_LQR < ARdrone
 %% INITIALISE THE AGENT SPECIFIC PARAMETERS
     % LQR SPECIFIC PARAMETERS
     properties
+        % GET THE DESCRETE LQR CONTROLLER
+        Q = diag([1 1 1 1 1 1 1 1 1 1 1 1])*1.5E1;
+        R = diag(ones(4,1))*1E-4;
+        K_lqr;
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTOR METHOD
+        % CONSTRUCTOR
         function obj = ARdrone_LQR(varargin)
             
             % CALL THE SUPERCLASS CONSTRUCTOR
@@ -18,9 +22,8 @@ classdef ARdrone_LQR < ARdrone
             [varargin] = obj.inputHandler(varargin);
             
             % GET THE CLOSED LOOP LINEAR MODEL
-            % This function overrides the linear plant model with the
-            % closed loop plant
-            [obj.DYNAMICS.K_lqr] = obj.GetLQRFeedback(obj.DYNAMICS.SS);
+            % Calculate the linear feedback from the LQR
+            obj.K_lqr = obj.GetLQRController(obj.DYNAMICS.SS);
             
             % DYNAMIC CONSTRAINTS
             obj.nominalSpeed = 1; 
@@ -29,59 +32,74 @@ classdef ARdrone_LQR < ARdrone
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);            
         end
-        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
-        function [obj] = main(obj,TIME,varargin)
+        % MAIN 
+        function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
             % >objects - The detectable objects cell array of structures
             % OUTPUTS:
             % obj      - The updated project
-            
-            % GET THE TIMESTEP
-            if isstruct(TIME)
-                dt = TIME.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
-            
+
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,~,~] = obj.GetAgentUpdate(dt,varargin{1});
+            obj = obj.GetAgentUpdate(ENV,varargin{1});
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
-            % Design the current desired trajectory from the waypoint.
+            % Get desired heading
             desiredHeadingVector = obj.GetTargetHeading();
+            % Express velocity vector in NED coordinates
+            NEDVelocity = obj.GetNEDFromENU(desiredHeadingVector)*obj.nominalSpeed;
             
-            mapAngle = pi;
-            XYZ2NED = [ 1             0              0;
-                        0 cos(mapAngle) -sin(mapAngle);
-                        0 sin(mapAngle)  cos(mapAngle)];
-                    
-            NEDVelocity = (XYZ2NED*desiredHeadingVector)*obj.nominalSpeed; 
+            % LQR controller update
+            obj = obj.controller(ENV,NEDVelocity);
+            
+            % \\\\\\\\\\\\\\\ RECORD THE AGENT-SIDE DATA \\\\\\\\\\\\\\\\\\
+            obj.DATA.inputNames = {'x','y','z','phi','theta','psi','dx','dy','dz','dphi','dtheta','dpsi'};
+            obj.DATA.inputs(1:numel(obj.DATA.inputNames),ENV.currentStep) = obj.localState;          % Record the control inputs 
+        end
+    end
+    
+    %% /////////////////////// AUXILLARY METHODS //////////////////////////
+    % CONTROLLER METHODS
+    methods
+        % ARdrone controller function
+        function [obj] = controller(obj,ENV,NEDVelocity)
             
             % CALCULATE THE NEW STATE REFERENCE
-            X_desired = [zeros(3,1);zeros(2,1);obj.localState(6);NEDVelocity;zeros(3,1)];         % Create a state reference
+            X_desired = [zeros(3,1);zeros(2,1);obj.localState(6);NEDVelocity;zeros(3,1)];  
             
             % /////////////////// AIRCRAFT DYNAMICS ///////////////////////
             useLinearModel = 1;
             if ~useLinearModel
-                [obj.localState] = obj.updateNonLinearPlant(TIME,obj.localState,X_desired);
+                [obj.localState] = obj.updateNonLinearPlant(ENV,obj.localState,X_desired);
             else
-                [obj.localState] = obj.updateLinearPlant(TIME,obj.localState,X_desired);         
+                [obj.localState] = obj.updateLinearPlant(ENV,obj.localState,X_desired);         
             end
             
             % \\\\\\\\\\\\\\\\\\\\\ GLOBAL UPDATE \\\\\\\\\\\\\\\\\\\\\\\\\
-            obj = obj.updateGlobalProperties_ARdrone(dt,obj.localState);
+            obj = obj.updateGlobalProperties_ARdrone(ENV.dt,obj.localState);
+        end
+        % GET LINEAR-QUADRATIC-REGULATOR(LQR) CONTROLLER
+        function [K_lqr] = GetLQRController(obj,SS)
+            % This function designs the LQR controller used to provide
+            % error feedback.
             
-            % \\\\\\\\\\\\\\\ RECORD THE AGENT-SIDE DATA \\\\\\\\\\\\\\\\\\
-            obj.DATA.inputNames = {'x','y','z','phi','theta','psi','dx','dy','dz','dphi','dtheta','dpsi'};
-            obj.DATA.inputs(1:numel(obj.DATA.inputNames),TIME.currentStep) = obj.localState;          % Record the control inputs 
+            % GET THE DESCRETE LQR CONTROLLER
+%             Q = diag([1 1 1 1 1 1 1 1 1 1 1 1])*1.5E1;
+%             R = diag(ones(4,1))*1E-4;
+            
+            [K_lqr,~,~] = lqr(SS.A,SS.B,obj.Q,obj.R);  % Get the descrete LQR feedback  
+            
+            % IGNORE POSITION FEEDBACK
+            K_lqr(:,1:3) = 0; % Omit position feedback
+            % IGNORE XY POSITION FEEDBACK
+%             K_lqr(:,1:2) = 0; % Omit XY position feedback
+            % IGNORE HEADING FEEDBACK
+%             K_lqr(:,6) = 0;  
         end
     end
     
-    % ///////////////////////// CONTROLLER ////////////////////////////////
     methods
         % 0DE45 - UPDATE NONLINEAR CLOSED LOOP DYNAMICS
         function [X] = updateNonLinearPlant(obj,TIME,X0,X_desired)
@@ -104,11 +122,15 @@ classdef ARdrone_LQR < ARdrone
             % This function computes the state update for the current agent
             % using the ode45 function.
             
+            assert(isstruct(TIME),'Expecting a time structure.');
+            
             % DETERMINE THE INTEGRATION PERIOD
-            if TIME.currentTime == TIME.timeVector(end)
+            %if TIME.currentTime == TIME.timeVector(end)
+            if obj.isIdle()
                 X = X0;
                 return
             end
+            
             % INTEGRATE THE DYNAMICS OVER THE TIME STEP
             [~,Xset] = ode45(@(t,X) obj.ARdrone_linear_closedLoop(X,X_desired),...
                 [0 TIME.dt],...
@@ -132,30 +154,9 @@ classdef ARdrone_LQR < ARdrone
             % THE STATE ERROR
             Xerror = X - X_desired;
             % GET THE NOMINAL INPUT + LQR FEEDBACK
-            dU = - obj.DYNAMICS.K_lqr*Xerror;
+            dU = - obj.K_lqr*Xerror;
             % CALL THE OPENLOOP DYNAMICS
-            [dX] = obj.ARdrone_linear_openLoop(obj.DYNAMICS.SS,X,dU);
-        end
-    end
-    % ///////////////////////// CONTROLLER ////////////////////////////////    
-    methods (Static)    
-        % GET LINEAR-QUADRATIC-REGULATOR(LQR) CONTROLLER
-        function [K_lqr] = GetLQRFeedback(SYS_openLoop)
-            % This function designs the LQR controller used to provide
-            % error feedback.
-            
-            % GET THE DESCRETE LQR CONTROLLER
-            Q = diag([1 1 1 1 1 1 1 1 1 1 1 1])*1.5E1;
-            R = diag(ones(4,1))*1E-4;
-            
-            [K_lqr,~,~] = lqr(SYS_openLoop.A,SYS_openLoop.B,Q,R);  % Get the descrete LQR feedback  
-            
-            % IGNORE POSITION FEEDBACK
-            K_lqr(:,1:3) = 0; % Omit position feedback
-            % IGNORE XY POSITION FEEDBACK
-%             K_lqr(:,1:2) = 0; % Omit XY position feedback
-            % IGNORE HEADING FEEDBACK
-%             K_lqr(:,6) = 0;  
+            [dX] = obj.ARdrone_linear_openLoop(X,dU);
         end
     end
 end

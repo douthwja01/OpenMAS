@@ -30,7 +30,7 @@ classdef ISS < agent
             [obj.DYNAMICS] = obj.GetDynamicsProperties();
             
             % VIRTUAL DEFINITION
-            obj = obj.SetRadius(sqrt((obj.length/2)^2 + (obj.width/2)^2 + (obj.height/2)^2));
+            [obj] = obj.SetRadius(sqrt((obj.length/2)^2 + (obj.width/2)^2 + (obj.height/2)^2));
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
             
@@ -38,7 +38,7 @@ classdef ISS < agent
             [obj.GEOMETRY] = OMAS_graphics.scale(obj.GEOMETRY,[obj.length/2,obj.width/2,obj.height/2]); % To match real world dimensions
         end
         % AGENT MAIN CYCLE 
-        function [obj] = main(obj,TIME,varargin)
+        function [obj] = main(obj,ENV,varargin)
             % This function is designed to contain everything your agent does
             % in a given simulation timestep. As an 'agent', a list of
             % detected obstacles is given if detected.
@@ -52,8 +52,8 @@ classdef ISS < agent
             
             
             % GET THE TIMESTEP
-            if isstruct(TIME)
-                dt = TIME.dt;
+            if isstruct(ENV)
+                dt = ENV.dt;
             else
                 error('Object TIME packet is invalid.');
             end
@@ -66,7 +66,7 @@ classdef ISS < agent
                 return
             else
                 % UPDATE THE AGENT WITH THE NEW INFORMATION
-                [obj,~,~] = obj.GetAgentUpdate(dt,observationSet);
+                [obj,~,~] = obj.GetAgentUpdate(ENV,observationSet);
             end
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
