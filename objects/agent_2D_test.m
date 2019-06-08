@@ -37,23 +37,16 @@ classdef agent_2D_test < agent_2D
             [obj] = obj.configurationParser(obj,varargin);
         end
         % ///////////////// AGENT MAIN CYCLE //////////////////////////////
-        function obj = main(obj,TIME,varargin)
+        function obj = main(obj,ENV,varargin)
             % INPUTS:
             % TIME     - The TIME simulations structure
             % varargin - Cell array of inputs
             % OUTPUTS:
             % obj      - The updated project
-            
-            % GET THE TIMESTEP
-            if isstruct(TIME)
-                dt = TIME.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
+                        
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             observationSet = varargin{1}; % The detected objects
-            [obj,obstacleSet,agentSet,waypointSet] = obj.GetAgentUpdate(dt,observationSet);
+            [obj,obstacleSet,agentSet,waypointSet] = obj.GetAgentUpdate(ENV,observationSet);
 
             % GET WAYPOINT (TARGET) HEADING VECTOR \\\\\\\\\\\\\\\\\\\\\\\\
             targetHeading = obj.GetTargetHeading();
@@ -69,11 +62,11 @@ classdef agent_2D_test < agent_2D
             desiredVelocity = targetHeading*targetSpeed;
             
             % PASS THE REQUEST TO THE CONTROLLER
-            [obj] = obj.controller(dt,desiredVelocity);
+            [obj] = obj.controller(ENV.dt,desiredVelocity);
                    
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             obj.DATA.inputNames = {'dx (m/s)','dy (m/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = [obj.localState(3:4,1)];         % Record the control inputs 
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = [obj.localState(3:4,1)];         % Record the control inputs 
         end
         % /////////////////////////////////////////////////////////////////
 

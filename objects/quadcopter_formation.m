@@ -44,7 +44,7 @@ classdef quadcopter_formation < quadcopter & agent_formation
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,~,agentSet,~] = obj.GetAgentUpdate(dt,varargin{1});                   % IDEAL INFORMATION UPDATE 
+            [obj,~,agentSet,~] = obj.GetAgentUpdate(ENV,varargin{1});                   % IDEAL INFORMATION UPDATE 
             
             if ~isempty(agentSet)
                 [desiredVelocity,L] = obj.formationControl_distance(agentSet);

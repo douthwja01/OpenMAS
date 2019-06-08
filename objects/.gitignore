@@ -4,6 +4,7 @@
 # Ommitted file types
 *.mat
 *.asv
+*.prj
 # Ommitted files
 *_interval*
 agent_2D_VO_withComplex.m

@@ -51,7 +51,7 @@ classdef quadcopter < agent
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,~,~,~] = obj.GetAgentUpdate(dt,varargin{1});                   % IDEAL INFORMATION UPDATE 
+            [obj,~,~,~] = obj.GetAgentUpdate(ENV,varargin{1});                   % IDEAL INFORMATION UPDATE 
             
             % GET THE CONTROLLER REFERENCE STATE
             [obj,X_desired] = obj.GetControllerType('velocity',dt); 

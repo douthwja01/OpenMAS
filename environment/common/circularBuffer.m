@@ -55,8 +55,8 @@ classdef circularBuffer
             % where "2"
             
             % Input sanity check
-            inputSize = size(input);
-            bufferSize = size(obj.data);
+%             inputSize = size(input);
+%             bufferSize = size(obj.data);
 %             for i = 1:numel(s(1).subs)
 %                 % Where ":" is assigned, dimensions must match
 %                 if strcmp([s(1).subs{i}],':')
@@ -135,18 +135,6 @@ classdef circularBuffer
             dimSelectA = repmat({':'},1,numel(bufferDim));
             dimSelectB = dimSelectA;
             dataSequence = obj.data;        % Container of same type and size
-
-            % while t is less than the length of the buffer in the unpack
-            % dimension
-%             t = 1;                          % Steps back
-%             while t ~= (bufferDim(unpackDim) + 1)
-%                 bInd = mod(((ind0 + t)-2),bufferDim(unpackDim)) + 1;
-%                 % Modify data based on the selected unpacking dimension
-%                 dimSelectA{unpackDim} = t;
-%                 dimSelectB{unpackDim} = bInd;
-%                 dataSequence(dimSelectA{:}) = obj.data(dimSelectB{:});
-%                 t = t + 1;                  % Iterate
-%             end
             
             % while t is less than the length of the buffer in the unpack
             % dimension

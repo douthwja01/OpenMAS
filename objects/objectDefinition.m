@@ -25,7 +25,7 @@ classdef objectDefinition
     % CLASS METHODS
     methods (Access = public)
         % CONSTRUCTOR METHOD
-        function obj = objectDefinition(varargin)
+        function obj   = objectDefinition(varargin)
             % This function is designed to automatically apply a generic
             % naming convention to all objects generated prior to a
             % simulation.
@@ -34,17 +34,11 @@ classdef objectDefinition
             % OUTPUTS:
             % obj     - The generated object
             
-            % Get the system paths
-            pathString = mfilename('fullpath');
-            ind = strfind(pathString,'objects');
-            pathString = pathString(1:(ind-1));
-            
-            % Add system paths
-            addpath(OMAS_system.GetOSPathString([pathString,'environment']));
-            addpath(OMAS_system.GetOSPathString([pathString,'environment\common']));
-            
+            % Check all system paths are available
+            obj.GetPathDependencies();
+
             % ASSIGN VIRTUAL PROPERTIES
-            [obj.VIRTUAL]  = obj.GetVIRTUALstructure();
+            [obj.VIRTUAL]  = obj.GetVIRTUAL();
             
             % GET GEOMETRY IF POSSIBLE (FOR ALL CLASS SIBLINGS)
             [obj.GEOMETRY] = obj.GetObjectGeometry();                      % Get the geometry of the object
@@ -57,7 +51,7 @@ classdef objectDefinition
             end
             % GENERATE OBJECT NAME IF REQUIRED
             if numel(obj.name) < 1   
-                obj.name = obj.GetObjectName(obj.objectID);                % No input name string specified, use greek naming scheme
+                obj.name = obj.GetName(obj.objectID);                % No input name string specified, use greek naming scheme
             end            
             
             % ////////// HANDLING THE USERS INPUTS AS OVERRIDES ///////////
@@ -72,7 +66,6 @@ classdef objectDefinition
             end            
         end 
         % ///////////////////// SETUP FUNCTION ////////////////////////////
-        % DEFAULT SETUP FUNCTION 
         function [obj] = setup(obj,localXYZvelocity,localXYZrotations)     % [x y z phi theta psi]
             % This function is called in order to build the initial state
             % vector for the generic agent class 'objectDefinition'.
@@ -114,6 +107,18 @@ classdef objectDefinition
             
             % UPDATE THE CLASS GLOBAL PROPERTIES
             obj = obj.updateGlobalProperties_ENU(dt,newState);
+        end
+    end
+    
+    %% /////////////////////// CHECK FUNCTIONS ////////////////////////////
+    methods
+        % Check dimensionality of object
+        function [flag] = is3D(obj)
+            flag = obj.VIRTUAL.is3D;
+        end
+        % Check if idle
+        function [flag] = isIdle(obj)
+            flag = obj.VIRTUAL.idleStatus;
         end
     end
     %% //////////////////////// GET FUNCTIONS /////////////////////////////
@@ -176,9 +181,9 @@ classdef objectDefinition
         end
     end
     % Only the objectDefinition class needs access
-    methods (Static, Access = private)   
+    methods (Static, Access = private)  
         % Get the object parameters
-        function [VIRTUAL]  = GetVIRTUALstructure()
+        function [VIRTUAL]  = GetVIRTUAL()
             % This is function that assembles the template desciption of an
             % object
             % DEFINE THE VIRTUAL STRUCTURE
@@ -195,7 +200,7 @@ classdef objectDefinition
                          'is3D',logical(true));                            % Object operates in 3D logical
         end
         % Get the object name
-        function [namestr]  = GetObjectName(objectID)
+        function [namestr]  = GetName(objectID)
             % No input name string specified, use greek naming scheme
             defaultID = { 'alpha', 'beta','gamma', 'delta','epsilon'  ...
                         ,  'zeta',  'eta','theta',  'iota','kappa'    ...
@@ -670,6 +675,24 @@ classdef objectDefinition
             
             % Call the all parameter overrider
             config = GetParameterOverrides(defaultConfig,inputParameters);
+        end
+        % Dependancy check for all objects
+        function GetPathDependencies()
+            % This program preforms a check of the dependencies necessary
+            % for the instantiation of object classes.
+            
+            % Get the path to the install directory
+            repoString = mfilename('fullpath');
+            ind = strfind(repoString,'objects');
+            repoString = repoString(1:(ind-1));
+            
+            % Add the path to the repo's environment 
+            addpath([repoString,'environment']);
+            
+            % Check all the OMAS_dependencies
+            if ~OMAS_system.GetFileDependancies()
+                error('Unable to get OpenMAS dependancies.');
+            end
         end
     end
 end

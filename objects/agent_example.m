@@ -74,7 +74,7 @@ classdef agent_example < agent
             end
 
             % PARSE THE ENTITY PROPERTIES FROM THE ENVIRONMENT 
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(dt,varargin{1});       % IDEAL INFORMATION UPDATE       
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE       
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
             %        INSERT ALGORITHM/DECISION MAKING PROCESS HERE

@@ -34,7 +34,7 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
         % MAIN
-        function [obj] = main(obj,TIME,varargin)
+        function [obj] = main(obj,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
@@ -45,8 +45,8 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % obj      - The updated project
             
             % INPUT HANDLING
-            if isstruct(TIME)
-                dt = TIME.dt;
+            if isstruct(ENV)
+                dt = ENV.dt;
             else
                 error('Object TIME packet is invalid.');
             end
@@ -62,7 +62,7 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             end 
                         
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(dt,varargin{1});       % IDEAL INFORMATION UPDATE
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
             % /////////////////////////////////////////////////////////////
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
@@ -86,14 +86,14 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             [obj] = obj.controller(dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj.DATA.algorithm_indicator(TIME.currentStep) = algorithm_indicator; % Record when the algorithm is ran
-            obj.DATA.algorithm_dt(TIME.currentStep) = algorithm_dt;               % Record the computation time
+            obj.DATA.algorithm_indicator(ENV.currentStep) = algorithm_indicator; % Record when the algorithm is ran
+            obj.DATA.algorithm_dt(ENV.currentStep) = algorithm_dt;               % Record the computation time
             obj.DATA.inputNames = {'Vx (m/s)','Vy (m/s)','Yaw Rate (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);         % Record the control inputs
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);         % Record the control inputs
             
             % // DISPLAY CONFLICT RESOLUTION
             if obj.objectID == visualiseAgent && visualiseProblem == 1
-                obj = obj.GetAnimationFrame(overHandle,TIME,'resolutionZone.gif');
+                obj = obj.GetAnimationFrame(overHandle,ENV,'resolutionZone.gif');
                 close(overHandle);
             end
         end

@@ -48,21 +48,14 @@ classdef agent_VO < agent
             [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end
         % MAIN
-        function [obj] = main(obj,TIME,varargin)
+        function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
             % >objects - The detectable objects cell array of structures
             % OUTPUTS:
             % obj      - The updated project
-            
-            % GET THE TIMESTEP
-            if isstruct(TIME)
-                dt = TIME.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
+                        
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
@@ -75,7 +68,7 @@ classdef agent_VO < agent
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(dt,varargin{1});       % IDEAL INFORMATION UPDATE
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
@@ -95,12 +88,12 @@ classdef agent_VO < agent
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm      
             
             % /////// COMPUTE STATE CHANGE FROM CONTROL INPUTS ////////////
-            [obj] = obj.controller(dt,desiredVelocity);
+            [obj] = obj.controller(ENV.dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
+            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
             obj.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs
         end
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////

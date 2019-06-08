@@ -11,14 +11,14 @@ classdef agent_test < agent
     methods 
         % CONSTRUCTOR
         function obj = agent_test(varargin)
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
+
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Get super class 'agent'
 
-%             obj.VIRTUAL.detectionRadius = 10;
+            % INPUT HANDLING (Clean up nested loops)
+            [varargin] = obj.inputHandler(varargin);
+            
+            [obj] = obj.SetBufferSize(5);
             
             % CHECK FOR USER OVERRIDES
             [obj] = obj.configurationParser(obj,varargin);
@@ -33,28 +33,45 @@ classdef agent_test < agent
             % >objects - The detectable objects cell array of structures
             % OUTPUTS:
             % obj      - The updated project
-            
-            % INPUT HANDLING
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end           
+                 
 
+%             % PLOT AGENT FIGURE
+%             visualiseProblem = 1;
+%             visualiseAgent = 1;
+%             if obj.objectID == visualiseAgent && visualiseProblem == 1
+%                 overHandle = figure('name','testFigure');
+%                 ax = axes(overHandle);
+%                 hold on; grid on;
+%                 axis equal;
+%                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
+%             end 
+            
+            
             % DEFAULT BEHAVIOUR
             desiredVelocity = [1;0;0]*obj.nominalSpeed;
             
-            % UPDATE THE AGENT WITH THE NEW INFORMATION
-            [obj,obstacleSet,agentSet,waypointSet] = obj.GetAgentUpdate(dt,varargin{1});  
+            % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
+            % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
+            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});
+            % /////////////////////////////////////////////////////////////
+            
                             
             % PLOTTING THE COMPLETE OBJECT SURROUNDINGS
-            if obj.objectID == 1
-                figureHandle = figure(1);
-                [figureHandle] = obj.GetObjectScene([obstacleSet;agentSet;waypointSet],figureHandle);   % Plot the objects
-                [figureHandle] = obj.GetAnimationFrame(ENV,figureHandle,'objectScene.gif');             % Store the annimations
-            end
+%             if obj.objectID == 1
+%                 figureHandle = figure(1);
+%                 [figureHandle] = obj.GetObjectScene([obstacleSet;agentSet;waypointSet],figureHandle);   % Plot the objects
+%                 [figureHandle] = obj.GetAnimationFrame(ENV,figureHandle,'objectScene.gif');             % Store the annimations
+%             end
                         
-
+%             if obj.objectID == visualiseAgent  && visualiseProblem == 1
+%                 p_j = obj.GetLastMeasurementByObjectID(agentSet(1).objectID,'position')
+%                 
+%                 p_j = obj.GetTrajectoryByObjectID(agentSet(1).objectID,'position')
+%                 
+%                 plot3(ax,p_j(1,:)',p_j(2,:)',p_j(3,:)','b');
+%                 
+%             end
+            
             
             % REQUEST A SEQUENCE OF ROTATIONAL RATES
             [omega] = obj.proceduralHeadingRate(ENV,3);
@@ -66,7 +83,7 @@ classdef agent_test < agent
             [newState] = obj.updateLocalState(ENV,obj.localState,velocity,omega);
             
             % //////////////// UPDATE GLOBAL PROPERTIES ///////////////////
-            [obj] = obj.updateGlobalProperties_TEST(dt,newState);
+            [obj] = obj.updateGlobalProperties_TEST(ENV.dt,newState);
             % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
             obj.DATA.inputNames = {'Phi (rad)','Pitch (rad)','Psi (rad)'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = newState(4:6);         % Record the control inputs

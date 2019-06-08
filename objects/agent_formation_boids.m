@@ -18,7 +18,7 @@ classdef agent_formation_boids < agent_formation
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
         % This is necessary to force the agent_2D_VO/RVO/HRVO/RVO2 to
         % consider the formation control desired velocity vector.
-        function [obj] = main(obj,TIME,varargin)
+        function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % obj      - The agent object
             % TIME     - The current time structure
@@ -36,14 +36,14 @@ classdef agent_formation_boids < agent_formation
             end 
             
             % DEFAULT BEHAVIOUR 
-            dt = TIME.dt;
+            dt = ENV.dt;
             desiredSpeed = obj.nominalSpeed;
             desiredHeadingVector = [1;0;0];
             desiredVelocity = desiredHeadingVector*desiredSpeed;
 
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,~,agentSet] = obj.GetAgentUpdate(dt,varargin{1});         % IDEAL INFORMATION UPDATE
+            [obj,~,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});         % IDEAL INFORMATION UPDATE
 
             % ////////////////// FORMATION CONTROLLER /////////////////////
             % We wish to conduct formation control with the other agents
@@ -76,9 +76,9 @@ classdef agent_formation_boids < agent_formation
             [obj] = obj.updateGlobalProperties_3DVelocities(dt,obj.localState);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
+            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
             obj.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs
         end
     end
 end

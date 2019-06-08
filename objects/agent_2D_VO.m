@@ -35,7 +35,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
         % MAIN
-        function [obj] = main(obj,TIME,varargin)
+        function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % obj      - The agent object
             % TIME     - The current time structure
@@ -44,7 +44,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             % obj      - The updated object
             
             % GET THE TIMESTEP
-            dt = TIME.dt;
+            dt = ENV.dt;
             
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
@@ -58,7 +58,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj] = obj.GetAgentUpdate(dt,varargin{1}); 
+            [obj] = obj.GetAgentUpdate(ENV,varargin{1}); 
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             desiredHeadingVector = obj.GetTargetHeading();                    % Design the current desired trajectory from the waypoint.  
@@ -86,9 +86,9 @@ classdef agent_2D_VO < agent_2D & agent_VO
             [obj] = obj.controller(dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(TIME,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'dx (m/s)','dy (m/s)','Yaw Rate (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),TIME.currentStep) = obj.localState(4:6);         % Record the control inputs
+            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
+            obj.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
+            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);         % Record the control inputs
         end
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
