@@ -16,50 +16,44 @@ classdef quadcopter_formation < quadcopter & agent_formation
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function obj = quadcopter_formation(varargin)
+        function this = quadcopter_formation(varargin)
             
             % Call the super class
-            obj@quadcopter(varargin);                                      % Create the super class 'agent'
+            this@quadcopter(varargin);                                      % Create the super class 'agent'
 
             % IMPORT THE AGENT DYNAMICS & CONTROL PARAMETERS
-            [obj.DYNAMICS] = obj.importModelProperties();
+            [this.DYNAMICS] = this.importModelProperties();
             
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end    
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
             % >objects - The detectable objects cell array of structures
             % OUTPUTS:
             % obj      - The updated project
-            
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
+                        
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,~,agentSet,~] = obj.GetAgentUpdate(ENV,varargin{1});                   % IDEAL INFORMATION UPDATE 
+            [this,~,agentSet,~] = this.GetAgentUpdate(ENV,varargin{1});                   % IDEAL INFORMATION UPDATE 
             
             if ~isempty(agentSet)
-                [desiredVelocity,L] = obj.formationControl_distance(agentSet);
+                [desiredVelocity,~] = this.formationControl_distance(agentSet);
             else
                 desiredVelocity = [1;0;0];
             end
             
             % PASS THE DESIRED VELOCITY TO THE DEFAULT CONTROLLER
-            [obj] = obj.controller(dt,desiredVelocity);
+            [this] = this.controller(ENV,desiredVelocity);
             
             % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
-            obj.DATA.inputNames = {'u (m/s)','v (m/s)','w (m/s)','p (rad/s)','q (rad/s)','r (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = newState(7:12);         % Record the control inputs
+            this.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{z}$ (m/s)',...
+                                   '$\dot{\phi}$ (rad/s)','$\dot{\theta}$ (rad/s)','$\dot{\psi}$ (rad/s)'};
+            this.DATA.inputs(1:numel(this.DATA.inputNames),ENV.currentStep) = this.localState(7:end);          % Record the control inputs 
         end
     end    
 end

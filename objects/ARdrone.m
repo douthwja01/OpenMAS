@@ -197,7 +197,7 @@ classdef ARdrone < agent
         function [GEOMETRY] = CreateGEOMETRY(obj)
             
             % Parse the geometry associated with the object
-            [GEOMETRY] = obj.parseObjectGeometry(obj);
+            [GEOMETRY] = obj.GetObjectGeometry(obj);
             
             % ALTER THE DYNAMICS BASED ON THE CONFIGURATION
             switch upper(obj.config)

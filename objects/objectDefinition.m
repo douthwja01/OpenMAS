@@ -1,11 +1,11 @@
-%% GENERIC OBJECT CLASS (objectDefinition.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% GENERIC object CLASS (objectDefinition.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This class is designed to define a generic object and import its variables 
 % into the simulation space for the purpose of multi-vehicle control simulation.
 
 % Author: James A. Douthwaite 20/05/2016
 
-classdef objectDefinition %< handle
-    % OBJECT BASE CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+classdef objectDefinition < handle
+    % object BASE CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties
         % SIMULATION IDENTIFIERS
         objectID = 0;
@@ -20,52 +20,52 @@ classdef objectDefinition %< handle
     %end
     %properties (Access = private)
         % VIRTUAL PROPERTIES (Virtual (SIMULATION) data container)
-        VIRTUAL;                                  % Object operates in 3D logical
+        VIRTUAL;                                  % object operates in 3D logical
     end
     
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods (Access = public)
         % Constructor
-        function [obj] = objectDefinition(varargin)
+        function [this] = objectDefinition(varargin)
             % This function is designed to automatically apply a generic
             % naming convention to all objects generated prior to a
             % simulation.
             % INPUTS:
             % varargin - A cell array of property/value pairs 
             % OUTPUTS:
-            % obj     - The generated object
+            % this     - The generated object
             
             % Check all system paths are available
-            obj.GetPathDependencies();
+            this.GetPathDependencies();
             
-            % Assign the ObjectID (if required)
-            if obj.objectID == 0                                           % Generate objectID if not allocated by a super class
-                obj.objectID = obj.CreateObjectID();                       % Assign the number as an ID tag
-                spawnNewObject = 1;
+            % Assign the objectID (if required)
+            if this.objectID == 0                                           % Generate objectID if not allocated by a super class
+                this.objectID = this.CreateobjectID();                       % Assign the number as an ID tag
+                spawnNewobject = 1;
             else
-                spawnNewObject = 0;
+                spawnNewobject = 0;
             end
             
             % Assign a name string
-            if numel(obj.name) < 1   
-                obj.name = obj.CreateName(obj.objectID);                   % No input name string specified, use greek naming scheme
+            if numel(this.name) < 1   
+                this.name = this.CreateName(this.objectID);                   % No input name string specified, use greek naming scheme
             end  
             
             % Assign default 
-            obj.VIRTUAL  = obj.CreateVIRTUAL();   % The VIRTUAL structure
-            obj.GEOMETRY = obj.CreateGEOMETRY();  % Get the geometry of the object
+            this.VIRTUAL  = this.CreateVIRTUAL();   % The VIRTUAL structure
+            this.GEOMETRY = this.CreateGEOMETRY();  % Get the geometry of the object
 
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
             
-            % ////////// DISPLAY THE CURRENT OBJECT PROPERTIES ////////////
-            if spawnNewObject
-                fprintf('Objectcount: %d\tname: %s\ttype: %s\n',obj.objectID,obj.name,class(obj));
+            % ////////// DISPLAY THE CURRENT object PROPERTIES ////////////
+            if spawnNewobject
+                fprintf('objectcount: %d\tname: %s\ttype: %s\n',this.objectID,this.name,class(this));
             end            
         end 
         % Setup (global default)
-        function [obj] = setup(obj,localXYZvelocity,localXYZrotations)     % [x y z phi theta psi]
+        function [this] = setup(this,localXYZvelocity,localXYZrotations)     % [x y z phi theta psi]
             % This function is called in order to build the initial state
             % vector for the generic agent class 'objectDefinition'.
             % INPUTS:
@@ -76,96 +76,96 @@ classdef objectDefinition %< handle
             % - [x y z phi theta psi]
             
             % Build state vector
-            obj.localState = zeros(6,1);
-            obj.localState(4:6) = localXYZrotations;
+            this.localState = zeros(6,1);
+            this.localState(4:6) = localXYZrotations;
         end
         % Main (global default)
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % This is a generic process cycle of an object that accepts no
             % input commands/feedback and simply updates its states based
             % on its current attributes
             % INPUT:
             % varargin - Generic variable input container, containing the simulation timestep
             % OUTPUT:
-            % obj - The updated object
+            % this - The updated object
             
             % DETERMINE THE TIMESTEP
             if isstruct(ENV)
                 dt = ENV.dt;
             else
-                error('Object TIME packet is invalid.');
+                error('object TIME packet is invalid.');
             end
             
             % MAINTAIN LOCAL INPUT CONDITIONS
             % Default behaviour of a system is to move with constant input
             % conditions.
-            [dXdt]   = obj.dynamics_singleIntegrator(obj.localState,[0;0;0;0;0;0]);
-            newState = obj.localState + dt*dXdt;
+            [dXdt]   = this.dynamics_singleIntegrator(this.localState,[0;0;0;0;0;0]);
+            newState = this.localState + dt*dXdt;
             
             % UPDATE THE CLASS GLOBAL PROPERTIES
-            obj = obj.updateGlobalProperties(dt,newState);
+            this = this.updateGlobalProperties(dt,newState);
         end
     end
     
     %% /////////////////////// CHECK FUNCTIONS ////////////////////////////
     methods
         % Get the 'idle' status
-        function [flag] = IsIdle(obj)
-            flag = obj.GetVIRTUALparameter('idleStatus');
+        function [flag] = IsIdle(this)
+            flag = this.GetVIRTUALparameter('idleStatus');
         end
         % Get the dimensionality of the object
-        function [flag] = Is3D(obj)
-            flag = obj.GetVIRTUALparameter('is3D');
+        function [flag] = Is3D(this)
+            flag = this.GetVIRTUALparameter('is3D');
         end
     end
     %% ////////////////////// GET/SET FUNCTIONS ///////////////////////////
     methods
         % Get the VIRTUAL structure
-        function [VIRTUAL]	= GetVIRTUAL(obj)
-            VIRTUAL = obj.VIRTUAL;
+        function [VIRTUAL]  = GetVIRTUAL(this)
+            VIRTUAL = this.VIRTUAL;
         end  
         % Set the virtual structure
-        function [obj]      = SetVIRTUAL(obj,VIRTUAL)
+        function [this]     = SetVIRTUAL(this,VIRTUAL)
             % Input sanity check
             assert(isstruct(VIRTUAL),"The object's VIRTUAL field must be a structure.");
             % Assign the virtual structure
-            obj.VIRTUAL = VIRTUAL;
+            this.VIRTUAL = VIRTUAL;
         end        
         % Get the virtual parameter
-        function [value]	= GetVIRTUALparameter(obj,label)
+        function [value]    = GetVIRTUALparameter(this,label)
             % Input sanity check
             assert(ischar(label),"The property must be specified as a string.");
-            assert(isprop(obj,'VIRTUAL'),"Object has no VIRTUAL property."); 
-            assert(isfield(obj.VIRTUAL,label),sprintf('%s is not a VIRTUAL parameter.',label));
+            assert(isprop(this,'VIRTUAL'),"object has no VIRTUAL property."); 
+            assert(isfield(this.VIRTUAL,label),sprintf('%s is not a VIRTUAL parameter.',label));
             % Set the parameter to the field
-            value = obj.VIRTUAL.(label);
+            value = this.VIRTUAL.(label);
         end
         % Set the virtual parameter
-        function [obj]      = SetVIRTUALparameter(obj,label,value)
+        function [this]     = SetVIRTUALparameter(this,label,value)
             % Input sanity check
             assert(ischar(label),"The property must be specified as a string.");
-            assert(isprop(obj,'VIRTUAL'),"Object has no VIRTUAL property."); 
-            assert(isfield(obj.VIRTUAL,label),sprintf('"%s" is not a VIRTUAL parameter.',label));
+            assert(isprop(this,'VIRTUAL'),"object has no VIRTUAL property."); 
+            assert(isfield(this.VIRTUAL,label),sprintf('"%s" is not a VIRTUAL parameter.',label));
             % Set the parameter to the field
-            obj.VIRTUAL.(label) = value;
+            this.VIRTUAL.(label) = value;
         end
         % Get general parameter
-        function [value]	= GetParameter(obj,label)
+        function [value]	= GetParameter(this,label)
             % Input sanity check
-            assert(ischar(label) && isprop(obj,label),'The provided must be a parameter.');
-            value = obj.(label);
+            assert(ischar(label) && isprop(this,label),'The provided must be a parameter.');
+            value = this.(label);
         end
         % Set general parameter
-        function [obj]      = SetParameter(obj,label,value)
+        function [this]     = SetParameter(this,label,value)
             % Input sanity check
-            assert(ischar(label) && isprop(obj,label),'The provided must be a parameter.');
-            obj.(label) = value;
+            assert(ischar(label) && isprop(this,label),'The provided must be a parameter.');
+            this.(label) = value;
         end
     end
     %% ////////////////// BASIC PROPERTY ASSIGNMENTS //////////////////////
     methods
         % PARSE A GENERIC INPUT SET AGAINST A DEFAULT CONFIG STRUCTURE
-        function [obj]      = ApplyUserOverrides(obj,pairArray)
+        function [this]      = ApplyUserOverrides(this,pairArray)
             % This function is designed to parse a generic set of user
             % inputs and allow them to be compared to a default input
             % structure. This should be called in the class constructor
@@ -175,10 +175,10 @@ classdef objectDefinition %< handle
                 return
             end
             % Call the all parameter overrider
-            [obj] = GetParameterOverrides_recursive(obj,pairArray);
+            [this] = GetParameterOverrides_recursive(this,pairArray);
         end
         % Get the object GEOMETRY structure
-        function [GEOMETRY] = CreateGEOMETRY(obj)
+        function [GEOMETRY] = CreateGEOMETRY(this)
             % This function prepares object STL files for representation.
             % ASSUMPTIONS:
             % - The object stl file has the same name as the object being simulated.
@@ -189,7 +189,7 @@ classdef objectDefinition %< handle
             % structure to happen other than sourcing the basic structure.
             
             % Call the generic object.stl geometry parser
-            [GEOMETRY] = obj.parseObjectGeometry(obj);
+            [GEOMETRY] = this.GetObjectGeometry(this);
         end
     end
     % Only the objectDefinition class has access
@@ -209,8 +209,8 @@ classdef objectDefinition %< handle
             VIRTUAL.globalPosition = [0;0;0];          % Global Cartesian position
             VIRTUAL.globalVelocity = [0;0;0];          % Global Cartesian velocity
             VIRTUAL.quaternion = [1;0;0;0];            % Global quaternion pose
-            VIRTUAL.idleStatus = true;                 % Object idle logical
-            VIRTUAL.is3D = true;                       % Object operates in 3D logical
+            VIRTUAL.idleStatus = true;                 % object idle logical
+            VIRTUAL.is3D = true;                       % object operates in 3D logical
             VIRTUAL.priorState = [];                            
         end
         % Get the object name
@@ -231,21 +231,21 @@ classdef objectDefinition %< handle
             namestr = sprintf('%s%03d',defaultID{IDvalue},cycle+1);
         end
         % Get the object ID
-        function [objectID] = CreateObjectID()
+        function [objectID] = CreateobjectID()
             % This function allocates a basic ID convention to the class
             % heirarchy to provide object automatic numeration.
             
             persistent objectCount;
             
-            % DEFINE ID BASED ON EXISTING OBJECTS
+            % DEFINE ID BASED ON EXISTING objectS
             if isempty(objectCount)
-                % INITIAL OBJECT
+                % INITIAL object
                 objectCount = 1;
             else
-                % OBJECTS EXIST
+                % objectS EXIST
                 objectCount = objectCount + 1;
             end
-            % ALLOCATE OBJECT ID
+            % ALLOCATE object ID
             objectID = uint16(objectCount);
         end 
     end
@@ -336,22 +336,22 @@ classdef objectDefinition %< handle
     %% ////////////////// SIMULATION & CORE INTERFACES ////////////////////
     methods
         % INITIAL 3D STATE - [x y z phi theta psi dx dy dz dphi dtheta dpsi]
-        function [obj] = initialise_3DVelocities(obj,localXYZVelocity,localXYZrotations)
+        function [this] = initialise_3DVelocities(this,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
             % object.
             % The default state vector:
             % [x y psi dx dy dpsi]
             
             % BUILD STATE VECTOR
-            obj.localState = zeros(12,1);
-            obj.localState(4:5) = localXYZrotations(1:2);
-            %obj.localState(4:6) = localXYZrotations;       % Represent yaw relative to initial position    
-            obj.localState(7:9) = localXYZVelocity;
+            this.localState = zeros(12,1);
+            this.localState(4:5) = localXYZrotations(1:2);
+            %this.localState(4:6) = localXYZrotations;       % Represent yaw relative to initial position    
+            this.localState(7:9) = localXYZVelocity;
             % RETAIN THE PRIOR STATE FOR REFERENCE
-            obj.VIRTUAL.priorState = obj.localState;
+            this.VIRTUAL.priorState = this.localState;
         end
         % GLOBAL UPDATE - STATE VECTOR DEFINED AS: [x_t;x_dot]'
-        function [obj] = updateGlobalProperties_3DVelocities(obj,dt,eulerState)
+        function [this] = updateGlobalProperties_3DVelocities(this,dt,eulerState)
             % This function preforms the state update for a state vector
             % defined as [x y z phi theta psi dx dy dz dphi dtheta dpsi].
             
@@ -364,7 +364,7 @@ classdef objectDefinition %< handle
             
             % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
             % PREVIOUS QUATERNION                                          % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.GetVIRTUALparameter('quaternion');   
+            quaternion_k = this.GetVIRTUALparameter('quaternion');   
             % PREVIOUS ROTATION-MATRIX
             R_k_plus = quat2rotm(quaternion_k');
             % THE GLOBAL AXIS RATES       
@@ -375,15 +375,15 @@ classdef objectDefinition %< handle
             R_k_plus = quat2rotm(quaternion_k_plus');         
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
             globalVelocity_k_plus = R_k_plus'*localLinearRates;
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
+            globalPosition_k_plus = this.VIRTUAL.globalPosition + dt*this.VIRTUAL.globalVelocity;
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            obj = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
+            this = this.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
                                                     globalVelocity_k_plus,... % Global velocity at k plus
                                                     quaternion_k_plus,...     % Quaternion at k plus
                                                     eulerState);              % The new state for reference
         end
         % GLOBAL UPDATE - EULER 6DOF(3DOF) [x y z phi theta psi],[x y psi]
-        function [obj] = updateGlobalProperties(obj,dt,eulerState)
+        function [this] = updateGlobalProperties(this,dt,eulerState)
             % This function computes the position, velocity and 
             % quaternion in the global ENU frame from a 6DOF state vector 
             % with euler rotations.
@@ -393,7 +393,7 @@ classdef objectDefinition %< handle
             % - [x y phi]
                                    
             % NOTATION INDICIES
-            if obj.Is3D
+            if this.Is3D
                 positionIndices = 1:3;
                 eulerIndices = 4:6;                     % The rotations about X,Y,Z
             else
@@ -402,11 +402,11 @@ classdef objectDefinition %< handle
             end
             
             % Populate the prior state if necessary
-            if isempty(obj.VIRTUAL.priorState)
-                obj = obj.SetVIRTUALparameter('priorState',obj.localState);
+            if isempty(this.VIRTUAL.priorState)
+                this = this.SetVIRTUALparameter('priorState',this.localState);
             end
             % Get the previous state
-            priorState = obj.GetVIRTUALparameter('priorState');
+            priorState = this.GetVIRTUALparameter('priorState');
             
             % Equivalent rates
             localLinearRates  = (eulerState(positionIndices) - priorState(positionIndices))/dt;
@@ -420,7 +420,7 @@ classdef objectDefinition %< handle
                         
             % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
             % PREVIOUS QUATERNION                   % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.GetVIRTUALparameter('quaternion');   
+            quaternion_k = this.GetVIRTUALparameter('quaternion');   
             % PREVIOUS ROTATION-MATRIX
             R_k_plus = quat2rotm(quaternion_k');
             % THE GLOBAL AXIS RATES       
@@ -431,49 +431,49 @@ classdef objectDefinition %< handle
             R_k_plus = quat2rotm(quaternion_k_plus');    
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
             globalVelocity_k_plus = R_k_plus'*localLinearRates;
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
+            globalPosition_k_plus = this.VIRTUAL.globalPosition + dt*this.VIRTUAL.globalVelocity;
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            obj = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
+            this = this.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
                                                     globalVelocity_k_plus,... % Global velocity at k plus
                                                     quaternion_k_plus,...     % Quaternion at k plus
                                                     eulerState);              % The new state for reference
         end
         % GLOBAL UPDATE - EULER 6DOF(3DOF) (NO ROTATIONS)
-        function [obj] = updateGlobalProperties_fixedFrame(obj,dt,eulerState)
+        function [this] = updateGlobalProperties_fixedFrame(this,dt,eulerState)
             % This function computes the position and velocity whilst 
             % maintaining a fixed quaternion rotation (constant reference 
             % orientation) in the global ENU frame from a 6DOF state vector 
             % with euler rotations.
             
             % NOTATION INDICIES
-            if obj.Is3D
+            if this.Is3D
                 positionIndices = 1:3;
             else
                 positionIndices = 1:2;
             end
             
             % Equivalent velocity
-            velocity_k_plus = (eulerState(positionIndices) - obj.VIRTUAL.priorState(positionIndices))/dt;
+            velocity_k_plus = (eulerState(positionIndices) - this.VIRTUAL.priorState(positionIndices))/dt;
             
             % ROTATION RATES ABOUT THE GLOBAL AXES
             if numel(eulerState) ~= 6
                 velocity_k_plus = [velocity_k_plus;0];
             end
             % Get the current rotation
-            q_k = obj.GetVIRTUALparameter('quaternion');
+            q_k = this.GetVIRTUALparameter('quaternion');
             % NEW ROTATION MATRIX (G>B)            
             R_k_plus = OMAS_geometry.quaternionToRotationMatrix(q_k);
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
             globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
+            globalPosition_k_plus = this.VIRTUAL.globalPosition + dt*this.VIRTUAL.globalVelocity;
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
+            [this] = this.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
                                                       globalVelocity_k_plus,... % Global velocity at k plus
                                                       quaternion_k_plus,...     % Quaternion at k plus
                                                       eulerState);              % The new state for reference
         end
         % GLOBAL UPDATE - DIRECTLY (global default)
-        function [obj] = updateGlobalProperties_direct(obj,p,v,q,X)
+        function [this] = updateGlobalProperties_direct(this,p,v,q,X)
             % Under this notation, the state vector already contains the
             % global parameters of the object.
             % INPUTS:
@@ -481,35 +481,35 @@ classdef objectDefinition %< handle
             % globalVelocity - 3D global cartesian velocity given in the ENU coordinate frame. 
             % quaternion     - The new quaternion pose of body in the global frame.
             % R              - The rotation of the body
-            % obj.localState - The previous localState (independant of convention)
+            % this.localState - The previous localState (independant of convention)
             % eulerState     - The new state as reported by the agent            
             
             % Input sanity check
             assert(numel(p) == 3 && size(p,2) == 1,'Global position must be a 3D column vector [3x1].');
             assert(numel(v) == 3 && size(v,2) == 1,'Global velocity must be a 3D column vector [3x1].');
             assert(numel(q) == 4 && size(q,2) == 1,'Global pose must be a 4D quaternion vector [4x1].');
-            assert(numel(X) == numel(obj.localState) && size(obj.localState,2) == 1,'The length of the objects state update must match the its local state.');       
+            assert(numel(X) == numel(this.localState) && size(this.localState,2) == 1,'The length of the objects state update must match the its local state.');       
                                     
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
             % Assign the global parameters
-            obj.VIRTUAL.globalPosition = p;                                % Reassign the global position
-            obj.VIRTUAL.globalVelocity = v;                                % Reassign the global velocity
-            obj.VIRTUAL.quaternion = q;                                    % Reassign the quaternion
-            obj.VIRTUAL.R = OMAS_geometry.quaternionToRotationMatrix(q);   % K_plus rotation
-            obj.VIRTUAL.priorState = obj.localState;                       % Record the previous state
-            obj.localState = X;                                            % Update the current state
+            this.VIRTUAL.globalPosition = p;                                % Reassign the global position
+            this.VIRTUAL.globalVelocity = v;                                % Reassign the global velocity
+            this.VIRTUAL.quaternion = q;                                    % Reassign the quaternion
+            this.VIRTUAL.R = OMAS_geometry.quaternionToRotationMatrix(q);   % K_plus rotation
+            this.VIRTUAL.priorState = this.localState;                       % Record the previous state
+            this.localState = X;                                            % Update the current state
         end
     end
     methods (Static)
         % Generic .STL to geometry parser
-        function [GEOMETRY] = parseObjectGeometry(entity)
+        function [GEOMETRY] = GetObjectGeometry(entity)
             % This function prepares object STL files for representation.
             % ASSUMPTIONS:
             % - The object stl file has the same name as the object being simulated.
             % - The STL is correctly rotated to match the axes of XYZ of the agents
             %   local frame.
             
-            % ABSOLUTE PATH TO THE OBJECT STL LOCATION
+            % ABSOLUTE PATH TO THE object STL LOCATION
             absPath = mfilename('fullpath');
             absPath = strrep(absPath,'objectDefinition','');               % Get the current m-files directory
             
@@ -520,7 +520,7 @@ classdef objectDefinition %< handle
             for aliasNo = 1:numel(aliases)
                 % BUILD THE STL ASSOCIATION
                 filename = strcat(absPath,char(aliases(aliasNo)),'.stl');  % Build the associated STL path
-                % GET THE OBJECT PATCH FROM STL FILE (in the object directory)
+                % GET THE object PATCH FROM STL FILE (in the object directory)
                 [GEOMETRY,getFlag] = OMAS_graphics.importStlFromFile(filename);
                 if getFlag
                     break                                                  % Successful import

@@ -15,19 +15,19 @@ classdef agent_formation < agent
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
         % Constructor
-        function obj = agent_formation(varargin)
+        function this = agent_formation(varargin)
             % GET THE VELOCITCY OBSTACLE (VO) AGENT TOOLS
-            obj@agent(varargin);                                           % Get the supercalss
+            this@agent(varargin);                                           % Get the supercalss
             
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
     end
     % ///////////// SHIYU'S FORMATION CONTROL TECHNIQUES //////////////////
     methods (Access = public)
         % BEARING BASED FORMATION CONTROL [INCOMPLETE]
-        function [vi,V] = formationControl_bearing(obj,observedObjects)
+        function [vi,V] = formationControl_bearing(this,observedObjects)
             % This function calculates the formation control vector to
             % bring about the desired bearings between the given objects.
             
@@ -36,7 +36,7 @@ classdef agent_formation < agent
             % CONSTANT PARAMETERS
             objectNumber = numel(observedObjects);
             
-            % pi = obj.localState(1:numel(observedObjects(1).position));
+            % pi = this.localState(1:numel(observedObjects(1).position));
             vi = zeros(size(observedObjects(1).position));
             
             V = 0;
@@ -52,10 +52,10 @@ classdef agent_formation < agent
                 V = V + (norm(Pij*(pij)))^2;
             end
             % CONDITION THE OUTPUT VECTOR
-            [vi] = obj.conditionControlVector(vi);
+            [vi] = this.conditionControlVector(vi);
         end
         % DISTANCE BASE FORMATION CONTROL [COMPLETE]
-        function [vi,V] = formationControl_distance(obj,observedObjects)
+        function [vi,V] = formationControl_distance(this,observedObjects)
             % This function calculates the formation control vector to
             % to bring about the desired object separation, given the
             % agents current knowledge of the surrounding agents.
@@ -71,15 +71,15 @@ classdef agent_formation < agent
             %        d3  d1   0];
             
             % CONFIRM ADJACENCY MATRIX
-            if ~isprop(obj,'adjacencyMatrix') || isempty(obj.adjacencyMatrix)
+            if ~isprop(this,'adjacencyMatrix') || isempty(this.adjacencyMatrix)
                 error('Agent is missing (or has not been assigned) an adjacency matrix');
             end
             
-            if obj.VIRTUAL.is3D
-                pi = obj.localState(1:3);
+            if this.VIRTUAL.is3D
+                pi = this.localState(1:3);
                 vi = zeros(3,1);
             else
-                pi = obj.localState(1:2);
+                pi = this.localState(1:2);
                 vi = zeros(2,1);
             end
             
@@ -89,22 +89,22 @@ classdef agent_formation < agent
             % MOVE THROUGH ALL AGENTS AN CALCULATE THEIR FORCE CONTRIBUTION
             for j = 1:agentNumber
                 % GET THE SECOND OBJECT DATA
-                objectID_j = obj.GetLastMeasurementFromStruct(observedObjects(j),'objectID');
-                p_j = obj.GetLastMeasurementFromStruct(observedObjects(j),'positions');
+                objectID_j = this.GetLastMeasurementFromStruct(observedObjects(j),'objectID');
+                p_j = this.GetLastMeasurementFromStruct(observedObjects(j),'position');
                 % SECOND AGENT INDEX
                 pj = pi + p_j;
                 % separation BASED CONFIRMATION
-                ell_ij = obj.adjacencyMatrix(obj.objectID,objectID_j);
+                ell_ij = this.adjacencyMatrix(this.objectID,objectID_j);
                 % SUM THE CONTRIBUTION
                 vi = vi + (norm(pi - pj)^2 - ell_ij^2)*(pj - pi);
                 % GET THE LYAPANOV VALUE
                 V = V + (norm(pi-pj)^2-ell_ij^2)^2;
             end
             % CONDITION THE OUTPUT VECTOR
-            [vi] = obj.conditionControlVector(vi);
+            [vi] = this.conditionControlVector(vi);
         end
         % RELATIVE POSITION BASED FORMATION CONTROLLER [INCOMPLETE]
-        function [vi,V] = formationControl_relativePosition(obj,observedObjects)
+        function [vi,V] = formationControl_relativePosition(this,observedObjects)
             % This function calculates the formation control vector to
             % to bring about the desired object position, given the
             % agents current knowledge of the surrounding agents.
@@ -118,20 +118,20 @@ classdef agent_formation < agent
             % CONSTANT PARAMETERS
             agentNumber = numel(observedObjects);
             
-            %             pi = obj.localState(1:numel(observedObjects(1).position));
+            %             pi = this.localState(1:numel(observedObjects(1).position));
             vi = zeros(size(observedObjects(1).position));
             V = 0;
             for j = 1:agentNumber
                 % SECOND AGENT INDEX
                 objectID_B = observedObjects(j).objectID;
                 % THE AJACENCY MATRIX COMPONENT
-                scale_ij = obj.adjacencyMatrix(obj.objectID,objectID_B);
+                scale_ij = this.adjacencyMatrix(this.objectID,objectID_B);
                 
                 % RELATIVE POSITION
                 pij = observedObjects(j).position;                          % The observed position is already relative
                 
                 % THE DESIRED RELATIVE POSITION OF AGENT j TO i
-                pij_star = obj.relativePositionMatrix(obj.objectID,objectID_B);
+                pij_star = this.relativePositionMatrix(this.objectID,objectID_B);
                 
                 % ACCUMULATIVE FEEDBACK FROM THE SET OF RELATIVE POSITIONS
                 vi = vi + scale_ij*(pij - pij_star);
@@ -140,12 +140,12 @@ classdef agent_formation < agent
                 V = V + norm(scale_ij*(pij - pij_star))^2;
             end
             % CONDITION THE OUTPUT VECTOR
-            [vi] = obj.conditionControlVector(vi);
+            [vi] = this.conditionControlVector(vi);
         end
         % CONDITION OUTPUT VECTOR
-        function [vi] = conditionControlVector(obj,vi)
+        function [vi] = conditionControlVector(this,vi)
             % Ensures the command vector is achievable and lies within the
-            % constraints specified by 'obj.maxSpeed'. Works for both 2D
+            % constraints specified by 'this.maxSpeed'. Works for both 2D
             % and 3D velocities.
             
             % DESIGN SUITABLE OUTPUT VECTOR
@@ -156,8 +156,8 @@ classdef agent_formation < agent
                 unit_vi = vi/norm_vi;
             end
             
-            if isprop(obj,'nominalSpeed')
-                norm_vi = obj.boundValue(norm_vi,-obj.nominalSpeed,obj.nominalSpeed);
+            if isprop(this,'nominalSpeed')
+                norm_vi = boundValue(norm_vi,-this.nominalSpeed,this.nominalSpeed);
                 vi = unit_vi*norm_vi;
             else
                 error('Nominal speed not defined');
@@ -167,7 +167,7 @@ classdef agent_formation < agent
     % ///////////////// PRIMATIVE FLOCKING ALGORITHIMS
     methods
         % THE FORMATION CONTROL PRINCIPLES FOR THE 'BOIDS' MODEL
-        function [v_boids] = formationControl_boids(obj,targetWaypoint,neighbours,weights)
+        function [v_boids] = formationControl_boids(this,targetWaypoint,neighbours,weights)
             % This function computes the formation control heading based
             % upon the boids four principle rules.
             
@@ -176,17 +176,17 @@ classdef agent_formation < agent
             end
             p_j = []; v_j = [];
             for j = 1:numel(neighbours)
-                p_j(j,:) = obj.GetLastMeasurementFromStruct(neighbours(j),'position')';
-                v_j(j,:) = obj.GetLastMeasurementFromStruct(neighbours(j),'velocity')';
+                p_j(j,:) = this.GetLastMeasurementFromStruct(neighbours(j),'position')';
+                v_j(j,:) = this.GetLastMeasurementFromStruct(neighbours(j),'velocity')';
             end
             % The way-point position
-            p_wp = obj.GetLastMeasurementFromStruct(targetWaypoint,'position');
+            p_wp = this.GetLastMeasurementFromStruct(targetWaypoint,'position');
             
             % APPLY THE RULE SET
-            [v_sep] = obj.separationRule(p_j);
-            [v_ali] = obj.alignmentRule(v_j);
-            [v_coh] = obj.cohesionRule(p_j);
-            [v_mig] = obj.migrationRule(p_wp);
+            [v_sep] = this.separationRule(p_j);
+            [v_ali] = this.alignmentRule(v_j);
+            [v_coh] = this.cohesionRule(p_j);
+            [v_mig] = this.migrationRule(p_wp);
             
             % CALCULATE THE WEIGHTED CONTRIBUTIONS
             v_boids = weights(1)*v_sep + weights(2)*v_ali + weights(3)*v_coh + weights(4)*v_mig;

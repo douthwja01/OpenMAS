@@ -12,34 +12,37 @@ classdef agent_interval < agent
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods
         % Constructor
-        function obj = agent_interval(varargin)
+        function this = agent_interval(varargin)
             
             % Get the superclass
-            obj@agent(varargin);
+            this@agent(varargin);
+            
+            % Ensure the toolbox is loaded
+            IntLab();   % Attempt to launch intlab
             
             % Assign defaults
-            obj = obj.SetBufferSize(3);  
-            obj.DYNAMICS = obj.CreateDYNAMICS();
+            this = this.SetBufferSize(3);  
+            this.DYNAMICS = this.CreateDYNAMICS();
             
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Main (default for interval options)
-        function obj = main(obj,ENV,varargin)
+        function this = main(this,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
             % ENV     - The TIME simulations structure
             % varargin - Cell array of inputs
             % OUTPUTS:
-            % obj      - The updated project
+            % this      - The updated project
             
             % PLOT AGENT FIGURE
             plotFlag = 1;
             plottingAgent = 1;
             plottedAgent = 2;
-            if obj.objectID == plottingAgent && plotFlag == 1
+            if this.objectID == plottingAgent && plotFlag == 1
                 % Plot the measurements in coordinate space
                 figure1 = figure(1);
                 ax1 = gca;
@@ -59,25 +62,25 @@ classdef agent_interval < agent
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});
+            [this,obstacleSet,agentSet] = this.GetAgentUpdate(ENV,varargin{1});
             
             % Only plot if we are plotting agent
-            if obj.objectID == plottingAgent  && plotFlag == 1
+            if this.objectID == plottingAgent  && plotFlag == 1
                 % Check input data is sensed correctly
-                %obj.GetMeasurementPlot(plottedAgent);
+                %this.GetMeasurementPlot(plottedAgent);
                 
-                [t] = obj.GetTrajectoryByObjectID(plottedAgent,'time');
-                [y] = obj.GetTrajectoryByObjectID(plottedAgent,'position');
+                [t] = this.GetTrajectoryByObjectID(plottedAgent,'time');
+                [y] = this.GetTrajectoryByObjectID(plottedAgent,'position');
                 
-                [fh] = obj.plotSamples(ax1,y(1:3,:));
-                [fh] = obj.plotSamplesByDimension(ax2,t,y);
+                [fh] = this.plotSamples(ax1,y(1:3,:));
+                [fh] = this.plotSamplesByDimension(ax2,t,y);
             end
             
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            [headingVector] = obj.GetTargetHeading();
-            desiredVelocity = mid(headingVector*obj.nominalSpeed);
+            [headingVector] = this.GetTargetHeading();
+            desiredVelocity = mid(headingVector*this.nominalSpeed);
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %                                                             %
@@ -85,10 +88,10 @@ classdef agent_interval < agent
             %                                                             %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
-            % [figureHandle] = obj.GetObjectScene(gcf);
+            % [figureHandle] = this.GetObjectScene(gcf);
             
             % PASS THE DESIRED VELOCITY TO THE DEFAULT CONTROLLER
-            [obj] = obj.controller(ENV.dt,desiredVelocity);
+            [this] = this.controller(ENV.dt,desiredVelocity);
         end
     end
    
@@ -101,15 +104,6 @@ classdef agent_interval < agent
             % the sensing intervals.
             
             % BUILD THE SENSOR STRUCTURE
-%             SENSORS = struct();
-%             SENSORS.range = inf;               % Assume the agent has perfect environmental knowledge (m)
-%             SENSORS.sigma_position = 0.1;      % Accurate to within 0.5m
-%             SENSORS.sigma_velocity = 0.1;      % Accurate to within 0.1m/s
-%             SENSORS.sigma_rangeFinder = 0.1;   % Accurate to within 0.1m
-%             SENSORS.sigma_camera = 5.208E-5;   % One pixel in a 1080p image
-%             SENSORS.sampleFrequency = inf;     % Object has perfect precision
-%             SENSORS.confidenceAssumption = 3;  % Zero standard deviations
-            
             SENSORS = struct();
             SENSORS.range = 10;                % Assume the agent has perfect environmental knowledge (m)
             SENSORS.sigma_position = 0.5;      % Accurate to within 0.5m
@@ -141,14 +135,14 @@ classdef agent_interval < agent
     % comparative 'ideal' case.
     methods
         % Update from sensors defined in the 'SENSORS' (USING SPHERICAL DATA & SENSOR MODEL)
-        function [observedObject] = SensorModel(obj,dt,observedObject)
+        function [observedObject] = SensorModel(this,dt,observedObject)
             % This function computes the agents process for updating its
             % knowledge of the environment.
             % INPUTS:
             % dt              - The unit timstep
             % observationSet  - The full observed object structure
             % OUTPUTS:
-            % obj             - The updated object
+            % this             - The updated object
             % obstacleSet     - The list of obstacle structures
             % waypointSet     - The list of waypoint structures
             
@@ -160,22 +154,22 @@ classdef agent_interval < agent
             % ///// SENSOR MODEL - CAMERA & RANGE INTERVALS (2D & 3D) /////
             % Get measurements from a camera (Noisy or ideal depending on
             % the SENSOR definition.
-            [psi_j,theta_j,alpha_j] = obj.GetCameraMeasurements(observedObject);
+            [psi_j,theta_j,alpha_j] = this.GetCameraMeasurements(observedObject);
             % Convert the camera measurements to interval boxes
-            azimuthBox   = midrad(psi_j,  obj.SENSORS.confidenceAssumption*obj.SENSORS.sigma_camera);
-            elevationBox = midrad(theta_j,obj.SENSORS.confidenceAssumption*obj.SENSORS.sigma_camera);
-            alphaBox     = midrad(alpha_j,obj.SENSORS.confidenceAssumption*obj.SENSORS.sigma_camera);
+            azimuthBox   = midrad(psi_j,  this.SENSORS.confidenceAssumption*this.SENSORS.sigma_camera);
+            elevationBox = midrad(theta_j,this.SENSORS.confidenceAssumption*this.SENSORS.sigma_camera);
+            alphaBox     = midrad(alpha_j,this.SENSORS.confidenceAssumption*this.SENSORS.sigma_camera);
             
             % Get the range estimate
-            d_j = obj.GetRangeFinderMeasurements(observedObject);
+            d_j = this.GetRangeFinderMeasurements(observedObject);
             
             % Convert the range-finder measurement to an interval box
-            rangeBox = midrad(d_j,obj.SENSORS.confidenceAssumption*obj.SENSORS.sigma_rangeFinder);
+            rangeBox = midrad(d_j,this.SENSORS.confidenceAssumption*this.SENSORS.sigma_rangeFinder);
             % Range cannot be less than zero
             rangeBox = intersect(infsup(0,inf),rangeBox);
             
             % /////////////// CALCULATE RADIUS FROM WIDTH /////////////////
-            radiusBox = obj.GetRadiusFromAngularWidth(rangeBox,alphaBox);
+            radiusBox = this.GetRadiusFromAngularWidth(rangeBox,alphaBox);
             
             % /////////////////////// STORE DATA //////////////////////////
             % Override the observed object with the sensors intervals
@@ -187,7 +181,7 @@ classdef agent_interval < agent
             
             % ///////////// CALCULATE THE CARTESIAN POSITION //////////////
             positionBox = GetCartesianFromSpherical(rangeBox,azimuthBox,elevationBox);
-            if ~obj.Is3D
+            if ~this.Is3D
                 positionBox = positionBox(1:2,1); % Must work for 2D and 3D
             end
             % /////////////////////////////////////////////////////////////
@@ -198,29 +192,29 @@ classdef agent_interval < agent
             
             
             % If there is no prior measurement, return before linear estimation
-            if ~obj.IsInMemory(observedObject.objectID)
+            if ~this.IsInMemory(observedObject.objectID)
                 % Retain the current position only
 %                 observedObject.x_k = [mid(positionBox);zeros(6,1)];
                 return;
             else
                 % Get the last object state
-%                 x_k = obj.GetLastMeasurementByID(observedObject.objectID,'x_k');
+%                 x_k = this.GetLastMeasurementByID(observedObject.objectID,'x_k');
             end
             
             % Estimate the state of the obstacle
-%             observedObject.x_k = obj.linearStateEstimation(dt,x_k,positionBox);
+%             observedObject.x_k = this.linearStateEstimation(dt,x_k,positionBox);
             
             % Re-populate implied fields
             % observedObject.position = observedObject.x_k(1:3,1);
             % observedObject.velocity = observedObject.x_k(4:6,1);            
             % Define the position and velocity
             observedObject.position = positionBox;
-            observedObject.velocity = observedObject.velocity + midrad(0,3*obj.SENSORS.sigma_velocity);
+            observedObject.velocity = observedObject.velocity + midrad(0,3*this.SENSORS.sigma_velocity);
         end
         % SENSOR MODEL - LOCAL IMU & GPS INTERVALS (2D & 3D)
-        function [p_i,v_i,r_i] = GetAgentMeasurements(obj)
+        function [p_i,v_i,r_i] = GetAgentMeasurements(this)
             % This function makes estimates of the agent's current position
-            % and velocity states (defined in obj.localState).
+            % and velocity states (defined in this.localState).
             % INPUTS:
             % .SENSORS
             % - sigma_position     - The position measurement standard deviation
@@ -230,12 +224,12 @@ classdef agent_interval < agent
             % .VIRTUAL.radius      - The radius of the object
             
             % Input sanity check
-            assert(isstruct(obj.SENSORS) && ~isempty(obj.SENSORS),'The SENSOR structure is absent.');
-            assert(isnumeric(obj.localState),'The state of the object is invalid.');
-            assert(~any(isnan(obj.localState)),'The state contains NaNs');
+            assert(isstruct(this.SENSORS) && ~isempty(this.SENSORS),'The SENSOR structure is absent.');
+            assert(isnumeric(this.localState),'The state of the object is invalid.');
+            assert(~any(isnan(this.localState)),'The state contains NaNs');
             
             % Depending on the problem dimension
-            if obj.Is3D
+            if this.Is3D
                 positionIndices = 1:3;
                 velocityIndices = 7:9;
             else
@@ -243,22 +237,22 @@ classdef agent_interval < agent
                 velocityIndices = 4:5;
             end
             % Get the position and velocity + perturb the state
-            p_uncertainty = obj.SENSORS.sigma_position*randn(numel(positionIndices),1);  % Zero estimate of position
-            v_uncertainty = obj.SENSORS.sigma_velocity*randn(numel(velocityIndices),1);  % Zero estimate of velocity
+            p_uncertainty = this.SENSORS.sigma_position*randn(numel(positionIndices),1);  % Zero estimate of position
+            v_uncertainty = this.SENSORS.sigma_velocity*randn(numel(velocityIndices),1);  % Zero estimate of velocity
             
             % Generate the intervals centered around that perturbed value
-            p_i = obj.localState(positionIndices,1) + midrad(p_uncertainty,obj.SENSORS.confidenceAssumption*obj.SENSORS.sigma_position);
-            v_i = obj.localState(velocityIndices,1) + midrad(v_uncertainty,obj.SENSORS.confidenceAssumption*obj.SENSORS.sigma_velocity);
+            p_i = this.localState(positionIndices,1) + midrad(p_uncertainty,this.SENSORS.confidenceAssumption*this.SENSORS.sigma_position);
+            v_i = this.localState(velocityIndices,1) + midrad(v_uncertainty,this.SENSORS.confidenceAssumption*this.SENSORS.sigma_velocity);
             
             % Assume the knowledge of the radius is absolute
-            r_i = obj.GetVIRTUALparameter('radius');
+            r_i = this.GetVIRTUALparameter('radius');
         end
     end
     
     %% /////////////////////// STATE ESTIMATIION //////////////////////////
     methods
         % GET LINEAR STATE ESTIMATION
-        function [x_k,x_k_plus] = linearStateEstimation(obj,dt,x_0,p_meas)
+        function [x_k,x_k_plus] = linearStateEstimation(this,dt,x_0,p_meas)
             % This function takes the previous known state of the obstacle
             % and estimates its new state.
             
@@ -473,37 +467,37 @@ classdef agent_interval < agent
     % These methods are for the plotting of interval measurements/samples.
     methods
         % Plot the incommming sensor readings
-        function [ax] = plotMeasurementsByID(obj,plotID)
+        function [ax] = plotMeasurementsByID(this,plotID)
             
             if nargin < 2
-                plotID = obj.objectID + 1;
+                plotID = this.objectID + 1;
             end
             
             % Check input data is sensed correctly
-            if ~obj.isInMemory(plotID)
-                warning('Object not plotted, object %d not known to object %d',plotID,obj.objectID);
+            if ~this.isInMemory(plotID)
+                warning('Object not plotted, object %d not known to object %d',plotID,this.objectID);
             end
             
             ax = gca;
             % The time vector
-            t_j = obj.GetTrajectoryByObjectID(plotID,'time');
+            t_j = this.GetTrajectoryByObjectID(plotID,'time');
             % The range vector
-            r_j = obj.GetTrajectoryByObjectID(plotID,'range');
+            r_j = this.GetTrajectoryByObjectID(plotID,'range');
             plot(ax,t_j',sup(r_j)','b*','LineStyle','-');
             plot(ax,t_j',inf(r_j)','b*','LineStyle','-.');
             
             % The heading vector
-            h_j = obj.GetTrajectoryByObjectID(plotID,'heading');
+            h_j = this.GetTrajectoryByObjectID(plotID,'heading');
             plot(ax,t_j',sup(h_j)','ro','LineStyle','-');
             plot(ax,t_j',inf(h_j)','ro','LineStyle','-.');
             
             % The elevation vector
-            e_j = obj.GetTrajectoryByObjectID(plotID,'elevation');
+            e_j = this.GetTrajectoryByObjectID(plotID,'elevation');
             plot(ax,t_j',sup(e_j)','go','LineStyle','-');
             plot(ax,t_j',inf(e_j)','go','LineStyle','-.');
             
             % The angular width vector
-            a_j = obj.GetTrajectoryByObjectID(plotID,'width');
+            a_j = this.GetTrajectoryByObjectID(plotID,'width');
             plot(ax,t_j',sup(a_j)','mo','LineStyle','-');
             plot(ax,t_j',inf(a_j)','mo','LineStyle','-.');
         end
@@ -573,7 +567,7 @@ classdef agent_interval < agent
                             patchObj = struct('faces',K,'vertices',vertices);
                             % Draw the lines
                             patch(ax,...
-                                'Faces',patchObj.faces,'Vertices',patchObj.vertices,...
+                                'Faces',patchthis.faces,'Vertices',patchthis.vertices,...
                                 'FaceColor','b','FaceAlpha',0.05);
                         end
                         %                         try
@@ -587,7 +581,7 @@ classdef agent_interval < agent
                         %                         patchObj = struct('faces',K,'vertices',vertices);
                         %                         % Draw the lines
                         %                         patch(ax,...
-                        %                             'Faces',patchObj.faces,'Vertices',patchObj.vertices,...
+                        %                             'Faces',patchthis.faces,'Vertices',patchthis.vertices,...
                         %                             'FaceColor','b','FaceAlpha',0.05);
                         
                         
@@ -627,7 +621,7 @@ classdef agent_interval < agent
                         % Assemble a sudo-patch object
                         patchObj = struct('faces',K,'vertices',vertices);
                         % Draw the li
-                        patch(ax,'Faces',patchObj.faces,'Vertices',patchObj.vertices,...
+                        patch(ax,'Faces',patchthis.faces,'Vertices',patchthis.vertices,...
                             'FaceColor','k','FaceAlpha',0.00,'LineStyle','-.');
                         
                     end
@@ -752,66 +746,66 @@ classdef agent_interval < agent
     % ///////////// BACKGROUND FUNCTIONS (INTERVAL OVERRIDES) /////////////
     methods
         % TARGET HEADING (INTERVAL)
-        function [headingVector] = GetTargetHeading(obj,targetObject)
+        function [headingVector] = GetTargetHeading(this,targetObject)
             % This is an interval override for the target heading
             % resolution. 
             
             % Input check
             if nargin > 1
-                targetPosition = obj.GetLastMeasurement(targetObject.objectID,'position');
-            elseif ~isempty(obj.targetWaypoint)
-                targetPosition = obj.targetWaypoint.position(:,obj.targetWaypoint.sampleNum);
+                targetPosition = this.GetLastMeasurement(targetObject.objectID,'position');
+            elseif ~isempty(this.targetWaypoint)
+                targetPosition = this.targetWaypoint.position(:,this.targetWaypoint.sampleNum);
             else
                 % Default heading
-                if obj.Is3D()
+                if this.Is3D()
                     targetPosition = [1;0;0];
                 else
                     targetPosition = [1;0];
                 end
             end
             % Get the (interval hardened) vector heading of the target
-            headingVector = obj.iheading(targetPosition);
+            headingVector = this.iheading(targetPosition);
         end
         % WAY-POINT CONDITION (INTERVAL))
-        function [targetLogical] = GetTargetCondition(obj)
+        function [targetLogical] = GetTargetCondition(this)
             % Get the current measurements
-            currentPosition = obj.targetWaypoint.position(:,obj.targetWaypoint.sampleNum);
-            currentRadius   = obj.targetWaypoint.radius(:,obj.targetWaypoint.sampleNum);
+            currentPosition = this.targetWaypoint.position(:,this.targetWaypoint.sampleNum);
+            currentRadius   = this.targetWaypoint.radius(:,this.targetWaypoint.sampleNum);
             % CHECK THE TOLERANCES ON THE CURRENT TARGET WAYPOINT
-            targetLogical = 0 > obj.inorm(mid(currentPosition)) - (mid(currentRadius) + obj.radius);
+            targetLogical = 0 > this.inorm(mid(currentPosition)) - (mid(currentRadius) + this.radius);
         end
     end
     % ////////////// MEMORY MANIPULATION (INTERVAL OVERRIDES) /////////////
     methods
         % MEMORY SORTER (INTERVAL)
-        function [obj] = UpdateMemoryOrderByField(obj,field)
+        function [this] = UpdateMemoryOrderByField(this,field)
             % INPUTS:
             % type - Sort option; memory field label.
             
             % Input sanity check
             assert(ischar(field),'Memory sort method must be a string.');
-            assert(isfield(obj.MEMORY,field),'Field must belong to the memory structure.');
+            assert(isfield(this.MEMORY,field),'Field must belong to the memory structure.');
             
             % Handle interval parameters
-            if isintval([obj.MEMORY.(field)])
+            if isintval([this.MEMORY.(field)])
                 % Reorder the memory structure based on fieldname
-                [~,ind] = sort(mid([obj.MEMORY.(field)]),2,'descend');     % Ordered indices of the object IDs
+                [~,ind] = sort(mid([this.MEMORY.(field)]),2,'descend');     % Ordered indices of the thisect IDs
             else
-                [~,ind] = sort([obj.MEMORY.(field)],2,'descend');          % Ordered indices of the object IDs
+                [~,ind] = sort([this.MEMORY.(field)],2,'descend');          % Ordered indices of the object IDs
             end
             % Sort the memory structure
-            obj.MEMORY = obj.MEMORY(ind);
+            this.MEMORY = this.MEMORY(ind);
         end
         % GET OBJECT PRIORITY (based on distance)
-        function [priority_j] = GetObjectPriority(obj,objectID)
+        function [priority_j] = GetObjectPriority(this,objectID)
             % This function calculates a value used to represent the
             % objects priority based on its position. This is called during
             % the object update function.
-            logicalIDIndex = [obj.MEMORY(:).objectID] == objectID;
-            priority_j = 1/mid(obj.MEMORY(logicalIDIndex).range(obj.MEMORY(logicalIDIndex).sampleNum));
+            logicalIDIndex = [this.MEMORY(:).objectID] == objectID;
+            priority_j = 1/mid(this.MEMORY(logicalIDIndex).range(this.MEMORY(logicalIDIndex).sampleNum));
         end
         % GET EMPTY MEMORY STRUCTURE (3D trajectories)
-        function [memStruct]  = GetMemoryStructure(obj,horizonSteps)
+        function [memStruct]  = GetMemoryStructure(this,horizonSteps)
             % This function contains a basic agent-memory structure. This
             % is used to retain information on observed objects and maintain
             % a regular structure.
@@ -822,7 +816,7 @@ classdef agent_interval < agent
             end
             
             % Handle interval memory types (2D & 3D)
-            if obj.Is3D
+            if this.Is3D
                 dim = 3;
             else
                 dim = 2;

@@ -1,5 +1,5 @@
 %% GEOMETRIC COLLISION AVOIDANCE AGENT (agent_IA.m) %%%
-% This programs contains a generic agent thisect with the 2017 3D geometric
+% This programs contains a generic agent object with the 2017 3D geometric
 % avoidance alogorithm applied to conduct course corrections.
 
 % Author: James A. Douthwaite
@@ -39,15 +39,15 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
-            % >thisects - The detectable thisects cell array of structures
+            % >objects - The detectable objects cell array of structures
             % OUTPUTS:
             % this      - The updated project
             
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
-            if this.thisectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100+this.thisectID);
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                overHandle = figure(100+this.objectID);
                 hold on; grid on;
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
@@ -125,7 +125,7 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             [p_i,v_i,r_i] = this.GetAgentMeasurements();
             
             % Define the obstacle list
-            obstacleIDs = [this.MEMORY([this.MEMORY.type] ~= OMAS_thisectType.waypoint).thisectID];
+            obstacleIDs = [this.MEMORY([this.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
             
             U_candidates = intval([]);
             for i = 1:numel(obstacleIDs)
@@ -166,8 +166,6 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             % Re-order the optimal regions prior to intersection
             U_candidates = U_candidates(1:3,ind);
             
-%             display(U_candidates);
-            
             % Select the optimal region from the global set
             U_star = ones(3,1)*midrad(0,inf);
             for i = 1:size(U_candidates,2)
@@ -178,11 +176,7 @@ classdef agent_IA < agent_vectorSharing & agent_interval
                     U_star = temp;
                 end
             end
-            
-%             U_star(1) = mid(U_star(1));
-%             U_star(2) = sup(U_star(2));
-%             U_star(3) = mid(U_star(3));
-            
+                        
             % Obtain control inputs from optimal region
             headingVector = this.iunit(U_star);
             speed = this.inorm(U_star);
@@ -190,7 +184,7 @@ classdef agent_IA < agent_vectorSharing & agent_interval
         % Get the optimal velocity region
         function [U_i] = GetOptimalAvoidanceRegion(this,u_i,p_i,v_i,r_i,p_j,v_j,r_j)
             % This function computes the optimal avoidance region for
-            % thisect j to be enacted by agent i.
+            % object j to be enacted by agent i.
             
             % INPUTS:
             % u_i - The desired velocity
@@ -252,11 +246,27 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             
             % Assume the worst
             tau = inf(tau);
-%             r_vsi = sup(r_vsi);
-            r_vsi(1) = sup(r_vsi(1));
-            r_vsi(2) = sup(r_vsi(2));
-            r_vsi(3) = mid(r_vsi(3));
+%             r_vsi(1) = sup(r_vsi(1));
+%             r_vsi(2) = sup(r_vsi(2));
+%             r_vsi(3) = mid(r_vsi(3));
 
+            % Switching logic based on position of object
+            if mid(r_vsi(1)) > 0
+                r_vsi(1) = inf(r_vsi(1));
+            else
+                r_vsi(1) = sup(r_vsi(1));
+            end
+            if mid(r_vsi(2)) > 0
+                r_vsi(2) = inf(r_vsi(2));
+            else
+                r_vsi(2) = sup(r_vsi(2));
+            end
+            if mid(r_vsi(3)) > 0
+                r_vsi(3) = inf(r_vsi(3));
+            else
+                r_vsi(3) = sup(r_vsi(3));
+            end
+            
             % CALCULATE THE CORRECTION UNIT VECTORS
             U_i = (v_i*tau + r_vsi);                                       % The ideal velocity to resolve collision
             
