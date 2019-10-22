@@ -11,14 +11,13 @@ classdef agent_2D_RVO2 < agent_2D_RVO
 %         radius = 2;          % Declare (independant of the VO varients)
 %         neighbourDist = 15;  %(s)
 %         maxNeighbours = 10;  
-        timeHorizon     = 5;
-        timeHorizonObst = 5;
+        timeHorizon     = 10;
+        timeHorizonObst = 10;
         RVO_EPSILON     = 1E-5;
         
         % PARAMETERS UNIQUE TO RVO2
 %         timeHorizon     = 10;
 %         timeHorizonObst = 10;
-%         RVO_EPSILON     = 1E-5;
                 
         % ORCA-LINE CONTAINERS
         orcaLines = struct('point',[],'direction',[]);
@@ -34,32 +33,26 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             % OUTPUTS:
             % obj     - The constructed object
             
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent_2D_RVO(varargin); 
-            
+
             % SENSORS
             % Sensor properties will be inherited from 'agent_2D_VO' and 
             % 'agent_VO' unless explictly overridden here.
-            
-            % OVERRIDE CLASS PARAMETERS
-%             obj.maxSpeed = 2;  
-%             obj.neighbourDist = 10;
-%             obj.maxNeighbours = 10;  
 
-            % OVERRIDE SENSOR DESCRIPTION                      
-            [obj] = obj.SetDetectionRadius(obj.neighbourDist);             % Define the sensor range by the neighbour distance
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin); 
+            % Re-affirm associated properties   
+            [obj] = obj.SetRadius(obj.radius);                             % Reaffirm radius against .VIRTUAL
+            % /////////////////////////////////////////////////////////////
         end
     end
     % //////////////////////// OPENMAS FUNCTIONS ///////////////////////////
     methods 
         % MAPPING OF OPENMAS TO THE RVO LIBRARY
-        function [headingVector,speed] = getAvoidanceCorrection(obj,dt,desiredVelocity,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(obj,dt,desiredVelocity,visualiseProblem)
             % This function computes the mapping of the simulation inputs
             % for the RVO library functions and returns the calculated
             % optimal velocity.
@@ -80,12 +73,13 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             agentIDs = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent).objectID];
             
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
-            VO = [];
+            agentNeighbours = cell(numel(agentIDs),1); 
+            agentNeighbourLength = 0;
             for item = 1:numel(agentIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByObjectID(agentIDs(item),'position');
-                v_j = obj.GetLastMeasurementByObjectID(agentIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByObjectID(agentIDs(item),'radius');
+                p_j = obj.GetLastMeasurementByID(agentIDs(item),'position');
+                v_j = obj.GetLastMeasurementByID(agentIDs(item),'velocity');
+                r_j = obj.GetLastMeasurementByID(agentIDs(item),'radius');
                 
                 % NEIGHBOUR CONDITIONS
                 neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
@@ -106,8 +100,9 @@ classdef agent_2D_RVO2 < agent_2D_RVO
                                   'id',agentIDs(item));
                               
                 % BUILD LIST OF AGENTS
+%                 agentNeighbours = horzcat(agentNeighbours,agentRef);
                 agentNeighbours{item} = agentRef;
-                agentNeighbourLength = agentNeighbourLength + 1;
+                agentNeighbourLength  = agentNeighbourLength + 1;
             end
             % REMOVE EMPTY CELLS
             agentNeighbours = agentNeighbours(~cellfun('isempty',agentNeighbours));  
@@ -116,17 +111,17 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             obstacleIDs  = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle).objectID];
             
             % BUILD THE REQUIRED OBSTACLE STRUCTURES
-            obstacleNeighbours = cell(numel(obstacleSet),1);
+            obstacleNeighbours = cell(numel(obstacleIDs),1);
             for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByObjectID(obstacleIDs(item),'position');
-                v_j = obj.GetLastMeasurementByObjectID(obstacleIDs(item),'velocity');
+                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
+                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
               
                 % PROCESS THE OBSTACLE'S VERTICES
                 obstacleRef.position = p_j + p_i;
                 obstacleRef.velocity = v_j + v_i;
 %                 obstacleRef.geometry.vertices = obstacleRef.geometry.vertices + [agentPosition;0]';
-                g_j = obj.GetLastMeasurementByObjectID(obstacleIDs(item),'geometry');
+                g_j = obj.GetLastMeasurementByID(obstacleIDs(item),'geometry');
                 
                 % [TO-DO] PASS THE OBSTACLE GEOMETRY 
                 obstacleNeighbours{item} = obj.createRVOobstacleVertexList(g_j);
@@ -155,10 +150,7 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             % RVO2 library.
             
             % DEFINE THE AGENT PARAMETERS
-            p_a = obj.localState(1:2,1);
-            v_a = obj.localState(4:5,1);
-            r_a = obj.VIRTUAL.radius;
-%             [p_a,v_a,r_a] = obj.getAgentMeasurements();
+            [p_a,v_a,r_a] = obj.GetAgentMeasurements();
 
             % MAP THE PREFERRED VELOCITY TO NEW FRAME
             prefVelocity = -prefVelocity;

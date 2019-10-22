@@ -3,7 +3,11 @@
 % objects moving through the 3D environment. The collision flag is returned
 % based on the hit box assumptions described below.
 
-function [ABcollided] = OMAS_collisionDetection(META_A,geometry_A,META_B,geometry_B)
+function [ABcollided] = OMAS_collisionDetection(META_A,geometry_A,META_B,geometry_B,conditionTolerance)
+
+if nargin < 5
+    conditionTolerance = 0;
+end
 
 % INPUTS:
 % META_A     - The global META structure of object A
@@ -26,7 +30,11 @@ if META_A.hitBox == OMAS_hitBoxType.none || META_B.hitBox == OMAS_hitBoxType.non
 end   
     
 % SIMPLE PROXIMITY CHECK
-if ~OMAS_geometry.intersect_spheres(META_A.globalState(1:3),META_A.radius,META_B.globalState(1:3),META_B.radius)
+preliminaryCheck = OMAS_geometry.intersect_spheres(...
+    META_A.globalState(1:3),META_A.radius - 0.5*conditionTolerance,...
+    META_B.globalState(1:3),META_B.radius - 0.5*conditionTolerance);
+
+if ~preliminaryCheck
     return      % It is not possible for either objects to meet .. return
 end
 

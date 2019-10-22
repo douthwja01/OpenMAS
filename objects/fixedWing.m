@@ -13,19 +13,18 @@ classdef fixedWing < agent
         % DYNAMICS - All the models parameters are held in the DYNAMICS
         %            container field.
     end
-    %  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
-        % CONSTRUCTOR METHOD
+        % Constructor
         function obj = fixedWing(varargin)
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj@agent(varargin);                                           % Create the super class 'agent'
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+                        
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
-        % SETUP 3D DUBLINS CAR STATE [x;y;z;v;psi;theta]
+        % Setup - 3D DUBLINS CAR STATE [x;y;z;v;psi;theta]
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % Infer the initial conditions from the scenario.
             p     = zeros(3,1);            % The position in the local frame
@@ -34,9 +33,9 @@ classdef fixedWing < agent
             psi   = 0;                     % The yaw of the aircraft
             % Define the initial state from the scenario
             obj.localState = [p(1);p(2);p(3);speed;theta;psi]; 
-            obj.VIRTUAL.priorState = obj.localState;
+            obj = obj.SetVIRTUALparameter('priorState',obj.localState); 
         end
-        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
@@ -63,8 +62,9 @@ classdef fixedWing < agent
             
             % UPDATE THE GLOBAL PROPERTIES OF THE AGENT
             [obj] = obj.updateGlobalProperties(dt,newState);
+            
             % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
-            obj.DATA.inputNames = {'$v (m/s)$','$\theta (rad)$','$\psi (rad)$'};
+            obj.DATA.inputNames = {'$v (m/s)$','$\dot{\theta} (rad/s)$','$\dot{\psi} (rad/s)$'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = newState(4:6);         % Record the control inputs
         end
     end
@@ -97,23 +97,22 @@ classdef fixedWing < agent
                                                       DCMState);                % The new state for reference
         end
         % GET THE STATE UPDATE (USING ODE45)
-        function [X]   = updateLocalState(obj,ENV,X0,u)
+        function [X]   = updateLocalState(obj,TIME,X0,u)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
-            %u = [v;a;psi_dot;theta_dot];
+            % Is of the form: u = [v;a;psi_dot;theta_dot];
+            X = X0;
             
             % DETERMINE THE INTEGRATION PERIOD
-            if ENV.currentTime == ENV.timeVector(end)
-                X = X0;
+            if TIME.currentTime == TIME.timeVector(end)
                 return
+            else
+                [~,Xset] = ode45(@(t,X) obj.dynamics_nonholonomicDublinsCar(X,u),...
+                    [0 TIME.dt],X0,...
+                    odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
+                X = Xset(end,:)'; % Pass the state at the end of the sample period
             end
-            % INTEGRATE THE DYNAMICS OVER THE TIME STEP
-            [~,Xset] = ode45(@(t,X) obj.dynamics_nonholonomicDublinsCar(X,u),...
-                [0 ENV.dt],...
-                X0,...
-                odeset('RelTol',1e-2,'AbsTol',ENV.dt*1E-2));
-            X = Xset(end,:)'; % Pass the state at the end of the sample period
         end
     end
     % STATIC FUNCTIONS

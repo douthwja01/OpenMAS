@@ -7,24 +7,24 @@
 classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
-        % CONSTRUCTOR
+        % Constructor
         function [obj] = agent_2D_vectorSharing(varargin)
 
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj@agent_2D(varargin);    
-            
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);     
-            
+
             % //////////////////// SENSOR PARAMETERS //////////////////////
-            [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
-            %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
+%             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
+            [obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
 
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin); 
+            % /////////////////////////////////////////////////////////////
         end
-        % SETUP - X = [x y psi dx dy dpsi]
+        % Setup - X = [x y psi dx dy dpsi]
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
             % object.
@@ -33,7 +33,7 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
             [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
-        % MAIN
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
@@ -45,12 +45,8 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % obj      - The updated project
             
             % INPUT HANDLING
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
+            dt = ENV.dt;
+
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
@@ -73,8 +69,8 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
             avoidanceSet = [obstacleSet,agentSet];
-            algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;  
-            if ~isempty(avoidanceSet) && avoidanceEnabled
+            algorithm_start = tic; algorithm_indicator = 0;  
+            if ~isempty(avoidanceSet) 
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
                 [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
@@ -86,9 +82,8 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             [obj] = obj.controller(dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj.DATA.algorithm_indicator(ENV.currentStep) = algorithm_indicator; % Record when the algorithm is ran
-            obj.DATA.algorithm_dt(ENV.currentStep) = algorithm_dt;               % Record the computation time
-            obj.DATA.inputNames = {'Vx (m/s)','Vy (m/s)','Yaw Rate (rad/s)'};
+            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);      % Record when the algorithm is ran
+            obj.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);         % Record the control inputs
             
             % // DISPLAY CONFLICT RESOLUTION
@@ -115,27 +110,25 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % AGENT KNOWLEDGE
             [p_i,v_i,r_i] = obj.GetAgentMeasurements(); % Its own position, velocity and radius
             
-            % GET OBSTACLE DATA
-            obstacleIDs  = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle).objectID];
-            agentIDs     = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent).objectID];
-            avoidanceIDs = [agentIDs,obstacleIDs];
-            
+            % Define the obstacle list
+            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
+                        
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             optimalSet = [];
-            for item = 1:numel(avoidanceIDs)
-                % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'position');
+            for j = 1:numel(obstacleIDs)
+                % Fetch the obstacle trajectories
+                p_j = obj.GetLastMeasurementByID(obstacleIDs(j),'position');
                 
-                % NEIGHBOUR CONDITIONS
-                neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
+                % Neighbour conditions
+                neighbourConditionA = j < obj.maxNeighbours;            % Maximum number of neighbours
                 neighbourConditionB = norm(p_j) < obj.neighbourDist;       % [CONFIRMED]
                 if ~neighbourConditionA || ~neighbourConditionB
                     continue
                 end
                 
                 % Get further obstacle information
-                v_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'radius');
+                v_j = obj.GetLastMeasurementByID(obstacleIDs(j),'velocity');
+                r_j = obj.GetLastMeasurementByID(obstacleIDs(j),'radius');
                 
                 % OBSTACLE KNOWLEDGE
                 p_j = p_j + p_i;
@@ -178,14 +171,13 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % v_a - The agent's absolute velocity
             % r_a - The agent's radius
             % p_b - The obstacle's absolute position
-            % p_b - The obstacle's absolute velocity
-            % p_b - The obstacle's radius
+            % v_b - The obstacle's absolute velocity
+            % r_b - The obstacle's radius
             % visualiseProblem - Plot flag
             % OUTPUTS:
             % U_a - The optimal vector heading, scaled by the desired
             %       velocity.
-            
-            
+                        
             % Generate the 3D inputs 
             p_a = [p_a;0]; v_a = [v_a;0];
             p_b = [p_b;0]; v_b = [v_b;0];

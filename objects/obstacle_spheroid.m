@@ -8,30 +8,31 @@
 classdef obstacle_spheroid < obstacle
     properties
     end
-    %  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = obstacle_spheroid(varargin)
             % This function constructs the cuboid obstacle. The object must
             % be imported and represented with a global position and
             % velocity as all other objects are in OMAS.
                         
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj = obj@obstacle(varargin); 
-            % Unpack the input vector if necessary
-            [varargin] = obj.inputHandler(varargin);
-            
-            obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.spherical;            % Spherical collider
-            
-            % CHECK FOR USER OVERRIDES
-            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
-            obj = obj.configurationParser(obj,varargin);
+
+            % Assign defaults
+            obj = obj.SetVIRTUALparameter('hitBoxType',OMAS_hitBoxType.spherical); % Spherical collider
+
             
             % CONSTRUCT THE GEOMETRY FROM DEFINITION INSTEAD
-            if size(obj.GEOMETRY.vertices,1) < 1 || isempty(obj.GEOMETRY)  % If it has no geometry define it
-                [obj.GEOMETRY] = OMAS_graphics.defineSphere(zeros(3,1),obj.VIRTUAL.radius,20);
+            if size(obj.GEOMETRY.vertices,1) < 1  % If it has no geometry define it
+                radius = obj.GetVIRTUALparameter('radius');
+                [obj.GEOMETRY] = OMAS_graphics.defineSphere(zeros(3,1),radius,20);
             end
-        end 
+
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
+        end    
 
         % COMPUTE CLOSEST FACE TO POINT
         function [d,faceID] = faceClosestToPoint(obj,patchObj,p) 
@@ -57,9 +58,6 @@ classdef obstacle_spheroid < obstacle
         function [pClosest] = closestPointOnSegment(pA,pB,q)
             % https://diego.assencio.com/?index=ec3d5dfdfc0b6a0d147a656f0af
             % 332bd#mjx-eqn-post_ec3d5dfdfc0b6a0d147a656f0af332bd_lambda_closest_point_line_to_point
-            
-%             v = pB - pA;           
-%             u = q - pA;
             
             lambda = dot(q - pA,pB - pA)/dot(pB - pA,pB - pA);
             

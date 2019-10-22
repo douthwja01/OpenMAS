@@ -11,36 +11,37 @@ classdef agent_vectorSharing < agent
         neighbourDist = 15;  
         maxNeighbours = 10;
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
-        % CONSTRUCTOR
+        % Constructor
         function obj = agent_vectorSharing(varargin)
-            % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);                                           % Get super class 'agent'
-            
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % DYNAMIC PARAMETERS
-            [obj] = obj.GetDynamicParameters();
+            % Call the super class
+            obj@agent(varargin);                                    % Get super class 'agent'
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
             %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
             
-            % RE-ESTABLISH THE (SIMULATOR PARAMETERS)
-            obj = obj.SetRadius(0.5);
+            % Assign defaults
+            obj.DYNAMICS = obj.CreateDYNAMICS();                    % Dynamic
+            obj = obj.SetBufferSize(1);                             % Only one needed
             obj = obj.SetDetectionRadius(obj.SENSORS.range);
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin);               % Recursive overrides
+            % Re-affirm associated properties   
+            [obj] = obj.SetRadius(obj.radius);                      % Reaffirm radius against .VIRTUAL
+            % /////////////////////////////////////////////////////////////
         end
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
-        % SETUP - X = [x;x_dot]' 3D STATE VECTOR
+        % Setup - X = [x;x_dot]' 3D STATE VECTOR
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
             [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end        
-        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
@@ -63,7 +64,7 @@ classdef agent_vectorSharing < agent
                         
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
+            [obj] = obj.GetAgentUpdate(ENV,varargin{1});                
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
@@ -72,7 +73,6 @@ classdef agent_vectorSharing < agent
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
-%             avoidanceSet = [obstacleSet,agentSet];
             algorithm_start = tic; avoidanceEnabled = 1;
             if avoidanceEnabled
                 algorithm_indicator = 1;
@@ -87,7 +87,7 @@ classdef agent_vectorSharing < agent
                         
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{\phi}$ (rad/s)'};
+            obj.DATA.inputNames = {'$\phi$ (rad)','$\theta$ (rad)','$\psi$ (rad)'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);  
         end
     end
@@ -108,18 +108,16 @@ classdef agent_vectorSharing < agent
             % AGENT KNOWLEDGE
             [p_i,v_i,r_i] = obj.GetAgentMeasurements(); % Its own position, velocity and radius
             
-            % GET OBSTACLE DATA
-            obstacleIDs  = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle).objectID];
-            agentIDs     = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent).objectID];
-            avoidanceIDs = [agentIDs,obstacleIDs];
+            % Define the obstacle list
+            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
             
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             optimalSet = [];
-            for item = 1:numel(avoidanceIDs)
+            for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'position');
+                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
                 
-                % NEIGHBOUR CONDITIONS
+                % Neighbour condition
                 neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
                 neighbourConditionB = norm(p_j) < obj.neighbourDist;        
                 if ~neighbourConditionA || ~neighbourConditionB
@@ -127,8 +125,8 @@ classdef agent_vectorSharing < agent
                 end
                 
                 % Get further obstacle information
-                v_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'radius');
+                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius');
                 
                 % OBSTACLE KNOWLEDGE
                 p_j = p_j + p_i;
@@ -208,9 +206,9 @@ classdef agent_vectorSharing < agent
             if tau < 0
                 return
             end
-            
+            sf = 0.0;
             % VECTOR SHARING PROBLEM
-            r_safe = r_a + r_b;             % Define the safe separation distance
+            r_safe = r_a + r_b + sf;        % Define the safe separation distance
             r_res = r_safe - norm(r_m);  	% Define the resolution zone
             
             % DEFINE THE VECTOR SHARING TERMS

@@ -218,7 +218,8 @@ classdef OMAS_geometry
             % provided quaternion. (Associated block "Quaternion to DCM")
             % INPUT:
             % q    - The quaternion rotation
-            R = GetRotationMatrix_q_mex(q);                                % Call the associated mex file
+            R = GetRotationMatrix_q_mex(q);  
+%             R = quat2rotm(q');  % Call the robotics toolbox
         end
         % THE QUATERNION DIFFERENCE
         function [dq] = qDifference(q,v)

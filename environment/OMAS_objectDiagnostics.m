@@ -1,3 +1,7 @@
+%% OpenMAS Object Class Diagnotistic tool (OMAS_objectDiagnostics.m) %%%%%%
+% This function is designed to preform a batch analysis of the complete
+% class library to verify their development status for simulation.
+
 function [issueCount] = OMAS_objectDiagnostics(varargin)
 
 % Input sanity check
@@ -28,7 +32,7 @@ switch numel(varargin)
         error('Please provide a model name, or no input.');
 end
 
-fprintf('[%s]\t%d object files to be evaluated.\n',phaseStr,numel(targetFiles));
+fprintf('[%s]\t%d object behaviours found, evaluating...\n',phaseStr,numel(targetFiles));
 
 % Handle file I/O
 fclose('all');                                                 % Release any file handle
@@ -52,7 +56,7 @@ catch writeError
 end
 
 % Container for model error status
-statusArray = logical(zeros(numel(targetFiles),1));
+statusArray  = false(numel(targetFiles),1);
 summaryArray = cell(numel(targetFiles),numel(headerArray));
 
 % ///////////////// MOVE THROUGH THE MODELS ///////////////////
@@ -63,6 +67,9 @@ for i = 1:numel(targetFiles)
     [entry,statusArray(i)] = GetObjectEvaluation(phaseStr,tempDir,targetFiles{i});
     % For clarity
     fprintf('[%s]\tEvaluation for model "%s" complete.\n\n',phaseStr,targetFiles{i});
+    
+    close all; % Terminate all open figures
+        
     summaryArray(i,:) = [num2str(i),entry];                    % Append the test number
 end
 % /////////////////////////////////////////////////////////////
@@ -87,7 +94,7 @@ successNumber = sum(statusArray == 1);
 fprintf('[%s]\tDiagnostics complete, %d object errors, %d objects working correctly.\n',phaseStr,errorNumber,successNumber);
 end
 
-
+% Compute the evaluation of the provided object file
 function [entryArray,isSuccessful] = GetObjectEvaluation(phaseStr,tempDir,fileName)
 
 % Input sanity check
@@ -99,6 +106,8 @@ if contains(fileName,'.m')
 end
 
 % Containers
+sim_steps   = 5;
+sim_dt      = 0.25;
 failString = 'FAILED';
 passString = 'PASSED';
 importStatus = 0;
@@ -137,27 +146,14 @@ fprintf('[%s]\t%s(1) - Object "%s" instantiated.\n',phaseStr,passString,fileName
 entryArray{2} = class(objectIndex{1});
 entryArray{3} = passString;
 
-% % CREATE THE OBJECT SET
-% objectNumber = 2;
-% objectIndex = cell(objectNumber,1);
-% try
-%     for j = 1:objectNumber
-%         objectIndex{j} = eval(fileName);                                % Attempt to construct the object
-%     end
-% catch objectError
-%     warning(objectError.message);
-%     entryArray{3} = failString;
-%     entryArray{4} = objectError.message;
-%     return
-% end
-
 % ////////// IF THE OBJECT CAN BE SIMULATED, ATTEMPT SIMULATION ///////////
 fprintf('[%s]\tSimulating object "%s"\n',phaseStr,fileName);
 try
     OMAS_initialise(...
         'objects',objectIndex,...
-        'duration',1,...
-        'dt',0.1,...
+        'duration',sim_steps*sim_dt,...
+        'dt',sim_dt,...
+        'idleTimeOut',0.5,...
         'figures','None',...
         'verbosity',0,...
         'outputPath',tempDir);

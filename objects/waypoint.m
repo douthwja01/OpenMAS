@@ -16,28 +16,24 @@ classdef waypoint < objectDefinition
                            'name','all',...
                            'priority',0); % Associated agent [objectID, name, priority]
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = waypoint(varargin)
             % This function is to construct the waypoint object using the
             % object defintions held in the 'objectDefinition' base class.
             % We want to allow a waypoint to be called into existance and
             % made valid for any number of agent ID's (objectID's).
+                        
+            % Call the super class
+            obj = obj@objectDefinition(varargin);
             
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
-            
-            % CALL THE SUPERCLASS CONSTRUCTOR
-            obj = obj@objectDefinition(varargin); % Call the super class
-            
-            % WAYPOINT VIRTUAL DEFINITION
-            obj = obj.SetType(OMAS_objectType.waypoint);
-            obj = obj.SetHitBoxType(OMAS_hitBoxType.spherical);
-            obj = obj.SetSymbol('v');            
-            
+            % Allocate way-point defaults
+            obj = obj.SetVIRTUALparameter('type',OMAS_objectType.waypoint);
+            obj = obj.SetVIRTUALparameter('hitBoxType',OMAS_hitBoxType.spherical);
+            obj = obj.SetVIRTUALparameter('symbol','v');            
+            obj = obj.SetVIRTUALparameter('priorState',obj.localState); 
+                        
             % IF SIMPLE CONSTRUCTION.. RETURN NOW
             if length(varargin) < 1
                 return
@@ -59,22 +55,22 @@ classdef waypoint < objectDefinition
             % ALLOCATE ASSOCIATED AGENT PROPERTIES
             if ~isempty(agentSet)
                 for allocatedAgent = 1:length(agentSet)
-                    [obj] = obj.createAgentAssociation(agentSet{allocatedAgent},priority);
+                    [obj] = obj.CreateAgentAssociation(agentSet{allocatedAgent},priority);
                 end
             else
                 % NO SPECIFIC AGENTS, ASSIGN PRIORITY TO THE GENERAL CASE
                 obj.ownership.priority = priority;
             end
             
-            % CHECK FOR USER OVERRIDES
-            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
-            obj = obj.configurationParser(obj,varargin);
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end           
     end
     % /////////////////// WAYPOINT OWNERSHIP FUNCTIONS /////////////////////
     methods
         % CREATE ASSOCIATION BETWEEN AGENT AND WAYPOINT
-        function [obj] = createAgentAssociation(obj,agentObject,priority)
+        function [obj] = CreateAgentAssociation(obj,agentObject,priority)
             % This method is used to add an association between the
             % waypoint and a given agent object.
             
@@ -90,7 +86,8 @@ classdef waypoint < objectDefinition
             % OVERRIDE 'all' CASE                        
             if isnan(obj.ownership(1).objectID)                            
                 obj.ownership(1) = newOwnership;            % If this is the first allocated object, redefine
-                obj.VIRTUAL.colour = agentObject.VIRTUAL.colour;
+                colour = agentObject.GetVIRTUALparameter('colour');
+                obj = obj.SetVIRTUALparameter('colour',colour);
                 return
             end
             % CREATE VECTOR OF ASSOCIATED IDs
@@ -104,18 +101,42 @@ classdef waypoint < objectDefinition
                 obj.ownership = vertcat(obj.ownership,newOwnership);       % Otherwise append the new ownership
             end
         end
+        % REMOVE ASSOCIATION BETWEEN AGENT AND WAYPOINT
+        function [obj] = RemoveAgentAssociation(obj,agentObject)
+            % This function removes the waypoints association with a
+            % specific objectID
+            % INPUT HANDLING
+            if nargin < 1
+                error('Provide either an object ID or class object');
+            elseif isnumeric(agentObject)
+                agentID = agentObject;
+            else
+                agentID = agentObject.objectID;
+            end
+            
+            % GET THE AGENTS ASSOCIATION
+            [~,IDindex] = obj.GetAgentAssociation(agentID);
+            
+            if isempty(IDindex)
+                warning('Cannot remove; agent not associated with waypoint.');
+                return
+            end
+            % REMOVE THE AGENT FROM THE WAYPOINT OWNERSHIP
+            obj.ownership(IDindex) = [];
+        end   
+        
         % FETCH ASSOCIATION BETWEEN AGENT AND WAYPOINT
-        function [isAssociated] = IdAssociationCheck(obj,agentID)
+        function [isAssociated] = IDAssociationCheck(obj,agentID)
             % Simple binary check if is waypoint is associated with the
             % provided object ID number.           
             
             % Input sanity check
             assert(isnumeric(agentID),'Agent ID must be a valid objectID');
             % CHECK THE OWNERSHIP INDEX FOR THIS ID
-            isAssociated = any(obj.ownership.objectID == agentID);
+            isAssociated = logical(any(obj.ownership.objectID == agentID));
         end
         % FETCH ASSOCIATION BETWEEN AGENT AND WAYPOINT
-        function [ownershipItem,IDindex] = getAgentAssociation(obj,agentObject)
+        function [ownershipItem,IDindex] = GetAgentAssociation(obj,agentObject)
             % This method is used to remove an association between the
             % waypoint and a given agent object.
             % INPUTS:
@@ -142,29 +163,6 @@ classdef waypoint < objectDefinition
             end
             % RETURN THE ASSOCIATION
             ownershipItem = obj.ownership(IDindex);
-        end
-        % REMOVE ASSOCIATION BETWEEN AGENT AND WAYPOINT
-        function [obj] = removeAgentAssociation(obj,agentObject)
-            % This function removes the waypoints association with a
-            % specific objectID
-            % INPUT HANDLING
-            if nargin < 1
-                error('Provide either an object ID or class object');
-            elseif isnumeric(agentObject)
-                agentID = agentObject;
-            else
-                agentID = agentObject.objectID;
-            end
-            
-            % GET THE AGENTS ASSOCIATION
-            [~,IDindex] = obj.getAgentAssociation(agentID);
-            
-            if isempty(IDindex)
-                warning('Cannot remove; agent not associated with waypoint.');
-                return
-            end
-            % REMOVE THE AGENT FROM THE WAYPOINT OWNERSHIP
-            obj.ownership(IDindex) = [];
         end
     end
 end %%% STATE VECTOR IS DEFINED AS [x;y;z;v;u;w;psi;the;phi;p;q;r] %%%%%%%% 

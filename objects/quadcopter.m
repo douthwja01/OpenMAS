@@ -11,19 +11,21 @@ classdef quadcopter < agent
         % DYNAMICS - All the models parameters are held in the DYNAMICS
         %            container field.
     end
-    %  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
-        % CONSTRUCTOR METHOD
+        % Constructor
         function obj = quadcopter(varargin)
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            
+            % Call the super class
             obj@agent(varargin);                                           % Create the super class 'agent'
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % IMPORT THE AGENT DYNAMICS & CONTROL PARAMETERS
-            [obj.DYNAMICS] = obj.importModelProperties();
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
-        end
+
+            % Assign parameters
+            [obj.DYNAMICS] = obj.importModelProperties();   
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
+        end    
         % ///////////////////// SETUP FUNCTION ////////////////////////////
         % QUADCOPTER STATE VECTOR [pn;vn;etn;omega]
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
@@ -42,40 +44,46 @@ classdef quadcopter < agent
             % OUTPUTS:
             % obj      - The updated project
             
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             [obj,~,~,~] = obj.GetAgentUpdate(ENV,varargin{1});                   % IDEAL INFORMATION UPDATE 
             
-            % GET THE CONTROLLER REFERENCE STATE
-            [obj,X_desired] = obj.GetControllerType('velocity',dt); 
+            % /////////////////// WAYPOINT TRACKING ///////////////////////
+            % Get desired heading
+            desiredHeadingVector = obj.GetTargetHeading();
+            desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
+                    
+            % Express velocity vector in NED coordinates
+            if ENV.currentTime <= 1
+                desiredVelocity = zeros(3,1);
+            end
             
-%             % PLOT THE WORLD
-%             if obj.objectID == 1
-%                 observedObjects = [obstacleSet;agentSet;waypointSet];
-%                 figureHandle = figure(1);
-%                 [figureHandle] = obj.GetObjectScene(observedObjects,figureHandle);
-%                 obj.GetAnimationFrame(ENV,figureHandle);
-%             end
+            % Call the controller loop
+            obj = obj.controller(ENV,desiredVelocity);
             
+            % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
+            obj.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{z}$ (m/s)',...
+                                   '$\dot{\phi}$ (rad/s)','$\dot{\theta}$ (rad/s)','$\dot{\psi}$ (rad/s)'};
+            obj.DATA.inputs(1:numel(obj.DATA.inputNames),ENV.currentStep) = obj.localState(7:end);          % Record the control inputs 
+        end
+    end
+    methods
+        % The quadcopter velocity controller 
+        function [obj] = controller(obj,ENV,v_k)
+            
+            % If idle, sit still
+            if obj.IsIdle
+                v_k = zeros(3,1);               
+            end            
+            % Convert local velocity to state reference
+            X_desired = [zeros(5,1);obj.localState(6);v_k;zeros(3,1)];
             % UPDATE THE LOCAL STATE
             newState = obj.updateLocalState(ENV,obj.localState,X_desired);
             
             % UPDATE THE GLOBAL PROPERTIES OF THE AGENT
-            [obj] = obj.updateGlobalProperties_3DVelocities(dt,newState);
-            % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
-            obj.DATA.inputNames = {'u (m/s)','v (m/s)','w (m/s)','p (rad/s)','q (rad/s)','r (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = newState(7:12);         % Record the control inputs
-        end
-    end
-    methods
-        % CONTROL 
+            [obj] = obj.updateGlobalProperties_3DVelocities(ENV.dt,newState);
+        end        
+        % CONTROL SELECTION
         function [obj,Xref] = GetControllerType(obj,type,dt)
             % This functional allows multiple types of LQR control to be
             % applied. 
@@ -169,7 +177,7 @@ classdef quadcopter < agent
             dX(1:3)   = Vb;
             dX(4:6)   = omegab;
             dX(7:9)   = Tb*(e3/m) + R'*(e3*m*g);
-            dX(10:12) = inv(M)*(tau - OMAS_geometry.skew(omegab)*M*omegab);
+            dX(10:12) = M\(tau - OMAS_geometry.skew(omegab)*M*omegab);
         end
         % GET THE STATE UPDATE (USING ODE45)
         function [X]  = updateLocalState(obj,TIME,X0,X_desired)
@@ -192,7 +200,7 @@ classdef quadcopter < agent
     % STATIC FUNCTIONS
     methods (Static)
         % IMPORT THE MODEL PROPERTIES
-        function [modelParams] = importModelProperties()
+        function [params] = importModelProperties()
             
             % BUILD THE DYNAMIC PROPERTIES OF THE AGENT
             g  = 9.81;
@@ -230,7 +238,7 @@ classdef quadcopter < agent
             [K_lqr,~,~] = lqr(A,B,Q,R);        
             
             % RE-ORGANISE THE DYNAMIC PARAMETERS
-            modelParams = struct('g',g,...      % Gravitational constant
+            params = struct('g',g,...      % Gravitational constant
                                 'e3',e3,...     % Body axis Z-vector
                                  'm',1,...      % Body mass
                                  'M',M,...      % Inertia tensor 

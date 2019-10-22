@@ -6,14 +6,16 @@ classdef agent_formation_boids < agent_formation
     properties
         % PROPERTITIES UNIQUE TO AGENT CLASS
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = agent_formation_boids(varargin)
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Constructor
             obj = obj@agent_formation(varargin);
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);   
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % ///////////////////////////////////////////////////////////// 
         end
         % //////////////////// AGENT MAIN CYCLE ///////////////////////////
         % This is necessary to force the agent_2D_VO/RVO/HRVO/RVO2 to

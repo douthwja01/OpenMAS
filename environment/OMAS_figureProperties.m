@@ -11,27 +11,28 @@ function [figureProperties] = OMAS_figureProperties(SIM,DATA)
 
 % /////////////////////// GENERAL FIGURE SETUP ////////////////////////////
 figureProperties = struct();
-figureProperties.cells = 2;                                                % Horezontal cells
-figureProperties.alignment = 10;                                           % Horezontal window alignment
-figureProperties.margin = 30;                                              % Percentage signal margin of plots
-figureProperties.spacing = 40;                                             % Spacing between figures
-figureProperties.tailLength = 4;                                           % The tail length (in seconds) of comet-like figures
-figureProperties.titleFontSize = 24;
+figureProperties.cells = 2;                     % Horizontal cells
+figureProperties.alignment = 10;                % Horizontal window alignment
+figureProperties.margin = 30;                   % Percentage signal margin of plots
+figureProperties.spacing = 40;                  % Spacing between figures
+figureProperties.tailLength = 4;                % The tail length (in seconds) of comet-like figures
+figureProperties.titleFontSize = 28;
 figureProperties.axisFontSize = 18;
 figureProperties.fontWeight = 'bold';
+figureProperties.fontName = 'Helvetica';
 figureProperties.interpreter = 'latex';
 figureProperties.markerSize = 10;
 figureProperties.markerEdgeColor = 'k';
-figureProperties.lineWidth = 2;                                            % Applies to both the marker and trails
+figureProperties.lineWidth = 2;                 % Applies to both the marker and trails
 figureProperties.lineStyle = ':';
 figureProperties.edgeColor = 'k';
 figureProperties.edgeAlpha = 0.2;     
-figureProperties.patchLineWidth = 1;                                       % Patch properties
+figureProperties.patchLineWidth = 1;            % Patch properties
 figureProperties.faceLighting = 'gouraud';
 figureProperties.faceAlpha = 0.7;
 figureProperties.figureColor = 'w';
-figureProperties.axesColor = 'w';                                          % Universal background colour grey: [0.9 0.9 0.9]    
-figureProperties.publish = logical(false);                                 % Generate the pdfs associated with publication
+figureProperties.axesColor = 'w';               % Universal background colour grey: [0.9 0.9 0.9]    
+figureProperties.publish = false;
 
 % /////////////////////// SCREEN CONFIGURATION ////////////////////////////
 set(0,'units','pixels')
@@ -45,6 +46,8 @@ if nargin == 0
     return
 end
 
+figureProperties.publish = SIM.publishMode;     % Generate the pdfs associated with publication
+
 % ERROR CATCHING
 if figureProperties.tailLength < SIM.TIME.dt                               % Only needed for long simulations with large time-steps
     figureProperties.tailLength = SIM.TIME.dt;
@@ -54,11 +57,11 @@ end
 figureProperties.objectMaximalRadii = max([SIM.OBJECTS.radius]);
 
 % Augment the axis maximum/miniums
-[stateMinimums,stateMaximums] = getTrajectoryAxisProperties(DATA);
+[stateMinimums,stateMaximums] = GetTrajectoryAxisProperties(DATA);
 figureProperties.axisMinimums = stateMinimums;
 figureProperties.axisMaximums = stateMaximums;
-figureProperties.minPosition = min(figureProperties.axisMinimums(1:3));
-figureProperties.maxPosition = max(figureProperties.axisMaximums(1:3));
+figureProperties.minPosition  = min(figureProperties.axisMinimums(1:3));
+figureProperties.maxPosition  = max(figureProperties.axisMaximums(1:3));
 if abs(figureProperties.minPosition) < abs(figureProperties.maxPosition)
     figureProperties.maxAbsPosition = abs(figureProperties.maxPosition);
 else
@@ -87,7 +90,7 @@ end
 figureProperties.fps = fps;
 
 % CALCULATE THE RESULTANT STEPS PER FRAME
-stepsPerFrame = single(floor(SIM.TIME.endStep/numFrames));                 % Get the nearest integer steps/frame
+stepsPerFrame = floor(single(SIM.TIME.endStep)/single(numFrames));                 % Get the nearest integer steps/frame
 if stepsPerFrame == 0                                                      % If the frame frequency is higher than the simulation sample frequency
     stepsPerFrame = 1;                                                     % Default to one frame per sample (highest sample rate)
 end
@@ -95,7 +98,7 @@ figureProperties.stepsPerFrame = stepsPerFrame;
 end
 
 % GET AXIS/STATE LIMITS FROM GLOBAL TRAJECTORY DATA
-function [globalMinimums,globalMaximums] = getTrajectoryAxisProperties(DATA)
+function [globalMinimums,globalMaximums] = GetTrajectoryAxisProperties(DATA)
 % This function determines the axis limits for the state vector by
 % determining the minimum and maximum values of all states across all
 % objects.
@@ -115,8 +118,9 @@ for ID1 = 1:DATA.totalObjects
     % GET THE AGENTS STATE-TIMESERIES DATA
 	% DONT CARE ABOUT objectIDs AT THIS POINT
     [objectStateData] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,...
-                                                   tempIDvector,...
-                                                   ID1,inf);
+                                                   uint16(tempIDvector),...
+                                                   uint16(ID1),...
+                                                   inf);
     % GET TIME-SERIES MIN-MAX VALUES
     tempMatrix(:,ID1) = min(objectStateData,[],2);                         % Object state minimums
     tempMatrix(:,systemStates+ID1) = max(objectStateData,[],2);            % Object state minimums

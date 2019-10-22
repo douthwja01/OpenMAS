@@ -73,9 +73,9 @@ function [tabbedFig,tabGroupH] = init_figure(figureName)
 tabbedFig = figure('Name',figureName, ... %title bar text
     'Tag','tabbedWindow',... 
     'NumberTitle','off', ... %hide figure number in title
-    'Menubar','none',... %dont have file menu, etc.
     'IntegerHandle','off',... %use number like 360.0027 instead of 1,2, or 3
     'Resize','on'); %allow user to resize, TODO make contents normalized to allow for proportional resizing
+    %'Menubar','none',... %dont have file menu, etc.
 
 %create a tab group
 tabGroupH = uitabgroup;

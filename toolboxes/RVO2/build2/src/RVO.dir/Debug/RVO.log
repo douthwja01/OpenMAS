@@ -1,0 +1,22 @@
+﻿Build started 18/10/2018 15:13:57.
+     1>Project "C:\Users\uos\Desktop\RVO2\build2\src\RVO.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Creating "RVO.dir\Debug\RVO.unsuccessfulbuild" because "AlwaysCreate" was specified.
+       CustomBuild:
+         All outputs are up-to-date.
+       ClCompile:
+         All outputs are up-to-date.
+       Lib:
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\Lib.exe /OUT:"C:\Users\uos\Desktop\RVO2\build2\src\Debug\RVO.lib" /NOLOGO RVO.dir\Debug\Agent.obj
+         RVO.dir\Debug\KdTree.obj
+         RVO.dir\Debug\Obstacle.obj
+         RVO.dir\Debug\RVOSimulator.obj  /machine:X86
+         RVO.vcxproj -> C:\Users\uos\Desktop\RVO2\build2\src\Debug\RVO.lib
+       FinalizeBuildStatus:
+         Deleting file "RVO.dir\Debug\RVO.unsuccessfulbuild".
+         Touching "RVO.dir\Debug\RVO.lastbuildstate".
+     1>Done Building Project "C:\Users\uos\Desktop\RVO2\build2\src\RVO.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:00.65

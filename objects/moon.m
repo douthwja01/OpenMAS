@@ -13,30 +13,29 @@ classdef moon < obstacle_spheroid
         mass        = 7.342E+22;      % Mass of the moon (kg)     
         axialRate   = 1.737E+06;% Rotational rate about its vertical axes(rad/s)
     end
-    %  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = moon(varargin)
             % This function constructs the cuboid obstacle. The object must
             % be imported and represented with a global position and
             % velocity as all other objects are in OMAS.
                         
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj = obj@obstacle_spheroid(varargin); 
-            % Unpack the input vector if necessary
-            [varargin] = obj.inputHandler(varargin);
-            % OVERRIDE OBJECT VIRTUAL PROPERTIES
-            obj.VIRTUAL.radius = obj.radius;                               % The radius of the earth (m)
-            obj.VIRTUAL.colour = single([0,0,1]);                          % Must be a row vector of type single
+            
+            % Assign default 
+            obj = obj.SetVIRTUALparameter('radius',obj.radius);            % The radius of the earth (m)
+            obj = obj.SetVIRTUALparameter('colour',single([0,0,1]));       % Must be a row vector of type single  
             
             % IMPORT THE OBJECT'S GEOMETRY IF IT EXISTS
             [obj.GEOMETRY] = OMAS_graphics.scale(obj.GEOMETRY,obj.VIRTUAL.radius);  % Scale
 
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
-        end 
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
-        % SETUP - X = [x;x_dot]' 3D STATE VECTOR
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
+        end           
+        % Setup - X = [x;x_dot]' 3D STATE VECTOR
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % The state initialiser must be called 'initialise_localState'
             % and instead calls the 'initialise_3DVelocities' function in
@@ -45,7 +44,7 @@ classdef moon < obstacle_spheroid
             % ADD A ROTATIONAL RATE
             obj.localState(12) = obj.axialRate; % The earth rotates a constant rate about its z interial axis
         end
-        % ///////////// UPDATE CYCLE FOR A MOVING OBSTACLE ////////////////
+        % Main
         function [obj] = main(obj,TIME,varargin)
             % SIMPLE UPDATE OF LOCAL STATE
             dt = TIME.dt;

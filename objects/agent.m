@@ -17,6 +17,7 @@ classdef agent < objectDefinition & agent_tools
         % DEFAULT BEHAVIOUR
         nominalSpeed = 2;               % Default nominal speed (m/s)
         maxSpeed = 4;                   % Default maximumal speed (m/s)
+        maxOmega = 0.5;
         radius = 0.5;                   % Default radius parameter (m)
         % WAYPOINTS
         targetWaypoint;                 % The current waypoint target
@@ -31,8 +32,8 @@ classdef agent < objectDefinition & agent_tools
     
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTOR
-        function obj = agent(varargin)
+        % Constructor
+        function [obj] = agent(varargin)
             % This function is to construct the agent object using the
             % object defintions held in the 'objectDefinition' base class.
             % INPUTS:
@@ -40,35 +41,42 @@ classdef agent < objectDefinition & agent_tools
             % OUTPUTS:
             % obj     - The constructed object
             
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj@objectDefinition(varargin);         
+
+            % //////////////////// SENSOR PARAMETERS //////////////////////
+            [obj.SENSORS] = obj.GetDefaultSensorParameters();               % Default sensing
+            % /////////////////////////////////////////////////////////////
             
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            
-            % THE 2D STATE VECTOR
-            obj.localState = zeros(12,1);
-                          
-            % Simulation setup
-            obj = obj.SetDetectionRadius(inf);
-            obj = obj.SetType(OMAS_objectType.agent);
-            obj = obj.SetHitBoxType(OMAS_hitBoxType.spherical);
-            obj = obj.SetSymbol('diamond');
-            obj = obj.SetIdleStatus(logical(false));
-            obj = obj.SetRadius(obj.radius);
-            
-            % Define default sensor model
-            [obj.SENSORS] = obj.GetCustomSensorParameters();
-            
-            % Initialise memory structure (with 3D varient)
-            [obj] = obj.SetBufferSize(5);
-            
-            % CHECK FOR USER OVERRIDES
-            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
-            obj = obj.configurationParser(obj,varargin);
+            % Assign defaults
+            obj.VIRTUAL  = obj.CreateVIRTUAL();                             % Assign (agent) VIRTUAL structure
+            obj.DYNAMICS = obj.CreateDYNAMICS();                            % Assign (agent) VIRTUAL structure
+            obj.localState = zeros(12,1);                                   % Assign state
+            obj = obj.SetBufferSize(1);                                     % Assign buffersize
+            obj = obj.SetDetectionRadius(inf);                              % Assign detection radius        
+                        
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            obj = obj.ApplyUserOverrides(varargin);                         % Recursive overrides
+            % Re-affirm associated properties
+            obj.MEMORY = obj.GetMemoryStructure(obj.maxSamples);            % Initialise memory structure (with 2D varient)             
+            obj = obj.SetRadius(obj.radius);                                % Reaffirm radius against .VIRTUAL
+            % /////////////////////////////////////////////////////////////
         end
-        % MAIN 
-        function obj = main(obj,ENV,varargin)
+        % Setup
+        function [obj] = setup(obj,localXYZvelocity,localXYZrotations)
+            
+            % Build state vector
+            obj.localState = zeros(12,1);
+            obj.localState(4:6) = localXYZrotations;
+            obj.localState(7:9) = localXYZvelocity;
+            
+            % RETAIN THE PRIOR STATE FOR REFERENCE
+            obj = obj.SetVIRTUALparameter('priorState',obj.localState);
+        end
+        % Main 
+        function [obj] = main(obj,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
@@ -104,52 +112,14 @@ classdef agent < objectDefinition & agent_tools
             %                                                             %
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
-            
-            
-%             [figureHandle] = obj.GetObjectScene(gcf);
-            
             % PASS THE DESIRED VELOCITY TO THE DEFAULT CONTROLLER
             [obj] = obj.controller(ENV.dt,desiredVelocity);
         end
+    end
         
-    end
-    
-    %% /////////////////////// AUXILLARY METHODS //////////////////////////
-    % SET METHODS
-    methods 
-        % Set the idle status
-        function [obj] = SetIdleStatus(obj,idleStatus)
-            assert(islogical(idleStatus),'The logical status must be a logical.');
-            obj.VIRTUAL.idleStatus = idleStatus;
-        end
-        % Set the maximum speed
-        function [obj] = SetNominalSpeed(obj,speed)
-           obj.nominalSpeed = speed; 
-        end
-        % Set the detection radius
-        function [obj] = SetDetectionRadius(obj,radius)
-            % Input sanity check
-            assert(isnumeric(radius) && numel(radius) == 1,'Detection radius must be a scalar value.');
-            % Set the detection radius
-            obj.VIRTUAL.detectionRadius = radius;
-            % Override the sensor parameter to reflect the change
-            if isstruct(obj.SENSORS)
-                obj.SENSORS.range = radius;  % Set the sensor range value
-            end
-        end
-        % Set the representative radius
-        function [obj] = SetRadius(obj,radius)
-            % Input sanity check
-            assert(isnumeric(radius) && numel(radius) == 1,'Representative radius must be a scalar value.');
-            % Set the representative radius
-            obj.radius = radius;
-            obj.VIRTUAL.radius = radius;        
-        end
-    end
-    % ////////////////////// BASIC UPDATE FUNCTIONS ///////////////////////
+    %% ////////////////////// BASIC UPDATE FUNCTIONS //////////////////////
     methods
-        %%%% AGENT UPDATE (IDEAL) %%%%
-        % Update from perfect environmental knowledge
+        % AGENT UPDATE (IDEAL) - Update from perfect environmental knowledge
         function [obj,obstacleSet,agentSet,waypointSet] = GetAgentUpdate(obj,ENV,observedObjects)
             % This function computes the agents process for updating its
             % knowledge of the environment.
@@ -163,14 +133,15 @@ classdef agent < objectDefinition & agent_tools
             
             agentSet = []; obstacleSet = []; waypointSet = [];             % No observed objects 
             
-            % Input sanity check
-            assert(isstruct(ENV),'Expecting environment update structure.');
-            assert(isnumeric(ENV.dt),'The time-step must be a numeric timestep.');
-            assert(isstruct(observedObjects),'Second parameter is a vector of observation structures.');
             % Check #1 - Nothing is observed..
             if isempty(observedObjects)
                 return
             end
+                        
+            % Input sanity check
+            assert(isstruct(ENV),'Expecting environment update structure.');
+            assert(isnumeric(ENV.dt),'The time-step must be a numeric timestep.');
+            assert(isstruct(observedObjects),'Second parameter is a vector of observation structures.');
             
             % Update agent memory structure
             for entry = 1:numel(observedObjects)
@@ -181,7 +152,7 @@ classdef agent < objectDefinition & agent_tools
             end
             
             % SORT OBJECT SET BY PRIORITY
-            [obj] = obj.SortMemoryByField('priority');
+            [obj] = obj.UpdateMemoryOrderByField('priority');
             
             % DECERN OBJECT TYPES
             % obj.MEMORY now contains an updated understanding of all the
@@ -196,10 +167,19 @@ classdef agent < objectDefinition & agent_tools
             % UPDATE THE TARGET WAYPOINT, PRIORTIES 
             [obj] = obj.UpdateTargetWaypoint(waypointSet);                    % Update the target waypoint and heading vector
         end
-        % Default sensor model
+    end
+    
+    %% //////////////////////// SENSING FUNCTIONS /////////////////////////
+    methods
+        % SENSOR MODEL - TOP LEVEL (Default)
         function [observedObject] = SensorModel(obj,dt,observedObject)
             % This function provides an overridable method resembling the
             % sensor model through which all objects are processed.
+            
+            % Input sanity check
+            assert(isnumeric(dt) && numel(dt) == 1,'The time step value is invalid.');
+            assert(numel(observedObject.position) <= 3,'Expecting a position value to be [2x1].');
+            assert(numel(observedObject.velocity) <= 3,'Expecting a velocity value to be [2x1].');
             
             % Get measurements from a camera
             [psi_j,theta_j,alpha_j] = obj.GetCameraMeasurements(observedObject);
@@ -209,23 +189,6 @@ classdef agent < objectDefinition & agent_tools
             observedObject.width = alpha_j;
             % Get the range estimate
             [observedObject.range] = obj.GetRangeFinderMeasurements(observedObject);
-        end
-    end
-    % ///////////////////////// SENSING FUNCTIONS /////////////////////////
-    methods
-        % CALCULATE THE NEW STATE ESTIMATE
-        function [position,velocity] = linearStateEstimation(obj,dt,p0,v0,p1)
-           % This function takes the previous known state of the obstacle
-           % and estimates its new state.
-                      
-           % GET THE POSITION
-           dX = (p1 - p0);
-           velocity = dX/dt;    % Defines the average velocity
-           position = p1;
-           % NO PREVIOUS VELOCITY RECORDED
-           if any(isnan(v0))
-              return
-           end          
         end
         % SENSOR MODEL - CAMERA & RANGE FINDER
         function [psi_j,theta_j,alpha_j] = GetCameraMeasurements(obj,observedObject) 
@@ -241,7 +204,7 @@ classdef agent < objectDefinition & agent_tools
             % angularWidth - The obstacles angular width in the azimuth
             
             % Observed pixel coordinates
-            psi_j   = observedObject.heading + obj.SENSORS.sigma_camera*randn(1);
+            psi_j   = observedObject.heading   + obj.SENSORS.sigma_camera*randn(1);
             theta_j = observedObject.elevation + obj.SENSORS.sigma_camera*randn(1);
             % Observed width
             alpha_j = observedObject.width + obj.SENSORS.sigma_camera*randn(1);      % Uncertainty in the angular measurement
@@ -258,12 +221,33 @@ classdef agent < objectDefinition & agent_tools
         function [p_i,v_i,r_i] = GetAgentMeasurements(obj)
             % This function makes estimates of the agent's current position
             % and velocity states (defined in obj.localState).
-
+            
+            if obj.Is3D
+                positionIndices = 1:3;
+                velocityIndices = 7:9;
+            else
+                positionIndices  = 1:2;
+                velocityIndices = 4:5;
+            end
             % GET THE LOCAL ABSOLUTE VARIABLES
-            p_i =  obj.localState(1:3,1) + obj.SENSORS.sigma_position*rand(3,1); % Get the absolute position measurement
-            v_i =  obj.localState(7:9,1) + obj.SENSORS.sigma_velocity*rand(3,1); % Get the absolute velocity measurement          
+            p_i =  obj.localState(positionIndices,1) + obj.SENSORS.sigma_position*rand(numel(positionIndices),1); % Get the absolute position measurement
+            v_i =  obj.localState(velocityIndices,1) + obj.SENSORS.sigma_velocity*rand(numel(velocityIndices),1); % Get the absolute velocity measurement          
             % RADIUS IS ASSUMED KNOWN
-            r_i = obj.VIRTUAL.radius;
+            r_i = obj.GetRadius();
+        end
+        % CALCULATE THE NEW STATE ESTIMATE
+        function [position,velocity] = linearStateEstimation(obj,dt,p0,v0,p1)
+           % This function takes the previous known state of the obstacle
+           % and estimates its new state.
+                      
+           % GET THE POSITION
+           dX = (p1 - p0);
+           velocity = dX/dt;    % Defines the average velocity
+           position = p1;
+           % NO PREVIOUS VELOCITY RECORDED
+           if any(isnan(v0))
+              return
+           end          
         end
     end
     methods (Static)
@@ -295,9 +279,10 @@ classdef agent < objectDefinition & agent_tools
                 'sampleFrequency',inf);     % Object has perfect precision
         end 
     end
-    % //////////////////////// DYNAMICS & CONTROL /////////////////////////
+    
+    %% //////////////////////// DYNAMICS & CONTROL ////////////////////////
     methods         
-        % CONTROLLER
+        % Simple controller
         function [obj] = controller(obj,dt,desiredVelocity)
             % This function computes the agents change in state as a result
             % of the desired velocity vector
@@ -309,27 +294,25 @@ classdef agent < objectDefinition & agent_tools
             
             % ///////////// UPDATE OBJECT GLOBAL PROPERTIES ///////////////             
             % Input sanity check #2 - Zero vector
-            [unitDirection,desiredSpeed] = obj.nullVelocityCheck(desiredVelocity);    
+            [heading,speed] = obj.nullVelocityCheck(desiredVelocity);    
                      
-            % APPLY SPEED CONSTRAINT
-            if abs(desiredSpeed) > obj.maxSpeed
-                desiredSpeed = sign(desiredSpeed)*obj.maxSpeed; 
-            end  
+            % Get the relative heading
+            [dPsi,dTheta] = obj.GetVectorHeadingAngles([1;0;0],heading); % Relative heading angles
+            % The desired heading rate
+            omega = ([0;dTheta;-dPsi] - zeros(3,1))/dt;
             
-            % GET THE EQUIVALENT HEADING ANGLE
-            [dPsi,dTheta] = obj.GetVectorHeadingAngles([1;0;0],unitDirection); % Relative heading angles   
-            dHeading = [0;dTheta;-dPsi];
-            omega = dHeading/dt;
+            % Apply kinematic constraints to state changess
+            [omega_actual,speed_actual] = obj.ApplyKinematicContraints(dt,omega,speed);
             
             % OMIT TRAJECTORY CHANGES IF IDLE
-            if obj.isIdle()
-                omega = zeros(3,1);
-                desiredSpeed = 0;
-                obj.nominalSpeed = 0;
+            if obj.GetIdleStatus()
+                omega_actual = zeros(3,1);
+                speed_actual = 0;
+                obj = obj.SetNominalSpeed(0);
             end
             
             % /////////// SIMPLE DYNAMICS + PURE TRANSLATION //////////////
-            [dX] = obj.dynamics_simple(obj.localState(1:6),[desiredSpeed;0;0],omega);
+            [dX] = obj.dynamics_simple(obj.localState(1:6),[speed_actual;0;0],omega_actual);
             obj.localState(1:6)  = obj.localState(1:6) + dt*dX;
             obj.localState(7:12) = dX;
                         
@@ -399,44 +382,75 @@ classdef agent < objectDefinition & agent_tools
             % ////// GLOBAL UPDATE FOR STATE WITH RETAINED VELOCITES //////
             [obj] = obj.updateGlobalProperties_3DVelocities(dt,obj.localState);
         end       
-        % IMPOSE KINEMATIC LIMITS ON CONTROL INPUTS
-        function [achievedHeading,achievedSpeed] = kinematicContraints(obj,dt,desiredHeading,desiredSpeed)
+        % Apply the DYNAMICS constraints
+        function [omega_actual,speed_actual] = ApplyKinematicContraints(obj,dt,omega,speed)
             % This function is designed to take a desired heading and
             % velocity and compare them to the kinematic contraints of the
             % agent.
             
-            currentVelocity = obj.localState(7:9);
-            % CALCULATE THE DESIRED HEADING RATE
-            dH = desiredHeading - zeros(3,1);
-            Hdot = dH/dt;
-            % GET THE ALLOWABLE ANGULAR VELOCITY
-            [bounded_Hdot] = obj.boundValue(Hdot,-obj.angularVelocityLimits,obj.angularVelocityLimits);
-            % GET THE ACHIEVED HEADING WITH THE 
-            achievedHeading = zeros(3,1) + bounded_Hdot*dt;
+            % Determine agent dimension
+            if obj.Is3D
+                currentVelocity = obj.localState(7:9);
+                currentOmega    = obj.localState(10:12);
+            else
+                currentVelocity = obj.localState(4:5);
+                currentOmega    = obj.localState(6); 
+            end
             
-            % CALCULATE THE DESIRED SPEED CHANGE
+            % For clarity
+            v_lim      = obj.DYNAMICS.maxLinearVelocity;
+            dv_lim     = obj.DYNAMICS.maxLinearAcceleration;
+            omega_lim  = obj.DYNAMICS.maxAngularVelocity;
+            dOmega_lim = obj.DYNAMICS.maxAngularAcceleration;
+            
+            % /////////////// Constrained heading change //////////////////
+            % The implied angular acceleration
+            omega_dot = (omega - currentOmega)/dt;
+            % Constrain against heading acceleration limits
+            bounded_omega_dot = boundValue(omega_dot,-dOmega_lim,dOmega_lim);
+            % Calculate actual heading velocity limits
+            omega = currentOmega + bounded_omega_dot*dt;
+            % Constrain against heading rate limits
+            omega_actual = boundValue(omega,-omega_lim,omega_lim);
+            
+            % ///////////////// Constrained speed change //////////////////
+            % The current speed
             currentSpeed = norm(currentVelocity);
-            dSpeed = desiredSpeed - currentSpeed; % The proposed change in speed
-            acceleration = dSpeed/dt;
-            % GET THE ALLOWABLE ACCELERATIONS
-            [bounded_a] = obj.boundValue(acceleration,-obj.linearAccelerationLimits(1),obj.linearAccelerationLimits(1)); 
-            % GET THE ACHIEVED SPEED
-            achievedSpeed = currentSpeed + bounded_a*dt;
-            % BOUND THE ABSOLUTE LINEAR VELOCITY
-            [achievedSpeed] = obj.boundValue(achievedSpeed,-obj.linearVelocityLimits(1),obj.linearVelocityLimits(1)); 
+            % The proposed acceleration
+            s_dot = (speed - currentSpeed)/dt; 
+            % Constrain against linear acceleration limits
+            bounded_s_dot = boundValue(s_dot,-dv_lim(1),dv_lim(1));
+            % Calcullate the actual speed
+            speed = currentSpeed + bounded_s_dot*dt;
+            % Interesect the velocity with permissible velocities
+            speed_actual = boundValue(speed,-v_lim(1),v_lim(1));
         end
-        % INITIALISE DYNAMICS
-        function [obj] = GetDynamicParameters(obj)
-            % This function calls the dynamics structure that gives the
-            % agent dynamic/kinematic limits and parameters.
-            % BUILD THE DYNAMICS SUB-STRUCTURE
-            obj.DYNAMICS = struct('linearVelocityLimits',[inf;inf;inf],... % Limits on the agents linear velocity 
-                              'linearAccelerationLimits',[inf;inf;inf],... % Limits on the agents linear acceleration
-                                 'angularVelocityLimits',[inf;inf;inf],... % Limits on the agents angular velocity
-                             'angularAccelerationLimits',[inf;inf;inf]);   % Limits on the agents angular acceleration
+        % Create the DYNAMICS structure
+        function [DYNAMICS] = CreateDYNAMICS(obj)
+            % Define basic DYNAMIC container
+            [DYNAMICS] = obj.CreateDYNAMICS_default();
+        end
+        % Create the unconstrained DYNAMICS
+        function [DYNAMICS] = CreateDYNAMICS_default(obj)
+          % Define an infinite "throw" range by default
+            DYNAMICS = struct();
+            if obj.Is3D
+                % States defined as [x,y,z,phi,theta,psi,dx,dy,dz,dphi,dtheta,dpsi]^T
+                DYNAMICS.maxLinearVelocity      = ones(3,1)*obj.maxSpeed;  % Limits on the agents linear velocity 
+                DYNAMICS.maxLinearAcceleration  = inf(3,1);                % Limits on the agents linear acceleration
+                DYNAMICS.maxAngularVelocity     = ones(3,1)*obj.maxOmega;  % Limits on the agents angular velocity
+                DYNAMICS.maxAngularAcceleration = inf(3,1);                % Limits on the agents angular acceleration
+            else
+                % States defined as [x,y,psi,dx,dy,dpsi]^T
+                DYNAMICS.maxLinearVelocity      = ones(2,1)*obj.maxSpeed;  % Limits on the agents linear velocity 
+                DYNAMICS.maxLinearAcceleration  = inf(2,1);                % Limits on the agents linear acceleration
+                DYNAMICS.maxAngularVelocity     = obj.maxOmega;            % Limits on the agents angular velocity
+                DYNAMICS.maxAngularAcceleration = inf(1,1);                % Limits on the agents angular acceleration
+            end
         end
     end
-    % ////////////////////// GENERAL STATIC METHODS ///////////////////////
+    
+    %% ////////////////////// GENERAL STATIC METHODS //////////////////////
     methods (Static)
         % DEFINE THE PITCH AND YAW TO MEET TARGET HEADING (2D & 3D)
         function [lambda,theta] = GetVectorHeadingAngles(V,U)
@@ -474,7 +488,7 @@ classdef agent < objectDefinition & agent_tools
             end
         end
         % CALCULATE THE RADIUS 
-        function [r] = GetRadiusFromAngularWidth(d,alpha)
+        function [r]    = GetRadiusFromAngularWidth(d,alpha)
         	% Calculate the radius of the object
         	r = (sin(alpha/2)/(1-sin(alpha/2)))*d;     
         end
@@ -498,8 +512,9 @@ classdef agent < objectDefinition & agent_tools
                 v_unit = v/v_mag;
             end
         end
-    end  
-    % ////////// AGENT/DERIVATIVES GLOBAL UPDATE/STATE FUNCTIONS //////////
+    end 
+    
+    %% ////////////////// GLOBAL UPDATE/STATE FUNCTIONS ///////////////////
     methods
         % GLOBAL UPDATE - EULER 6DOF(3DOF) TO NED STATE VECTOR
         function [obj] = updateGlobalProperties_NED(obj,dt,eulerState)
@@ -603,6 +618,12 @@ classdef agent < objectDefinition & agent_tools
             % obj.localState - The previous localState (independant of convention)
             % eulerState     - The new state as reported by the agent            
             
+            % No update required
+%             if obj.IsIdle()   % if agents are dynamic, we want to see
+%             them settle.
+%                 return
+%             end
+            
             % Input sanity check
             assert(numel(p) == 3 && size(p,2) == 1,'Global position must be a 3D column vector [3x1].');
             assert(numel(v) == 3 && size(v,2) == 1,'Global velocity must be a 3D column vector [3x1].');
@@ -613,9 +634,8 @@ classdef agent < objectDefinition & agent_tools
             if obj.VIRTUAL.type == OMAS_objectType.agent 
                 % Evaluate way-point 
                 if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                    obj = obj.SetIdleStatus(true);
-                    obj = obj.SetNominalSpeed(0);
-                    v = zeros(3,1);                                        % Freeze the agent
+                    obj = obj.SetVIRTUALparameter('idleStatus',true);
+%                     v = zeros(3,1);                                        % Freeze the agent
                 end   
             end           
             
@@ -629,7 +649,30 @@ classdef agent < objectDefinition & agent_tools
             obj.localState = X;                                            % Update the current state
         end
     end
-    % VISUALISATION AND GENERAL TOOLS
+    % Only the objectDefinition class has access
+    methods (Static, Access = private)  
+        % Create agent VIRTUAL structure (Override the objectDefinition)
+        function [VIRTUAL]  = CreateVIRTUAL()
+            % This is function that assembles the template desciption of an
+            % agent type object.
+            
+            % Define the VIRTUAL structure
+            VIRTUAL = struct();
+            VIRTUAL.type = OMAS_objectType.agent;
+            VIRTUAL.hitBoxType = OMAS_hitBoxType.spherical;
+            VIRTUAL.detectionRadius = inf;
+            VIRTUAL.radius = 0.5;                      % Diameter of 1m
+            VIRTUAL.colour = rand(1,3,'single');       % Virtual colour (for plotting)
+            VIRTUAL.symbol = 'diamond';                % Representative symbol
+            VIRTUAL.globalPosition = [0;0;0];          % Global Cartesian position
+            VIRTUAL.globalVelocity = [0;0;0];          % Global Cartesian velocity
+            VIRTUAL.quaternion = [1;0;0;0];            % Global quaternion pose
+            VIRTUAL.idleStatus = false;                % Object idle logical
+            VIRTUAL.is3D = true;                       % Object operates in 3D logical
+            VIRTUAL.priorState = [];                            
+        end
+    end
+    %% ///////////////// VISUALISATION AND GENERAL TOOLS //////////////////
     methods
         % PLOT ALL THE OBSERVABLE OBSTACLES IN THE LOCAL FRAME
         function [figureHandle] = GetObjectScene(obj,figureHandle)
@@ -688,7 +731,7 @@ classdef agent < objectDefinition & agent_tools
                 
                 if numel(obj.MEMORY(item).geometry.vertices) < 1
                     % DEFINE GEOMETRY AS A SPHERE
-                    if obj.VIRTUAL.is3D
+                    if obj.Is3D
                         [geometry] = OMAS_graphics.defineSphere(p_j,r_j);
                     else
                         [geometry] = OMAS_graphics.defineSphere([p_j;0],r_j);
@@ -719,7 +762,7 @@ classdef agent < objectDefinition & agent_tools
                 end
                 % ADD ANNOTATION
                 annotationText = sprintf(' \t%s [ID-%d]',obj.MEMORY(item).name,obj.MEMORY(item).objectID);
-                if obj.VIRTUAL.is3D
+                if obj.Is3D
                     text(p_j(1),p_j(2),p_j(3),char(annotationText));       % PLOT AGENT VELOCITY
                     q = quiver3(ax,p_j(1),p_j(2),p_j(3),...
                                    v_j(1),v_j(2),v_j(3),'k');              % The velocity vector
@@ -773,6 +816,54 @@ classdef agent < objectDefinition & agent_tools
             obj.DATA.steps(TIME.currentStep) = TIME.currentStep;
             obj.DATA.time(TIME.currentStep) = TIME.currentTime;
         end 
+    end
+    %% ///////////////////////// GET/SET METHODS //////////////////////////
+    methods 
+        % Get the idle status
+        function [flag] = GetIdleStatus(obj)
+            flag = obj.GetVIRTUALparameter('idleStatus');
+        end
+        % Set the idle status
+        function [obj]  = SetIdleStatus(obj,idleStatus)
+            % Input sanity check
+            assert(islogical(idleStatus),'The logical status must be a logical.');
+            obj = obj.SetVIRTUALparameter('idleStatus',idleStatus);
+        end
+        % Set the maximum speed
+        function [obj]  = SetMaxSpeed(obj,v_max)
+           assert(numel(v_max) == 1,'Expecting a scalar speed value.'); 
+            obj.maxSpeed = v_max;
+            obj.DYNAMICS.maxLinearVelocity = v_max; 
+        end
+        % Set the nominal speed
+        function [obj]  = SetNominalSpeed(obj,speed)
+           obj.nominalSpeed = speed; 
+        end
+        % Set the detection radius
+        function [obj]  = SetDetectionRadius(obj,radius)
+            % Input sanity check
+            assert(isnumeric(radius) && numel(radius) == 1,'Detection radius must be a scalar value.');
+            % Set the detection radius
+            obj = obj.SetVIRTUALparameter('detectionRadius',radius);
+            % Override the sensor parameter to reflect the change
+            if isstruct(obj.SENSORS)
+                % Set the sensor range value
+                obj.SENSORS.range = radius;  
+            end
+        end
+        % Get the representative radius
+        function [r]    = GetRadius(obj)
+            r = obj.GetVIRTUALparameter('radius');
+            assert(obj.radius == r,"Radius parameter is different to the VIRTUAL representation.");
+        end
+        % Set the representative radius
+        function [obj]  = SetRadius(obj,radius)
+            % Input sanity check
+            assert(isnumeric(radius) && numel(radius) == 1,'Representative radius must be a scalar value.');
+            % Set the representative radius
+            obj.radius = radius;
+            obj.SetVIRTUALparameter('radius',radius);
+        end
     end
 end
 

@@ -32,27 +32,32 @@ classdef agent_example < agent
         % EXAMPLE PROPERTIES (Unique to this agent)
         % noOfWings = 2;
     end
-    %% //////////////////// MAIN (required) METHODS ///////////////////////
+    
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTOR
+        % Constructor
         function obj = agent_example(varargin)
             % This function is called to create the 'agent_example' class,
             % which then takes on the new parameters specified.
-            
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
-            
+                        
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Create the super class 'agent'            
+            
             % Set some of the parameters
             obj = obj.SetRadius(0.5);
             obj = obj.SetDetectionRadius(50);                              % Update the range attribute to the SIM VIRTUAL property            
-            % Parse any overrides
-            [obj] = obj.configurationParser(obj,varargin);
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
-        % AGENT MAIN CYCLE 
+        % Setup
+        function [obj] = setup(obj,v,eta)
+            % Define the initial state
+            obj.localState = zeros(6,1);
+            obj.localState(4:6,1) = eta;
+        end
+        % Main 
         function [obj] = main(obj,ENV,varargin)
             % This function is designed to contain everything your agent does
             % in a given simulation timestep. As an 'agent', a list of
@@ -105,18 +110,20 @@ classdef agent_example < agent
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % ASSIGNED STATE UPDATE FUNCTION (USING ODE45)
-        function [X] = updateLocalState(obj,TIME,X,velocity,omega)
+        function [X] = updateLocalState(obj,TIME,X0,velocity,omega)
             % This function computes the state update for the current agent
             % using the ode45 function.
+            
+            X = X0; % The default returned state
             
             % DETERMINE THE INTEGRATION PERIOD
             if TIME.currentTime == TIME.timeVector(end)
                 return
             else
-                tspan = [TIME.currentTime TIME.timeVector(TIME.currentStep + 1)];
-                opts = odeset('RelTol',1e-2,'AbsTol',1e-4);
-                [~,Xset] = ode45(@(t,X) obj.dynamics_simple(X,velocity,omega), tspan, X, opts);
-                X = Xset(end,:)';
+                [~,Xset] = ode45(@(t,X) obj.dynamics_simple(X,velocity,omega),...
+                    [0 TIME.dt],X0,...
+                    odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
+                X = Xset(end,:)'; % Pass the state at the end of the sample period
             end
         end
     end

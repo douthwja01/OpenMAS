@@ -1,0 +1,492 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		7412CB2316C4B5EA00A80F8A /* libRVO.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7412CAF316C4B59000A80F8A /* libRVO.dylib */; };
+		7412CB2416C4B5ED00A80F8A /* libRVO.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7412CAF316C4B59000A80F8A /* libRVO.dylib */; };
+		7412CB2516C4B5F000A80F8A /* libRVO.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7412CAF316C4B59000A80F8A /* libRVO.dylib */; };
+		7412CB3716C4B6D700A80F8A /* Agent.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7412CB2C16C4B6D700A80F8A /* Agent.cpp */; };
+		7412CB3816C4B6D700A80F8A /* Agent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7412CB2D16C4B6D700A80F8A /* Agent.h */; };
+		7412CB3916C4B6D700A80F8A /* Definitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 7412CB2E16C4B6D700A80F8A /* Definitions.h */; };
+		7412CB3A16C4B6D700A80F8A /* KdTree.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7412CB2F16C4B6D700A80F8A /* KdTree.cpp */; };
+		7412CB3B16C4B6D700A80F8A /* KdTree.h in Headers */ = {isa = PBXBuildFile; fileRef = 7412CB3016C4B6D700A80F8A /* KdTree.h */; };
+		7412CB3C16C4B6D700A80F8A /* Obstacle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7412CB3116C4B6D700A80F8A /* Obstacle.cpp */; };
+		7412CB3D16C4B6D700A80F8A /* Obstacle.h in Headers */ = {isa = PBXBuildFile; fileRef = 7412CB3216C4B6D700A80F8A /* Obstacle.h */; };
+		7412CB3E16C4B6D700A80F8A /* RVO.h in Headers */ = {isa = PBXBuildFile; fileRef = 7412CB3316C4B6D700A80F8A /* RVO.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7412CB3F16C4B6D700A80F8A /* RVOSimulator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7412CB3416C4B6D700A80F8A /* RVOSimulator.cpp */; };
+		7412CB4016C4B6D700A80F8A /* RVOSimulator.h in Headers */ = {isa = PBXBuildFile; fileRef = 7412CB3516C4B6D700A80F8A /* RVOSimulator.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7412CB4116C4B6D700A80F8A /* Vector2.h in Headers */ = {isa = PBXBuildFile; fileRef = 7412CB3616C4B6D700A80F8A /* Vector2.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		7412CB4316C4B6E400A80F8A /* Blocks.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7412CB4216C4B6E400A80F8A /* Blocks.cpp */; };
+		7412CB4516C4B6EF00A80F8A /* Circle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7412CB4416C4B6EF00A80F8A /* Circle.cpp */; };
+		7412CB4716C4B6FB00A80F8A /* Roadmap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7412CB4616C4B6FB00A80F8A /* Roadmap.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7412CB2616C4B5F400A80F8A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7412CAEB16C4B59000A80F8A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7412CAF216C4B59000A80F8A;
+			remoteInfo = RVO;
+		};
+		7412CB2816C4B5F700A80F8A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7412CAEB16C4B59000A80F8A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7412CAF216C4B59000A80F8A;
+			remoteInfo = RVO;
+		};
+		7412CB2A16C4B5FA00A80F8A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7412CAEB16C4B59000A80F8A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7412CAF216C4B59000A80F8A;
+			remoteInfo = RVO;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		7412CAF316C4B59000A80F8A /* libRVO.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libRVO.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		7412CAFE16C4B59C00A80F8A /* Blocks */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Blocks; sourceTree = BUILT_PRODUCTS_DIR; };
+		7412CB0B16C4B5A400A80F8A /* Circle */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Circle; sourceTree = BUILT_PRODUCTS_DIR; };
+		7412CB1816C4B5AF00A80F8A /* Roadmap */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Roadmap; sourceTree = BUILT_PRODUCTS_DIR; };
+		7412CB2C16C4B6D700A80F8A /* Agent.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; lineEnding = 0; path = Agent.cpp; sourceTree = "<group>"; };
+		7412CB2D16C4B6D700A80F8A /* Agent.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; lineEnding = 0; path = Agent.h; sourceTree = "<group>"; };
+		7412CB2E16C4B6D700A80F8A /* Definitions.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; lineEnding = 0; path = Definitions.h; sourceTree = "<group>"; };
+		7412CB2F16C4B6D700A80F8A /* KdTree.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; lineEnding = 0; path = KdTree.cpp; sourceTree = "<group>"; };
+		7412CB3016C4B6D700A80F8A /* KdTree.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; lineEnding = 0; path = KdTree.h; sourceTree = "<group>"; };
+		7412CB3116C4B6D700A80F8A /* Obstacle.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; lineEnding = 0; path = Obstacle.cpp; sourceTree = "<group>"; };
+		7412CB3216C4B6D700A80F8A /* Obstacle.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; lineEnding = 0; path = Obstacle.h; sourceTree = "<group>"; };
+		7412CB3316C4B6D700A80F8A /* RVO.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; lineEnding = 0; path = RVO.h; sourceTree = "<group>"; };
+		7412CB3416C4B6D700A80F8A /* RVOSimulator.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; lineEnding = 0; path = RVOSimulator.cpp; sourceTree = "<group>"; };
+		7412CB3516C4B6D700A80F8A /* RVOSimulator.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; lineEnding = 0; path = RVOSimulator.h; sourceTree = "<group>"; };
+		7412CB3616C4B6D700A80F8A /* Vector2.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; lineEnding = 0; path = Vector2.h; sourceTree = "<group>"; };
+		7412CB4216C4B6E400A80F8A /* Blocks.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; lineEnding = 0; path = Blocks.cpp; sourceTree = "<group>"; };
+		7412CB4416C4B6EF00A80F8A /* Circle.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; lineEnding = 0; path = Circle.cpp; sourceTree = "<group>"; };
+		7412CB4616C4B6FB00A80F8A /* Roadmap.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; lineEnding = 0; path = Roadmap.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7412CAFB16C4B59C00A80F8A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB2316C4B5EA00A80F8A /* libRVO.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7412CB0816C4B5A400A80F8A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB2416C4B5ED00A80F8A /* libRVO.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7412CB1516C4B5AF00A80F8A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB2516C4B5F000A80F8A /* libRVO.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7412CAEA16C4B59000A80F8A = {
+			isa = PBXGroup;
+			children = (
+				7412CB2216C4B5C100A80F8A /* Examples */,
+				7412CB2116C4B5BB00A80F8A /* Source */,
+				7412CAF416C4B59000A80F8A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7412CAF416C4B59000A80F8A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7412CAF316C4B59000A80F8A /* libRVO.dylib */,
+				7412CAFE16C4B59C00A80F8A /* Blocks */,
+				7412CB0B16C4B5A400A80F8A /* Circle */,
+				7412CB1816C4B5AF00A80F8A /* Roadmap */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7412CB2116C4B5BB00A80F8A /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				7412CB2C16C4B6D700A80F8A /* Agent.cpp */,
+				7412CB2D16C4B6D700A80F8A /* Agent.h */,
+				7412CB2E16C4B6D700A80F8A /* Definitions.h */,
+				7412CB2F16C4B6D700A80F8A /* KdTree.cpp */,
+				7412CB3016C4B6D700A80F8A /* KdTree.h */,
+				7412CB3116C4B6D700A80F8A /* Obstacle.cpp */,
+				7412CB3216C4B6D700A80F8A /* Obstacle.h */,
+				7412CB3316C4B6D700A80F8A /* RVO.h */,
+				7412CB3416C4B6D700A80F8A /* RVOSimulator.cpp */,
+				7412CB3516C4B6D700A80F8A /* RVOSimulator.h */,
+				7412CB3616C4B6D700A80F8A /* Vector2.h */,
+			);
+			name = Source;
+			path = src;
+			sourceTree = "<group>";
+		};
+		7412CB2216C4B5C100A80F8A /* Examples */ = {
+			isa = PBXGroup;
+			children = (
+				7412CB4216C4B6E400A80F8A /* Blocks.cpp */,
+				7412CB4416C4B6EF00A80F8A /* Circle.cpp */,
+				7412CB4616C4B6FB00A80F8A /* Roadmap.cpp */,
+			);
+			name = Examples;
+			path = examples;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		7412CAF116C4B59000A80F8A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB3E16C4B6D700A80F8A /* RVO.h in Headers */,
+				7412CB4016C4B6D700A80F8A /* RVOSimulator.h in Headers */,
+				7412CB4116C4B6D700A80F8A /* Vector2.h in Headers */,
+				7412CB3816C4B6D700A80F8A /* Agent.h in Headers */,
+				7412CB3916C4B6D700A80F8A /* Definitions.h in Headers */,
+				7412CB3B16C4B6D700A80F8A /* KdTree.h in Headers */,
+				7412CB3D16C4B6D700A80F8A /* Obstacle.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		7412CAF216C4B59000A80F8A /* RVO */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7412CAF716C4B59000A80F8A /* Build configuration list for PBXNativeTarget "RVO" */;
+			buildPhases = (
+				7412CAEF16C4B59000A80F8A /* Sources */,
+				7412CAF116C4B59000A80F8A /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RVO;
+			productName = RVO;
+			productReference = 7412CAF316C4B59000A80F8A /* libRVO.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		7412CAFD16C4B59C00A80F8A /* Blocks */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7412CB0416C4B59C00A80F8A /* Build configuration list for PBXNativeTarget "Blocks" */;
+			buildPhases = (
+				7412CAFA16C4B59C00A80F8A /* Sources */,
+				7412CAFB16C4B59C00A80F8A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7412CB2B16C4B5FA00A80F8A /* PBXTargetDependency */,
+			);
+			name = Blocks;
+			productName = Blocks;
+			productReference = 7412CAFE16C4B59C00A80F8A /* Blocks */;
+			productType = "com.apple.product-type.tool";
+		};
+		7412CB0A16C4B5A400A80F8A /* Circle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7412CB1116C4B5A400A80F8A /* Build configuration list for PBXNativeTarget "Circle" */;
+			buildPhases = (
+				7412CB0716C4B5A400A80F8A /* Sources */,
+				7412CB0816C4B5A400A80F8A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7412CB2916C4B5F700A80F8A /* PBXTargetDependency */,
+			);
+			name = Circle;
+			productName = Circle;
+			productReference = 7412CB0B16C4B5A400A80F8A /* Circle */;
+			productType = "com.apple.product-type.tool";
+		};
+		7412CB1716C4B5AF00A80F8A /* Roadmap */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7412CB1E16C4B5AF00A80F8A /* Build configuration list for PBXNativeTarget "Roadmap" */;
+			buildPhases = (
+				7412CB1416C4B5AF00A80F8A /* Sources */,
+				7412CB1516C4B5AF00A80F8A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7412CB2716C4B5F400A80F8A /* PBXTargetDependency */,
+			);
+			name = Roadmap;
+			productName = Roadmap;
+			productReference = 7412CB1816C4B5AF00A80F8A /* Roadmap */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7412CAEB16C4B59000A80F8A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0730;
+				ORGANIZATIONNAME = "University of North Carolina at Chapel Hill";
+			};
+			buildConfigurationList = 7412CAEE16C4B59000A80F8A /* Build configuration list for PBXProject "RVO" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 7412CAEA16C4B59000A80F8A;
+			productRefGroup = 7412CAF416C4B59000A80F8A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7412CAF216C4B59000A80F8A /* RVO */,
+				7412CAFD16C4B59C00A80F8A /* Blocks */,
+				7412CB0A16C4B5A400A80F8A /* Circle */,
+				7412CB1716C4B5AF00A80F8A /* Roadmap */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7412CAEF16C4B59000A80F8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB3716C4B6D700A80F8A /* Agent.cpp in Sources */,
+				7412CB3A16C4B6D700A80F8A /* KdTree.cpp in Sources */,
+				7412CB3C16C4B6D700A80F8A /* Obstacle.cpp in Sources */,
+				7412CB3F16C4B6D700A80F8A /* RVOSimulator.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7412CAFA16C4B59C00A80F8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB4316C4B6E400A80F8A /* Blocks.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7412CB0716C4B5A400A80F8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB4516C4B6EF00A80F8A /* Circle.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7412CB1416C4B5AF00A80F8A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7412CB4716C4B6FB00A80F8A /* Roadmap.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7412CB2716C4B5F400A80F8A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7412CAF216C4B59000A80F8A /* RVO */;
+			targetProxy = 7412CB2616C4B5F400A80F8A /* PBXContainerItemProxy */;
+		};
+		7412CB2916C4B5F700A80F8A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7412CAF216C4B59000A80F8A /* RVO */;
+			targetProxy = 7412CB2816C4B5F700A80F8A /* PBXContainerItemProxy */;
+		};
+		7412CB2B16C4B5FA00A80F8A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7412CAF216C4B59000A80F8A /* RVO */;
+			targetProxy = 7412CB2A16C4B5FA00A80F8A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		7412CAF516C4B59000A80F8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		7412CAF616C4B59000A80F8A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		7412CAF816C4B59000A80F8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				EXECUTABLE_PREFIX = lib;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		7412CAF916C4B59000A80F8A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				EXECUTABLE_PREFIX = lib;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		7412CB0516C4B59C00A80F8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		7412CB0616C4B59C00A80F8A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		7412CB1216C4B5A400A80F8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		7412CB1316C4B5A400A80F8A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		7412CB1F16C4B5AF00A80F8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		7412CB2016C4B5AF00A80F8A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7412CAEE16C4B59000A80F8A /* Build configuration list for PBXProject "RVO" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7412CAF516C4B59000A80F8A /* Debug */,
+				7412CAF616C4B59000A80F8A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7412CAF716C4B59000A80F8A /* Build configuration list for PBXNativeTarget "RVO" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7412CAF816C4B59000A80F8A /* Debug */,
+				7412CAF916C4B59000A80F8A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7412CB0416C4B59C00A80F8A /* Build configuration list for PBXNativeTarget "Blocks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7412CB0516C4B59C00A80F8A /* Debug */,
+				7412CB0616C4B59C00A80F8A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7412CB1116C4B5A400A80F8A /* Build configuration list for PBXNativeTarget "Circle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7412CB1216C4B5A400A80F8A /* Debug */,
+				7412CB1316C4B5A400A80F8A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7412CB1E16C4B5AF00A80F8A /* Build configuration list for PBXNativeTarget "Roadmap" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7412CB1F16C4B5AF00A80F8A /* Debug */,
+				7412CB2016C4B5AF00A80F8A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7412CAEB16C4B59000A80F8A /* Project object */;
+}

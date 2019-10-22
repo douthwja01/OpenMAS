@@ -1,4 +1,4 @@
-function [ objectIndex ] = GetScenario_formation_fourObstacles(varargin)
+function [ objectIndex ] = GetScenario_formation_fourAgentsFourObstacles(varargin)
 % This function generates the four agent, four obstacle example, termed
 % scenario D in the formation control/ collision avoidance study.
 

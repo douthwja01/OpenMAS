@@ -72,7 +72,7 @@ for index = 1:scenarioConfig.waypoints
     waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.position(:,index) + scenarioConfig.noiseFactor*randn(3,1);
     waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocity(:,index);
     waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternion(:,index);
-    waypointIndex{index} = waypointIndex{index}.createAgentAssociation(leadAgent,priority);  % Create waypoint with association to agent
+    waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(leadAgent,priority);  % Create waypoint with association to agent
 end
 % BUILD THE COLLECTIVE OBJECT INDEX
 objectIndex = horzcat(agentIndex,waypointIndex);

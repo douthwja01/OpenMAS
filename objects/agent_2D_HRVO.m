@@ -15,15 +15,16 @@ classdef agent_2D_HRVO < agent_2D_RVO & agent_HRVO
             % Construct the agent object and initialise with the following
             % specific parameters.
             
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent_2D_RVO(varargin); 
-                        
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin); 
+            % Re-affirm associated properties   
+            [obj] = obj.SetRadius(obj.radius);                             % Reaffirm radius against .VIRTUAL
+            % /////////////////////////////////////////////////////////////
         end
         
         % MAIN CYCLE IS INHERITED FROM THE SUPERCLASS
@@ -31,7 +32,7 @@ classdef agent_2D_HRVO < agent_2D_RVO & agent_HRVO
         % be the same as the super-class.
         
         % CALCULATE THE NECESSARY 2D AVOIDANCE VELOCITY
-        function [headingVector,speed] = getAvoidanceCorrection(obj,dt,desiredVelocity,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(obj,dt,desiredVelocity,visualiseProblem)
             % This function calculates the 2D avoidance velocity command
             % and returns it to be achieved by the controller.
             
@@ -41,18 +42,16 @@ classdef agent_2D_HRVO < agent_2D_RVO & agent_HRVO
             % AGENT KNOWLEDGE (2D)
             [p_i,v_i,r_i] = obj.GetAgentMeasurements();
             
-            % GET OBSTACLE DATA
-            obstacleIDs  = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle).objectID];
-            agentIDs     = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent).objectID];
-            avoidanceIDs = [agentIDs,obstacleIDs];
-                        
+            % Define the obstacle list
+            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
+                                    
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             VO = [];
-            for item = 1:numel(avoidanceIDs)
+            for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'position');
-                v_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'radius');
+                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
+                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius');
                 
                 % NEIGHBOUR CONDITIONS
                 neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
@@ -67,7 +66,7 @@ classdef agent_2D_HRVO < agent_2D_RVO & agent_HRVO
                 tau_j = 0;
                 
                 % OBSTACLE TYPE BEHAVIOUR
-                type_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'type');
+                type_j = obj.GetLastMeasurementByID(obstacleIDs(item),'type');
                 if type_j == OMAS_objectType.agent
                     % DEFINE RVO AS AGENT BEHAVIOUR
                     [VO_j] = obj.define2DHybridReciprocalVelocityObstacle(p_i,v_j,r_i,p_j,v_j,r_j,tau_j,visualiseProblem);
@@ -79,17 +78,9 @@ classdef agent_2D_HRVO < agent_2D_RVO & agent_HRVO
                 VO = [VO,VO_j];
             end
             
-%             % GET THE CAPABLE VELOCITIES
-%             capableVelocities = obj.feasabliltyMatrix;
-%             % SUBTRACT THE VELOCITY OBSTACLES FROM THE VELOCITY FIELDS
-%             escapeVelocities = obj.getEscapeVelocities(capableVelocities,VO);              % The viable velocities from the capable 
-%             % APPLY THE MINIMUM DIFFERENCE SEARCH STRATEGY
-%             [avoidanceVelocity] = obj.strategy_minimumDifference(desiredVelocity,escapeVelocities);
-            
             % THE CLEAR PATH STRATEGY
-            [avoidanceVelocity] = obj.strategy_clearPath(v_a,desiredVelocity,VO,visualiseProblem);  
+            [avoidanceVelocity] = obj.strategy_clearPath(v_i,desiredVelocity,VO,visualiseProblem);  
 
-            
             % SPECIAL CASE- VELOCITY MAGNITUDE IS ZERO
             speed = norm(avoidanceVelocity);
             headingVector = avoidanceVelocity/speed;
@@ -160,7 +151,7 @@ classdef agent_2D_HRVO < agent_2D_RVO & agent_HRVO
             % //////// CONSTRUCT THE HRVO FROM THE RVO TEMPLATE ///////////
             HRVO = RVO;
             HRVO.apex = HRVOapex;
-            HRVO.leadingEdgeUnit = unit_leadingTangent;
+            HRVO.leadingEdgeUnit  = unit_leadingTangent;
             HRVO.trailingEdgeUnit = unit_trailingTangent;
         end
     end

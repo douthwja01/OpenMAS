@@ -70,7 +70,7 @@ for index = 1:agentNumber
     % APPLY GLOBAL STATE VARIABLES
     waypointIndex{index,1}.VIRTUAL.globalPosition = [40;0;0];
     waypointIndex{index,1}.VIRTUAL.globalVelocity = zeros(3,1);
-    waypointIndex{index,1} = waypointIndex{index}.createAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
+    waypointIndex{index,1} = waypointIndex{index}.CreateAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
 end
 
 % /////////////////////////////// CLEAN UP ////////////////////////////////

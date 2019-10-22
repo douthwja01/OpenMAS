@@ -16,38 +16,37 @@ classdef agent_VO < agent
     end
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function [obj] = agent_VO(varargin)
 
-            % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);                                           % Get super class 'agent'
-            
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            
+            % Call the superclass
+            obj@agent(varargin);  
+                        
             % VELOCITY OBSTACLE PARAMETERS
             obj.feasabliltyMatrix = obj.GetFeasabilityGrid(-ones(3,1)*obj.maxSpeed,...
                                                             ones(3,1)*obj.maxSpeed,...
                                                             obj.pointDensity); 
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
-            [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
-            %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
+            [obj.SENSORS] = obj.GetDefaultSensorParameters();              % Default sensing
+            %[obj.SENSORS] = obj.GetCustomSensorParameters();              % Experimental sensing
             % /////////////////////////////////////////////////////////////
                              
-            % VIRTUAL DEFINITION (SIMULATOR PARAMETERS)
-            obj = obj.SetRadius(0.5);
-            obj = obj.SetDetectionRadius(inf);
-            
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin); 
+            % Re-affirm associated properties   
+            [obj] = obj.SetRadius(obj.radius);                             % Reaffirm radius against .VIRTUAL
+            [obj] = obj.SetDetectionRadius(obj.neighbourDist);             % Define the sensor range by the neighbour distance
+            % /////////////////////////////////////////////////////////////
         end
-        % SETUP - X = [x;x_dot]' 3D STATE VECTOR
+        % Setup - X = [x;x_dot]' 3D STATE VECTOR
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
             [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
         end
-        % MAIN
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
@@ -108,16 +107,14 @@ classdef agent_VO < agent
             % AGENT KNOWLEDGE
             [p_i,v_i,r_i] = obj.GetAgentMeasurements();                    % Its own position, velocity and radius
             
-            % GET OBSTACLE DATA
-            obstacleIDs  = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle).objectID];
-            agentIDs     = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent).objectID];
-            avoidanceIDs = [agentIDs,obstacleIDs];
+            % Define the obstacle list
+            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
 
             % BUILD THE VELOCITY OBSTACLE SET
             VO = [];
-            for item = 1:numel(avoidanceIDs)
+            for item = 1:numel(obstacleIDs)
                 % Obstacle data
-                p_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'position');
+                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
                 
                 % NEIGHBOUR CONDITIONS
                 neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
@@ -127,8 +124,8 @@ classdef agent_VO < agent
                 end
                 
                 % More obstacle information
-                v_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'radius');                                
+                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius');                                
                 % Make none-relative
                 p_j = p_j + p_i; 
                 v_j = v_j + v_i;                                           % Convert relative parameters to absolute
@@ -137,7 +134,7 @@ classdef agent_VO < agent
                 % DEFINE THE VELOCITY OBSTACLE PROPERTIES
                 VO_i = obj.define3DVelocityObstacle(p_i,v_i,r_i,p_j,v_j,r_j,tau_b,visualiseProblem);
                 % Add a unique identifier
-                VO_i.objectID = avoidanceIDs(item);             
+                VO_i.objectID = obstacleIDs(item);             
                 VO = vertcat(VO,VO_i);
             end
 
@@ -274,7 +271,6 @@ classdef agent_VO < agent
             
             % CALCULATE THE LEADING TANGENTS ((oldVector,axisVector,theta))
             [leadingTangentVector] = OMAS_geometry.rodriguesRotation(lambda_ab,planarNormal,halfAlpha);
-%             [leadingTangentVector] = obj.rotateVectorAboutAxis(lambda_ab,planarNormal,halfAlpha); % The leading tangential radial vector         
 
             % CALCULATE THE AXIS PROJECTION
             VOaxis = (dot(leadingTangentVector,lambda_ab)/mod_lambda_ab^2)*lambda_ab; % Define the tangent projection on AB
@@ -282,13 +278,11 @@ classdef agent_VO < agent
             axisUnit = VOaxis/axisLength;
             
             % DEFINE THE LEADING TANGENT VECTOR
-            [leadingTangentVector] = OMAS_geometry.rodriguesRotation(VOaxis,planarNormal,halfAlpha);
-%             [leadingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,planarNormal,halfAlpha); % The leading tangential radial vector         
+            [leadingTangentVector] = OMAS_geometry.rodriguesRotation(VOaxis,planarNormal,halfAlpha);        
             unit_leadingTangent = leadingTangentVector/norm(leadingTangentVector);
             
             % DEFINE THE TRAILING VECTORS (TRAILING)
-            [trailingTangentVector] = OMAS_geometry.rodriguesRotation(VOaxis,planarNormal,-halfAlpha);
-%             [trailingTangentVector] = obj.rotateVectorAboutAxis(VOaxis,planarNormal,-halfAlpha); % The leading tangential radial vector         
+            [trailingTangentVector] = OMAS_geometry.rodriguesRotation(VOaxis,planarNormal,-halfAlpha);         
             unit_trailingTangent = trailingTangentVector/norm(trailingTangentVector);
             
             % ESTABLISH DIRECTION OF THE AGENT
@@ -518,28 +512,6 @@ classdef agent_VO < agent
     end
     % ///////////////////////////// UTILITIES /////////////////////////////
     methods (Static)
-        % ROTATE VECTOR THROUGH AN ANGLE, AROUND A GIVEN AXIS
-        function [newVector] = rotateVectorAboutAxis(oldVector,axisVector,theta)
-            % This function is designed to calculate a vector
-            % following a rotation around a given axis vector, through a
-            % given angle.
-            % INPUTS:
-            % oldVector  - The initial vector
-            % axisVector - The axis of rotation
-            % theta      - The angle of rotation
-            % OUTPUTS:
-            % newVector  - The rotated 3D vector
-            
-            % NORMALISE THE AXIS VECTOR
-            axisVector = axisVector/norm(axisVector);  % Normalize rotation axis
-            % GET THE CROSS PRODUCT PROECTION BETWEEN THE AXIS AND VECTOR
-            crossVector = cross(axisVector,oldVector);
-            
-            % DETERMINE THE MAPPING OF EACH VECTOR COMPONENTS
-            newVector = cos(theta)*oldVector ...
-                + (crossVector)*sin(theta)  ...
-                + axisVector*(dot(axisVector,oldVector))*(1 - cos(theta));
-        end
         % DRAW CONE
         function [Cone]  = vectorCone(pointA,pointB,radialPoint,nodes,coneColour)
             % This function is designed to construct a cone mesh between two 

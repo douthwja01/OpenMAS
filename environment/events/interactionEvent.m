@@ -8,10 +8,10 @@ classdef interactionEvent < eventDefinition
 
 %% INITIALISE THE COLLISION EVENT SPECIFIC PARAMETERS
     properties
-        objectID_A;
+        objectID_A = uint32(0);
         name_A;
         state_A;
-        objectID_B;
+        objectID_B = uint32(0);
         name_B;
         state_B;
         separation;
@@ -27,12 +27,7 @@ classdef interactionEvent < eventDefinition
             % objectIDB - Object ID for the second object
             % OUTPUTS:
             % obj - The near-miss object
-            
-%             % INPUT HANDLING            
-%             if ~exist('objectA','var') || ~exist('objectB','var')          % Object specification
-%                 warning('The two interacting entity objects were not specified correctly');
-%             end
-                       
+              
             % INITIALISE THE GENERIC EVENT SUPERCLASS
             obj = obj@eventDefinition(time,name,summaryInfo);       
             

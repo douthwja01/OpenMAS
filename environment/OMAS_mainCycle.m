@@ -17,7 +17,7 @@ META.phase = 'META'; % Declare the simuation active phase
 EVENTS = [];         % Reset the EVENT log container
 
 % PREPARE THE OUTPUT DATA CONTAINER
-[DATA] = getOutputStructure(META); 
+[DATA] = GetOutputStructure(META); 
 
 %%%%%%%%%%%%%%%%%%%%%% BEGIN TIME-STEP INTERATIONS %%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('[%s]\n[%s]\tLAUNCHING SIMULATION...\n[%s]\n',META.phase,META.phase,META.phase);
@@ -88,14 +88,22 @@ while step <= META.TIME.numSteps
     
     % 3. ////////////// UPDATE THE GLOBAL STATES (@t=k) ////////////////////
     for ID1 = 1:META.totalObjects                                          % For each META object element
-        META.OBJECTS(ID1) = OMAS_updateGlobalStates_mex(META,objectIndex{ID1}.objectID,...
-                                                             objectIndex{ID1}.VIRTUAL.globalVelocity,...
-                                                             objectIndex{ID1}.VIRTUAL.quaternion,...
-                                                             objectIndex{ID1}.VIRTUAL.idleStatus);                                
+        % Extract the VIRTUAL structure
+        tempVIRTUAL = objectIndex{ID1}.GetVIRTUAL();
+        
+        % Update META.OBJECT the structure
+%         META.OBJECTS(ID1) = OMAS_updateGlobalStates_mex(META,objectIndex{ID1}.objectID,...
+%                                                              tempVIRTUAL.globalVelocity,...
+%                                                              tempVIRTUAL.quaternion,...
+%                                                              tempVIRTUAL.idleStatus); 
+        META.OBJECTS(ID1) = OMAS_updateGlobalStates(META,objectIndex{ID1}.objectID,...
+                                                             tempVIRTUAL.globalVelocity,...
+                                                             tempVIRTUAL.quaternion,...
+                                                             tempVIRTUAL.idleStatus); 
     end
     % /////////////////////////////////////////////////////////////////////
     
-    % 4. ////////// UPDATE THE VISUAL REPRESENTATIONS (@t=k) //////////////
+%     % 4. ////////// UPDATE THE VISUAL REPRESENTATIONS (@t=k) //////////////
 %     for ID1 = 1:META.totalObjects
 %         if ~isstruct(META.OBJECTS(ID1).geometry)
 %             continue
@@ -138,7 +146,7 @@ while step <= META.TIME.numSteps
     % 7. /// THE 'OBJECT.VIRTUAL' PROPERTIES IS NOW UPDATED FOR (t=k+1) ///
     step = step + 1;
 end
-% CREATE TERMINAL VALUES FOR CLARITY
+% CREATE TERMINAL VALUES, FOR CLARITY
 META.TIME.endStep = META.TIME.currentStep;
 META.TIME.endTime = META.TIME.currentTime; 
 end
@@ -161,28 +169,36 @@ function [SIM,metaEVENTS]	= updateSimulationMeta(SIM,objectIndex)
 collisionLogicals = zeros(SIM.totalObjects);
 warningLogicals   = zeros(SIM.totalObjects);
 for entityA = 1:SIM.totalObjects                                           % Object A's position in the META.OBJECTS
+    
     % NOTE:
     % - We only need to consider the objects whos separations have yet to be
     %   evaluated. If we update 1&2 and 2&1 simultaneously, then we must only
     %   examine the unique ID permutations to assess their conditions.
+    
     for entityB = (entityA+1):(SIM.totalObjects)                           % Object B's position in the META.OBJECTS
         % THE OBJECTS ASSOCIATED objectIndex
         object_A = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityA).objectID};
         object_B = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID};  % Determine the associated geometries
+        
         % UPDATE RELATIVE POSITIONS  (centroid separation based)
         SIM.OBJECTS(entityA).relativePositions(entityB,:) = (SIM.OBJECTS(entityB).globalState(1:3,1) - SIM.OBJECTS(entityA).globalState(1:3,1))';   % AB vector
         SIM.OBJECTS(entityB).relativePositions(entityA,:) = (SIM.OBJECTS(entityA).globalState(1:3,1) - SIM.OBJECTS(entityB).globalState(1:3,1))';   % BA vector
+        
         % GET THE WARNING CONDITIONS (centroid separation based)
         separationDistance = norm(SIM.OBJECTS(entityA).relativePositions(entityB,:)) - (SIM.OBJECTS(entityA).radius + SIM.OBJECTS(entityB).radius);
         warningCondition = SIM.warningDistance >= separationDistance;
         warningLogicals(entityA,entityB) = warningCondition;
-        warningLogicals(entityB,entityA) = warningCondition;
-        % EVALUATE COLLISIONS BETWEEN THE OBJECTS
-        collisionCondition = OMAS_collisionDetection(SIM.OBJECTS(entityA),object_A.GEOMETRY,SIM.OBJECTS(entityB),object_B.GEOMETRY);
-        collisionLogicals(entityA,entityB) = collisionCondition;
-        collisionLogicals(entityB,entityA) = collisionCondition;         
+        warningLogicals(entityB,entityA) = warningCondition;               % Assign the warning condition
         
-        % ERROR CHECKING
+        % EVALUATE COLLISIONS BETWEEN THE OBJECTS
+        collisionCondition = OMAS_collisionDetection(...
+            SIM.OBJECTS(entityA),object_A.GEOMETRY,...
+            SIM.OBJECTS(entityB),object_B.GEOMETRY,...
+            SIM.conditionTolerance);
+        collisionLogicals(entityA,entityB) = collisionCondition;
+        collisionLogicals(entityB,entityA) = collisionCondition;           % Assign the collision condition     
+        
+        % ERROR CHECKING (Should never happen)
         if separationDistance > 0 && collisionCondition
             error('[ERROR] A collision occurred at distance %f without violating the minimum separation of %f',...
                     norm(SIM.OBJECTS(entityA).relativePositions(entityB,:)),(SIM.OBJECTS(entityA).radius + SIM.OBJECTS(entityB).radius));
@@ -210,25 +226,29 @@ for entityA = 1:SIM.totalObjects
         %   as A may be able to detect B without B detecting A. 
         
         % Detection check #1 - Authorisation
-        isAuthorised = logical(true);
         isWaypoint = SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint;
         if isWaypoint
-            isAuthorised = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID}.IdAssociationCheck(SIM.OBJECTS(entityA).objectID);
+            isAuthorised = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID}.IDAssociationCheck(SIM.OBJECTS(entityA).objectID);
+            if ~isAuthorised
+                continue
+            end
         end
-        % Object is a way-point and is not detectable
-        if isWaypoint && ~isAuthorised
+        
+        % Detection check #2 - Spherical 
+        isDetected = OMAS_geometry.intersect_spheres(...
+            SIM.OBJECTS(entityA).globalState(1:3),SIM.OBJECTS(entityA).detectionRadius + 0.5*SIM.conditionTolerance,...
+            SIM.OBJECTS(entityB).globalState(1:3),SIM.OBJECTS(entityB).radius + 0.5*SIM.conditionTolerance);
+        
+        % Object is not detected
+        if ~isDetected
             continue
         end
         
-        % Detection check #2 - Spherical        
-        if ~OMAS_geometry.intersect_spheres(SIM.OBJECTS(entityA).globalState(1:3),SIM.OBJECTS(entityA).detectionRadius,SIM.OBJECTS(entityB).globalState(1:3),SIM.OBJECTS(entityB).radius)
-            continue
-        elseif isWaypoint
-            % This check is sufficient for way-points
+        % This check is sufficient for way-points
+        if isWaypoint
             detectionLogicals(entityA,entityB) = 1;
             continue
         end
-        % /////////////////////////////////////////////////////////////////
         
         % ///////////////// OBJECT MAY BE OBSERVED ////////////////////////
         % NOTE:
@@ -238,26 +258,21 @@ for entityA = 1:SIM.totalObjects
         %   edges are visible, then they are to be sent to the first object.
         
         % Get the geometry of the second object (GEOMETRY OF B)
-        geometryB = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID}.GEOMETRY;
-        % Assess detection condition
-        isDetected = OMAS_geometry.intersect_spheres(...
-                SIM.OBJECTS(entityA).globalState(1:3),...
-                SIM.OBJECTS(entityA).detectionRadius,...
-                SIM.OBJECTS(entityB).globalState(1:3),...
-                SIM.OBJECTS(entityB).radius);                              % Check for possible condition
-        
+        geometryB = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID}.GEOMETRY;        
+         
         % Check if a better check is necessary
         hasGeometry = isstruct(geometryB) && size(geometryB.vertices,1) > 0;    
         if isDetected && ~hasGeometry 
             detectionLogicals(entityA,entityB) = 1;                        % Detection occurred
             break
         end
-        isDetected = 0;     % Reset, potential false positive
+        isDetected = 0; % Reset, potential false positive when checking against polygon
          
         % Assess the polygon
         relativeR = SIM.OBJECTS(entityA).R'*SIM.OBJECTS(entityB).R;        % Rotate second geometry orientated relative to
-        geometryB.vertices = geometryB.vertices*relativeR ...
-                           + SIM.OBJECTS(entityB).globalState(1:3)';       % Design the vertex set
+        % Design the vertex set
+        geometryB.vertices = geometryB.vertices*relativeR + SIM.OBJECTS(entityB).globalState(1:3)';  
+        
         % Assess each face and vertex for detection
         for face = 1:size(geometryB.vertices,1)
             % GET THE MEMBER IDs OF THE FACE
@@ -331,7 +346,7 @@ for entityA = 1:SIM.totalObjects
         if SIM.OBJECTS(entityB).type == OMAS_objectType.waypoint
             % Check A is allowed to get B
             waypointObj = objectIndex{SIM.globalIDvector == SIM.OBJECTS(entityB).objectID};
-            hasAssociation = waypointObj.IdAssociationCheck(SIM.OBJECTS(entityA).objectID);
+            hasAssociation = waypointObj.IDAssociationCheck(SIM.OBJECTS(entityA).objectID);
             % WAYPOINT EVENT LOGIC
             ABwaypointCondition        =  collisionLogicals(entityA,entityB) && hasAssociation;
             novelWaypointGetConstraint =  SIM.OBJECTS(entityA).objectStatus(entityB,eventType.waypoint) == 0;
@@ -351,8 +366,7 @@ for entityA = 1:SIM.totalObjects
                 %[EVENT] = OMAS_eventHandler(SIM.TIME.currentTime,SIM.OBJECTS(entityA),SIM.OBJECTS(entityB),eventType.null_waypoint);
                 %metaEVENTS = vertcat(metaEVENTS,EVENT);                                        % Add new META EVENTS to global structure
             end 
-            % Skip collision check
-            continue
+            continue    % Skip collision check
         end
 
         % ////////// CONFIRM THE OBJECT CAN BE COLLIDED WITH //////////////      
@@ -425,34 +439,45 @@ objectEVENTS = []; % Container for object based events
 % GET THE OBJECTS EQUIVALENT SIM OBJECT
 SIMfirstObject = SIM.OBJECTS(SIM.globalIDvector == referenceObject.objectID);
 
-if SIM.verbosity >= 2
-    fprintf('[UPDATE]\tCycling %s\t(%s).\n',char(SIMfirstObject.type),referenceObject.name);
+% If the observing object is "2D"
+if referenceObject.Is3D()
+    dimensionIndices = 1:3;
+else
+    dimensionIndices = 1:2;
 end
 
-% /////// DESIGN THE SIMULATION PACKET TO BE SENT AT TIME K ///////
+if SIM.verbosity >= 2
+    fprintf('[UPDATE]\tCycling ID:%d\t name: %s\n',SIMfirstObject.objectID,referenceObject.name);
+
+end
+
+% Default timing parameters
 ENV = SIM.TIME;
 ENV.outputPath = SIM.outputPath;
+
+if SIM.verbosity >= 2
+    fprintf('[UPDATE]\tCycling ID:%d\t name: %s\n',SIMfirstObject.objectID,referenceObject.name);
+end
 
 % SWITCH BEHAVIOUR BASED ON OBJECT TYPE
 switch SIMfirstObject.type
     case OMAS_objectType.agent
         % AGENT - SIMULATION/ENVIROMENTAL FEEDBACK REQUIRED %%%%%%%%%%%%%%
-        observationPacket = [];         % Container for agent detection packet
-        
-        if referenceObject.VIRTUAL.is3D
-            dimensionIndices = 1:3;     
-        else
-            dimensionIndices = 1:2;    
-        end
+        % Container for agent detection packet
+        observationPacket = [];             
         
         % //// PARSE THE ENVIRONMENTAL OBJECTS OBSERVABLE TO THE AGENT ////
         for ID2 = 1:SIM.totalObjects
             % GET THE SIM OBJECT OF THE EVALUATION OBJECT
             SIMsecondObject = SIM.OBJECTS(ID2);
-            % SKIP AGENT IS A SELF COMPARISON OR CURRENT OBJECT UNDETECTED   % Get the current status of this object
-            if SIMfirstObject.objectID == SIMsecondObject.objectID || 1 ~= SIMfirstObject.objectStatus(ID2,eventType.detection)
+            
+            % Skip condition - Get the current status of this object
+            isDetected = 1 == SIMfirstObject.objectStatus(ID2,eventType.detection);
+            isSameObject = SIMfirstObject.objectID == SIMsecondObject.objectID; 
+            if ~isDetected || isSameObject
                 continue
             end
+            
             % GET THE EQUIVALENT OBJECT TO EVALUATE AGAINST THE REFERENCE
             secondObject = objectIndex{SIM.globalIDvector == SIMsecondObject.objectID};
                             
@@ -509,26 +534,19 @@ switch SIMfirstObject.type
                 observedGeometry = secondObject.GEOMETRY;                  % Pass the empty structure
             end
             
-            % OBJECT TIME TO COLLISION APPROXIMATION
-            tau = -(dot(observedPosition,observedVelocity)/dot(observedVelocity,observedVelocity)); % Projection based approximation
-            if isnan(tau)
-                tau = inf;
-            end            
-            
             % OBJECT PRIORITY (IF WAYPOINT)
             observedPriority = NaN;
             if SIMsecondObject.type == OMAS_objectType.waypoint
-                association = objectIndex{ID2}.getAgentAssociation(referenceObject);
+                association = objectIndex{ID2}.GetAgentAssociation(referenceObject);
                 observedPriority = association.priority;
             end
             
             % A DEBUG STUCTURE 
             DEBUG = struct('globalPosition',SIMsecondObject.globalState(dimensionIndices),...     % Added for simplicity
                            'globalVelocity',SIMsecondObject.globalState(dimensionIndices + 3),... % Added for simplicity
-                           'timeToCollision',tau,...                                              % The objects geometric time to collision (velocity vector comparision)
                            'priority',observedPriority);                                          % The objects global priority for that agent
             
-            %% PREPARE DETECTION PACKET BASED ON LOCAL DATA (FROM GLOBAL)
+            % ///////////////// PREPARE DETECTION PACKET //////////////////
             detectionObject = struct('objectID',SIMsecondObject.objectID,...            % The object ID (observed)
                                      'name',SIMsecondObject.name,...                    % The object name tag (observed)
                                      'type',SIMsecondObject.type,...                    % The objects sim-type enum
@@ -570,7 +588,7 @@ end
 
 % /////////////////// SIMULATION OUTPUT OPERATIONS ////////////////////////
 % GET INITIAL OUTPUT DATA STRUCTURE
-function [DATA] = getOutputStructure(SIM)
+function [DATA] = GetOutputStructure(SIM)
 % This function assembles the initial output DATA structure from the
 % simulation input variables and it back as a simulation output container.
 % INPUT:

@@ -67,7 +67,7 @@ waypointIndex{1} = waypoint('radius',inputConfig.waypointRadius,'priority',1,'na
 waypointIndex{1}.VIRTUAL.globalPosition = [(diagSpacing*(index+1));(diagSpacing*(index+1));0];
 waypointIndex{1}.VIRTUAL.globalVelocity = [0;0;0];
 waypointIndex{1}.VIRTUAL.quaternion = [1;0;0;0];
-waypointIndex{1} = waypointIndex{1}.createAgentAssociation(agentIndex{1});  % Create waypoint with association to agent
+waypointIndex{1} = waypointIndex{1}.CreateAgentAssociation(agentIndex{1});  % Create waypoint with association to agent
 
 %% UPDATE THE AGENTS INITIAL HEADING
 % Design the agents initial global heading

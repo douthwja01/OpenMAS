@@ -11,11 +11,11 @@ classdef A10 < fixedWing
         % CONSTRUCTOR METHOD
         function obj = A10(varargin)
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@fixedWing(varargin);                                       % Create the super class 'fixedWing'
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            obj@fixedWing(varargin);  % Create the super class 'fixedWing' 
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
     end
 end

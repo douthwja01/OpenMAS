@@ -13,20 +13,22 @@ classdef quadcopter_formation < quadcopter & agent_formation
         % DYNAMICS - All the models parameters are held in the DYNAMICS
         %            container field.
     end
-    %  CLASS METHODS
-    methods
-        % CONSTRUCTOR METHOD
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
+    methods 
+        % Constructor
         function obj = quadcopter_formation(varargin)
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            
+            % Call the super class
             obj@quadcopter(varargin);                                      % Create the super class 'agent'
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
+
             % IMPORT THE AGENT DYNAMICS & CONTROL PARAMETERS
             [obj.DYNAMICS] = obj.importModelProperties();
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
-        end
-        % //////////////////// AGENT MAIN CYCLE ///////////////////////////
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
+        end    
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs

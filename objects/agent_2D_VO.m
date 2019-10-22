@@ -6,35 +6,36 @@
 classdef agent_2D_VO < agent_2D & agent_VO
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
-        % CONSTRUCTOR METHOD
+        % Constructor
         function [obj] = agent_2D_VO(varargin)
             % Construct the agent object and initialise with the following
             % specific parameters.
 
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj@agent_2D(varargin); 
             
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);     
-            
-            % Omit superclass field
+            % Assign defaults 
             obj.feasabliltyMatrix = [];  % Omit parent field
+            obj.neighbourDist = 10;
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
-            [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
-            %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
+%             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
+            [obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
-            
-            % CHECK FOR USER OVERRIDES
+
+            % //////////////// Check for user overrides ///////////////////            
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
-            obj = obj.configurationParser(obj,varargin);
+            [obj] = obj.ApplyUserOverrides(varargin);               % Recursive overrides
+            % Re-affirm associated properties   
+            [obj] = obj.SetRadius(obj.radius);                      % Reaffirm radius against .VIRTUAL
+            % /////////////////////////////////////////////////////////////
         end
-        % SETUP - x = [x y psi dx dy dpsi]
+        % Setup - x = [x y psi dx dy dpsi]
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
-        % MAIN
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % obj      - The agent object
@@ -55,10 +56,10 @@ classdef agent_2D_VO < agent_2D & agent_VO
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
             end 
-            
+
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj] = obj.GetAgentUpdate(ENV,varargin{1}); 
+            [obj,obstacleSet,agentSet,] = obj.GetAgentUpdate(ENV,varargin{1}); 
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             desiredHeadingVector = obj.GetTargetHeading();                    % Design the current desired trajectory from the waypoint.  
@@ -66,8 +67,9 @@ classdef agent_2D_VO < agent_2D & agent_VO
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
-            algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;  
-            if avoidanceEnabled
+            algorithm_start = tic; algorithm_indicator = 0; 
+            avoidanceSet = [obstacleSet,agentSet];
+            if ~isempty(avoidanceSet)
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
                 [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(dt,desiredVelocity,visualiseProblem);
@@ -75,13 +77,6 @@ classdef agent_2D_VO < agent_2D & agent_VO
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
                    
-            % APPLY SPEED CONSTRAINT
-            desiredSpeed = norm(desiredVelocity);
-            if desiredSpeed > obj.maxSpeed
-                desiredHeadingVector = desiredVelocity/norm(desiredVelocity);
-                desiredVelocity = desiredHeadingVector*obj.maxSpeed;
-            end  
-            
             % ///////////////////// CONTROLLER ////////////////////////////
             [obj] = obj.controller(dt,desiredVelocity);
             
@@ -106,24 +101,22 @@ classdef agent_2D_VO < agent_2D & agent_VO
             % AGENT KNOWLEDGE (2D)
             [p_i,v_i,r_i] = obj.GetAgentMeasurements();
             
-            % GET OBSTACLE DATA
-            obstacleIDs  = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle).objectID];
-            agentIDs     = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent).objectID];
-            avoidanceIDs = [agentIDs,obstacleIDs];
+            % Define the obstacle list
+            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
             
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             VO = [];
-            for item = 1:numel(avoidanceIDs)
+            for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'position');
-                v_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'radius');
+                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
+                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius');
                 
                 % NEIGHBOUR CONDITIONS
                 neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
                 neighbourConditionB = norm(p_j) < obj.neighbourDist;       % [CONFIRMED] 
                 neighbourConditionC = ~any(isnan(v_j));                    % Wait for a valid velocity reading
-                if ~neighbourConditionB || ~neighbourConditionC
+                if ~ neighbourConditionA || ~neighbourConditionB || ~neighbourConditionC
                     continue
                 end
        
@@ -134,7 +127,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
                 
                 % DEFINE THE VELOCITY OBSTACLE PROPERTIES
                 VO_i = obj.define2DVelocityObstacle(p_i,v_i,r_i,p_j,v_j,r_j,tau_j,figureLogical);
-                VO_i.objectID = avoidanceIDs(item);                        % Add a unique identifier
+                VO_i.objectID = obstacleIDs(item);                        % Add a unique identifier
                 VO = [VO,VO_i];
             end
 
@@ -370,6 +363,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             % OUTPUTS:
             % - p_inter - The 2D intersection point.
             
+            % Sanity check
             assert(numel(P1) == 2,'Input must be 2D');
             assert(numel(P2) == 2,'Input must be 2D');
             

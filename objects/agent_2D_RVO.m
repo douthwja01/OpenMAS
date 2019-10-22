@@ -15,15 +15,16 @@ classdef agent_2D_RVO < agent_2D_VO & agent_RVO
             % Construct the agent object and initialise with the following
             % specific parameters.
             
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent_2D_VO(varargin);     
-                        
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin); 
+            % Re-affirm associated properties   
+            [obj] = obj.SetRadius(obj.radius);                             % Reaffirm radius against .VIRTUAL
+            % /////////////////////////////////////////////////////////////
         end
         
         % MAIN CYCLE IS INHERITED FROM THE SUPERCLASS
@@ -41,34 +42,33 @@ classdef agent_2D_RVO < agent_2D_VO & agent_RVO
             % AGENT KNOWLEDGE (2D)
             [p_i,v_i,r_i] = obj.GetAgentMeasurements();
             
-            % GET OBSTACLE DATA
-            obstacleIDs  = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.obstacle).objectID];
-            agentIDs     = [obj.MEMORY([obj.MEMORY.type] == OMAS_objectType.agent).objectID];
-            avoidanceIDs = [agentIDs,obstacleIDs];
+            % Define the obstacle list
+            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
+            
             
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             VO = [];
-            for item = 1:numel(avoidanceIDs)
+            for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'position');
-                v_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'radius');
+                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
+                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius'); 
                 
-                % NEIGHBOUR CONDITIONS
+                % Neighbour conditions
                 neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
                 neighbourConditionB = norm(p_j) < obj.neighbourDist;       % [CONFIRMED] 
                 neighbourConditionC = ~any(isnan(v_j));                    % Wait for a valid velocity reading
                 if ~neighbourConditionB || ~neighbourConditionC
                     continue
                 end
-       
+
                 % OBSTACLE KNOWLEDGE
                 p_j = p_j + p_i; 
                 v_j = v_j + v_i;                                           % Convert relative parameters to absolute
                 tau_j = 0;
                 
                 % OBSTACLE TYPE BEHAVIOUR
-                type_j = obj.GetLastMeasurementByObjectID(avoidanceIDs(item),'type');
+                type_j = obj.GetLastMeasurementByID(obstacleIDs(item),'type');
                 if OMAS_objectType.agent == type_j
                     % DEFINE RVO AS AGENT BEHAVIOUR
                     [VO_j] = obj.define2DReciprocalVelocityObstacle(p_i,v_i,r_i,p_j,v_j,r_j,tau_j,visualiseProblem);

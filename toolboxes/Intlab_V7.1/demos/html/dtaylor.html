@@ -1,0 +1,403 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>DEMOTAYLOR    Short demonstration of Taylor toolbox</title><meta name="generator" content="MATLAB 7.11"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2012-10-16"><meta name="DC.source" content="dtaylor.m"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><h1>DEMOTAYLOR    Short demonstration of Taylor toolbox</h1><!--introduction--><!--/introduction--><h2>Contents</h2><div><ul><li><a href="#1">Some sample applications of the Taylor toolbox</a></li><li><a href="#2">Initialization of Taylor variables</a></li><li><a href="#3">Operations between Taylor variables</a></li><li><a href="#4">Interval Taylor variables</a></li><li><a href="#6">Taylor vector variables</a></li><li><a href="#7">Complex arguments</a></li><li><a href="#8">Access to the Taylor coefficients</a></li><li><a href="#9">Access to the Taylor coefficients of vector variables</a></li><li><a href="#11">An example: Taylor series</a></li><li><a href="#14">Inclusion of function value by Taylor series</a></li><li><a href="#16">An Application: integration</a></li><li><a href="#19">Integration using transcendental constants</a></li><li><a href="#21">A comparison to the Matlab function "quad"</a></li><li><a href="#26">Enjoy INTLAB</a></li></ul></div><h2>Some sample applications of the Taylor toolbox<a name="1"></a></h2><p>The Taylor toolbox computes Taylor coefficients of a univariate function in forward mode, which is conveniently to use by the Matlab operator concept. It works much in the spirit of the gradient and Hessian toolbox, so I recommend to visit the gradient and Hessian demo first.</p><h2>Initialization of Taylor variables<a name="2"></a></h2><p>In order to use the automatic Taylor toolbox, the independent variable need to be identified and a value has to be assigned. This is performed by the function "taylorinit", for example</p><pre class="codeinput">format <span class="string">compact</span> <span class="string">short</span> <span class="string">_</span>
+u = taylorinit(2.89)
+</pre><pre class="codeoutput">    2.8900    1.0000         0         0         0
+</pre><h2>Operations between Taylor variables<a name="3"></a></h2><p>If at least one operand is of type Taylor, operations are executed as Taylor operations. For example,</p><pre class="codeinput">x = taylorinit(3.5);
+y = sin(3*x-sqrt(x+5))
+</pre><pre class="codeoutput">    0.9639    0.7530   -3.8545   -1.0178    2.5661
+</pre><h2>Interval Taylor variables<a name="4"></a></h2><p>If arguments are of type intval, an inclusion of the true value is computed:</p><pre class="codeinput">x = taylorinit(midrad(3.5,1e-12));
+y = sin(3*x-sqrt(x+5))
+</pre><pre class="codeoutput">    0.9639    0.7529   -3.8545   -1.0178    2.5661
+</pre><p>For f(x):=exp(3*x-sqrt(x)), the result y contains in y.t the function value f(3.5) and the first 4 derivatives:</p><pre class="codeinput">y.t
+</pre><pre class="codeoutput">intval ans = 
+    0.9639    0.7529   -3.8545   -1.0178    2.5661
+</pre><h2>Taylor vector variables<a name="6"></a></h2><p>Note that the Taylor toolbox accepts one independent variable. One may initialize a Taylor variable of a vector argument; this is the same as initializing each component as the independent variable (with a different value). It is convenient for function evaluations with many arguments:</p><pre class="codeinput">f = inline(<span class="string">'sin(3*x-sqrt(x+5))'</span>)
+x = taylorinit([-3 0.1 3.5]')
+y = f(x)
+</pre><pre class="codeoutput">f =
+     Inline function:
+     f(x) = sin(3*x-sqrt(x+5))
+   -3.0000    1.0000         0         0         0
+    0.1000    1.0000         0         0         0
+    3.5000    1.0000         0         0         0
+    0.8357   -1.4533   -2.9508    1.6048    1.8148
+   -0.9258   -1.0500    3.5700    1.3794   -2.2864
+    0.9639    0.7530   -3.8545   -1.0178    2.5661
+</pre><h2>Complex arguments<a name="7"></a></h2><p>When evaluating the expression for another argument, use the same statement as before with new values. Here we assign the Taylor variable to carry 2 derivatives (the default is 4):</p><pre class="codeinput">x = taylorinit(-3.5+.2i,4);
+y = sin(3*x-sqrt(x))
+</pre><pre class="codeoutput">   1.7385 + 0.7030i  -2.8592 + 4.2242i  -7.1868 - 4.5292i   5.4110 - 5.5865i   4.8130 + 4.3813i
+</pre><h2>Access to the Taylor coefficients<a name="8"></a></h2><p>The Taylor coefficients are accessed by {}, so that y{0} is the function value and y{k} denotes the k-th Taylor coefficient:</p><pre class="codeinput">y{0}
+y{1:3}
+</pre><pre class="codeoutput">ans =
+   1.7385 + 0.7030i
+ans =
+  -2.8592 + 4.2242i  -7.1868 - 4.5292i   5.4110 - 5.5865i
+</pre><h2>Access to the Taylor coefficients of vector variables<a name="9"></a></h2><p>When initializing a Taylor vector, the individual vector components are accessed by () and Taylor coefficients by {}. For example,</p><pre class="codeinput">f = inline(<span class="string">'sin(3*x-sqrt(x+5))'</span>)
+x = taylorinit([-3 0.1 3.5]')
+y = f(x)
+y(1)
+y{2}(3)
+</pre><pre class="codeoutput">f =
+     Inline function:
+     f(x) = sin(3*x-sqrt(x+5))
+   -3.0000    1.0000         0         0         0
+    0.1000    1.0000         0         0         0
+    3.5000    1.0000         0         0         0
+    0.8357   -1.4533   -2.9508    1.6048    1.8148
+   -0.9258   -1.0500    3.5700    1.3794   -2.2864
+    0.9639    0.7530   -3.8545   -1.0178    2.5661
+    0.8357   -1.4533   -2.9508    1.6048    1.8148
+ans =
+   -3.8545
+</pre><p>accesses the Taylor value f(-3) and the second Taylor coefficient of f(3.5), respectively.</p><h2>An example: Taylor series<a name="11"></a></h2><p>Define</p><pre class="codeinput">f = inline(<span class="string">'sinh(x-exp(2/x))'</span>)
+</pre><pre class="codeoutput">f =
+     Inline function:
+     f(x) = sinh(x-exp(2/x))
+</pre><p>Then the Taylor coefficients 0..7 of f at x=1.234 are computed by</p><pre class="codeinput">kmax = 4;
+x = 1.234;
+y = f(taylorinit(x,kmax))
+</pre><pre class="codeoutput">  1.0e+004 *
+   -0.0023    0.0175   -0.0890    0.3709   -1.3570
+</pre><p>The Taylor coefficients y{k} satisfy   f(x+e) = sum[0..k]( y{k}*e^k ) + O(e^(k+1)) :</p><pre class="codeinput">format <span class="string">long</span>
+e = 1e-3;
+v = f(x+e)
+yapprox = sum( y{0:kmax} .* e.^(0:kmax) )
+</pre><pre class="codeoutput">v =
+ -22.682513324779098
+yapprox =
+ -22.682513324824182
+</pre><h2>Inclusion of function value by Taylor series<a name="14"></a></h2><p>For an inclusion of the function value we may calculate the Taylor coefficients in interval arithmetic and add the error term:</p><pre class="codeinput">format <span class="string">long</span> <span class="string">_</span>
+x = intval(<span class="string">'1.234'</span>);
+Y = f(taylorinit(x,kmax));
+e = intval(<span class="string">'1e-3'</span>);
+Y_ = f(taylorinit(x+hull(0,e),kmax+1));
+<span class="keyword">for</span> k=0:kmax
+  Yincl = sum( Y{0:k} .* e.^(0:k) ) + Y_{k+1}*e.^(k+1)
+<span class="keyword">end</span>
+</pre><pre class="codeoutput">intval Yincl = 
+ -22.68____________
+intval Yincl = 
+ -22.68251_________
+intval Yincl = 
+ -22.6825133_______
+intval Yincl = 
+ -22.682513325_____
+intval Yincl = 
+ -22.682513324779__
+</pre><p>Note how nicely the linear convergence can be observed by the "_"-notation. Also note that this is a true inclusion of f(1.234+1e-3)=f(1.235) because both arguments x=1.234 and e=1e-3 are intervals including the decimal numbers 1.234 and 0.001 (both are not floating-point numbers).</p><h2>An Application: integration<a name="16"></a></h2><p>Consider</p><pre class="codeinput">f = inline(<span class="string">'sin(pi*x)-sin(x)'</span>); a = 0; b = 20;
+x = linspace(a,b,1000); close, plot(x,f(x),x,0)
+</pre><img vspace="5" hspace="5" src="dtaylor_01.png" alt=""> <p>It is easy to see that for the transcendental number pi, the true value of the integral of f from a to b is cos(b)-1:</p><pre class="codeinput">cos(b)-1
+</pre><pre class="codeoutput">ans =
+  -0.591917938186608
+</pre><p>There is a rudemtary integration routine "verifyquad" using Romberg's roule based on the Taylor toolbox. It calculates</p><pre class="codeinput">ApproxIncl = verifyquad(f,a,b)
+infsup(ApproxIncl)
+</pre><pre class="codeoutput">intval ApproxIncl = 
+  -0.591918________
+intval ApproxIncl = 
+[  -0.59191828548002,  -0.59191759089296] 
+</pre><h2>Integration using transcendental constants<a name="19"></a></h2><p>This is a true inclusion of the integral with "pi" denoting the floating-point approximation of the transcendental number pi. To calculate an inclusion of the function with the true transcendental number pi, we use the following program:</p><pre class="codeinput"><span class="comment">% function y = testfuntaylor(x)</span>
+<span class="comment">%   if isintval(x)</span>
+<span class="comment">%     Pi = 4*atan(intval(1));</span>
+<span class="comment">%   else</span>
+<span class="comment">%     Pi = pi;</span>
+<span class="comment">%   end</span>
+<span class="comment">%   y = sin(Pi*x)-sin(x);</span>
+<span class="comment">%</span>
+</pre><p>The result, however, does not change very much:</p><pre class="codeinput">TrueIncl = verifyquad(@testfuntaylor,a,b)
+infsup(TrueIncl)
+</pre><pre class="codeoutput">intval TrueIncl = 
+  -0.591918________
+intval TrueIncl = 
+[  -0.59191828548006,  -0.59191759089293] 
+</pre><h2>A comparison to the Matlab function "quad"<a name="21"></a></h2><p>For this particular function the approximate routine may get problems if we specify a little more accuracy:</p><pre class="codeinput">e = 1e-12;
+tic, Approx = quad(@testfuntaylor,a,b,e), toc,
+tic, Incl = verifyquad(@testfuntaylor,a,b,e), toc
+</pre><pre class="codeoutput">Approx =
+  -0.591917938186609
+Elapsed time is 0.168663 seconds.
+intval Incl = 
+  -0.591917938187__
+Elapsed time is 0.212324 seconds.
+</pre><p>Note that the verification routine is faster and calculates an inclusion of the 'true' function (with the transcendental number pi). Insisting on even more accuracy make things worse:</p><pre class="codeinput">e = 1e-14;
+tic, Approx = quad(@testfuntaylor,a,b,e), toc,
+tic, Incl = verifyquad(@testfuntaylor,a,b,e), toc
+</pre><pre class="codeoutput">Warning: Maximum function count exceeded; singularity likely. 
+Approx =
+   0.984600203152193
+Elapsed time is 0.205977 seconds.
+intval Incl = 
+  -0.591917938187__
+Elapsed time is 0.284538 seconds.
+</pre><p>Note that the Matlab routine "quad" gives no error message.</p><p>Now the approximate value has no correct digit and the verification routine is still faster. However, it may be the other way around, at least concerning computing time:</p><pre class="codeinput">f = inline(<span class="string">'sqrt(x)'</span>); a = 0.0001; b = 2;
+tic, Approx = quad(f,a,b), toc,
+tic, Incl = verifyquad(f,a,b), toc
+</pre><pre class="codeoutput">Approx =
+   1.885614594699597
+Elapsed time is 0.004236 seconds.
+intval Incl = 
+   1.8856175_______
+Elapsed time is 0.260432 seconds.
+</pre><p>Since "verifyquad" requires differentiability properties of the integrand, it takes a lot of computing time near a singularity.</p><h2>Enjoy INTLAB<a name="26"></a></h2><p>INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing, Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de</p><p class="footer"><br>
+      Published with MATLAB&reg; 7.11<br></p></div><!--
+##### SOURCE BEGIN #####
+%% DEMOTAYLOR    Short demonstration of Taylor toolbox
+%
+
+%% Some sample applications of the Taylor toolbox
+% The Taylor toolbox computes Taylor coefficients of a univariate function 
+% in forward mode, which is conveniently to use by the Matlab operator concept.
+% It works much in the spirit of the gradient and Hessian toolbox, so
+% I recommend to visit the gradient and Hessian demo first.
+%
+
+%% Initialization of Taylor variables
+% In order to use the automatic Taylor toolbox, the independent variable need
+% to be identified and a value has to be assigned. This is performed by
+% the function "taylorinit", for example                            
+
+format compact short _
+u = taylorinit(2.89)
+
+%% Operations between Taylor variables
+% If at least one operand is of type Taylor, operations are executed as 
+% Taylor operations.
+% For example,                                                          
+
+x = taylorinit(3.5);  
+y = sin(3*x-sqrt(x+5))
+
+%% Interval Taylor variables
+% If arguments are of type intval, an inclusion of the true value is computed:
+
+x = taylorinit(midrad(3.5,1e-12));  
+y = sin(3*x-sqrt(x+5))
+
+%%
+% For f(x):=exp(3*x-sqrt(x)), the result y contains in y.t the function value f(3.5)
+% and the first 4 derivatives:
+% 
+
+y.t
+
+%% Taylor vector variables
+% Note that the Taylor toolbox accepts one independent variable. One may initialize
+% a Taylor variable of a vector argument; this is the same as initializing each
+% component as the independent variable (with a different value). It is convenient
+% for function evaluations with many arguments:
+
+f = inline('sin(3*x-sqrt(x+5))')
+x = taylorinit([-3 0.1 3.5]')
+y = f(x)
+
+
+%% Complex arguments
+% When evaluating the expression for another argument, use the same
+% statement as before with new values. Here we assign the Taylor variable to 
+% carry 2 derivatives (the default is 4):
+
+x = taylorinit(-3.5+.2i,4);  
+y = sin(3*x-sqrt(x))
+
+%% Access to the Taylor coefficients
+% The Taylor coefficients are accessed by {}, so that y{0} is the function value and
+% y{k} denotes the k-th Taylor coefficient:
+
+y{0}
+y{1:3}
+
+%% Access to the Taylor coefficients of vector variables
+% When initializing a Taylor vector, the individual vector components are accessed
+% by () and Taylor coefficients by {}. For example,
+
+f = inline('sin(3*x-sqrt(x+5))')
+x = taylorinit([-3 0.1 3.5]')
+y = f(x)
+y(1)
+y{2}(3)
+
+%%
+% accesses the Taylor value f(-3) and the second Taylor coefficient of f(3.5), 
+% respectively. 
+
+%% An example: Taylor series          
+% Define 
+
+f = inline('sinh(x-exp(2/x))')
+
+%%
+% Then the Taylor coefficients 0..7 of f at x=1.234 are computed by
+
+kmax = 4;
+x = 1.234;
+y = f(taylorinit(x,kmax))
+
+%%
+% The Taylor coefficients y{k} satisfy
+%   f(x+e) = sum[0..k]( y{k}*e^k ) + O(e^(k+1)) :
+
+format long
+e = 1e-3;
+v = f(x+e)
+yapprox = sum( y{0:kmax} .* e.^(0:kmax) )
+
+%% Inclusion of function value by Taylor series
+% For an inclusion of the function value we may calculate the Taylor coefficients
+% in interval arithmetic and add the error term:
+
+format long _
+x = intval('1.234');
+Y = f(taylorinit(x,kmax));
+e = intval('1e-3');
+Y_ = f(taylorinit(x+hull(0,e),kmax+1));
+for k=0:kmax
+  Yincl = sum( Y{0:k} .* e.^(0:k) ) + Y_{k+1}*e.^(k+1)
+end
+
+%%
+% Note how nicely the linear convergence can be observed by the "_"-notation. Also
+% note that this is a true inclusion of f(1.234+1e-3)=f(1.235) because both arguments
+% x=1.234 and e=1e-3 are intervals including the decimal numbers 1.234 and 0.001
+% (both are not floating-point numbers).
+
+%% An Application: integration
+% Consider
+
+f = inline('sin(pi*x)-sin(x)'); a = 0; b = 20;
+x = linspace(a,b,1000); close, plot(x,f(x),x,0)
+
+%%
+% It is easy to see that for the transcendental number pi, the true value of the 
+% integral of f from a to b is cos(b)-1:
+
+cos(b)-1
+
+%%
+% There is a rudemtary integration routine "verifyquad" using Romberg's roule 
+% based on the Taylor toolbox. It calculates 
+
+ApproxIncl = verifyquad(f,a,b)
+infsup(ApproxIncl)
+
+%% Integration using transcendental constants
+% This is a true inclusion of the integral with "pi" denoting the floating-point 
+% approximation of the transcendental number pi. To calculate an inclusion of
+% the function with the true transcendental number pi, we use the following
+% program:
+
+% function y = testfuntaylor(x)
+%   if isintval(x)
+%     Pi = 4*atan(intval(1));
+%   else
+%     Pi = pi;
+%   end
+%   y = sin(Pi*x)-sin(x);
+%
+
+%%
+% The result, however, does not change very much:
+
+TrueIncl = verifyquad(@testfuntaylor,a,b)
+infsup(TrueIncl)
+
+%% A comparison to the Matlab function "quad"
+% For this particular function the approximate routine may get problems if we specify
+% a little more accuracy:
+
+e = 1e-12;
+tic, Approx = quad(@testfuntaylor,a,b,e), toc,
+tic, Incl = verifyquad(@testfuntaylor,a,b,e), toc
+
+%%
+% Note that the verification routine is faster and calculates an inclusion of the
+% 'true' function (with the transcendental number pi). Insisting on
+% even more accuracy make things worse:
+
+e = 1e-14;
+tic, Approx = quad(@testfuntaylor,a,b,e), toc,
+tic, Incl = verifyquad(@testfuntaylor,a,b,e), toc
+
+%%
+% Note that the Matlab routine "quad" gives no error message.
+
+%%
+% Now the approximate value has no correct digit and the verification routine is
+% still faster. However, it may be the other
+% way around, at least concerning computing time:
+
+f = inline('sqrt(x)'); a = 0.0001; b = 2;
+tic, Approx = quad(f,a,b), toc,
+tic, Incl = verifyquad(f,a,b), toc
+
+%%
+% Since "verifyquad" requires differentiability properties of the integrand,
+% it takes a lot of computing time near a singularity. 
+
+%% Enjoy INTLAB
+% INTLAB was designed and written by S.M. Rump, head of the Institute for Reliable Computing,
+% Hamburg University of Technology. Suggestions are always welcome to rump (at) tuhh.de
+
+##### SOURCE END #####
+--></body></html>

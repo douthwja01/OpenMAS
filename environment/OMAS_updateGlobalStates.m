@@ -6,7 +6,7 @@ function [METAObjUpdate]	= OMAS_updateGlobalStates(SIM,objectID,globalVelocity_k
 % of the main cycle from the object cycles.
 
 % CONFIRM OBJECT VARIABLES
-assert(isa(objectID,'uint8')    == 1,'The objectID must be a uint8 type');
+assert(isa(objectID,'uint16')   == 1,'The objectID must be a uint16 type');
 assert(islogical(idleStatus_k)  == 1,'The idle agent status must be reported as a logical');
 assert(size(globalVelocity_k,1) == 3 && isnumeric(globalVelocity_k),'Object velocity update must be given as a column vector [3x1].');
 assert(size(quaternion_k,1)     == 4 && isnumeric(quaternion_k),'Object quaternion update must be given as a column vector [4x1].');
@@ -24,10 +24,10 @@ end
 
 % EXTRACT THE META STRUCTURE TO BE UPDATED 
 METAObjUpdate = SIM.OBJECTS(1,index);                                      % Get the current META object associated with 'entity'
+
 % //////////////////////// UPDATE META.OBJECT /////////////////////////////
 % UPDATE THE META ROTATION DEFINING FIXED LOCAL >> ROTATED IN THE GLOBAL
 METAObjUpdate.R = OMAS_geometry.quaternionToRotationMatrix(quaternion_k);
-% METAObjUpdate.R = quat2rotm(quaternion_k');  
 % UPDATE THE GLOBAL POSITION
 globalPosition_k = METAObjUpdate.globalState(1:3) + globalVelocity_k*SIM.TIME.dt; % Calculate the new global position
 % REBUILD GLOBAL STATES (ENTITY & META)

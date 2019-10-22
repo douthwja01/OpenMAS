@@ -10,19 +10,16 @@ classdef agent_RVO < agent_VO
     properties
         % PROPERTIES UNIQUE TO THE RVO METHOD
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = agent_RVO(varargin)
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
-            % GET THE VELOCITCY OBSTACLE (VO) AGENT TOOLS
-            obj@agent_VO(varargin);                                        % Get the supercalss
+            % Get the superclass
+            obj@agent_VO(varargin);  
 
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
         
         % MAIN CYCLE IS INHERITED FROM THE SUPERCLASS

@@ -1,11 +1,13 @@
 % GET THE GLOBAL TRAJECTORY DATA FOR AN INDIVIDUAL OBJECT
-function [currentFigure,figureHandle] = GetFigure_ObjectTrajectory(SIM,DATA,currentFigure,objectNum)
+function [currentFigure,figureHandle] = GetFigure_objectTrajectory(SIM,DATA,currentFigure,objectNum)
 
 % Declare title string for figure  
 titlestr = sprintf('Global trajectory data for %s over a period of %ss',SIM.OBJECTS(objectNum).name,num2str(SIM.TIME.endTime));
 
-% CONFIGURE THE PLOT ATTRIBUTES
 objectLabel = sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(objectNum).objectID),SIM.OBJECTS(objectNum).name);
+
+% CONFIGURE THE PLOT ATTRIBUTES
+figurePath  = strcat(SIM.outputPath,sprintf('global_trajectory_%s',objectLabel));
 figureHandle = figure('Name',objectLabel);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
@@ -44,12 +46,14 @@ for n = 1:stateVectorLength
     % Y-axes
     ylabel(plotLocation,stateTags{n},...
         'Interpreter',DATA.figureProperties.interpreter,...
+        'fontname',DATA.figureProperties.fontName,...
         'Fontweight',DATA.figureProperties.fontWeight,...
         'FontSize',DATA.figureProperties.axisFontSize,...
         'FontSmoothing','on');
     % Axes
     set(plotLocation,...
         'TickLabelInterpreter',DATA.figureProperties.interpreter,...
+        'fontname',DATA.figureProperties.fontName,...
         'Fontweight',DATA.figureProperties.fontWeight,...
         'FontSize',DATA.figureProperties.axisFontSize,...
         'FontSmoothing','on',...
@@ -58,35 +62,41 @@ for n = 1:stateVectorLength
     plotLocation.XAxis.MinorTickValues = plotLocation.XAxis.Limits(1):SIM.TIME.dt:plotLocation.XAxis.Limits(2);
     % ADD FIGURE TITLE TO FIRST PLOT HEADER
     if n == 1
-        % Title
+        % Append title to first subplot
         title(plotLocation,titlestr,...
             'Interpreter',DATA.figureProperties.interpreter,...
+            'fontname',DATA.figureProperties.fontName,...
             'Fontweight',DATA.figureProperties.fontWeight,...
             'Fontsize',DATA.figureProperties.titleFontSize,...
             'FontSmoothing','on');   
-        % Append title to first subplot
+        
     end
     % Prevent overlap of x-label
     if n == stateVectorLength
         % X-axis
         xlabel(plotLocation,'t (s)',...
             'Interpreter',DATA.figureProperties.interpreter,...
+            'fontname',DATA.figureProperties.fontName,...
             'Fontweight',DATA.figureProperties.fontWeight,...
             'FontSize',DATA.figureProperties.axisFontSize,...
             'FontSmoothing','on');
     else
         set(plotLocation,'XTickLabel',[]); 
     end
+    % Define the x-limits
+    xlim([SIM.TIME.startTime,SIM.TIME.endTime]);                           % Ensures plot alignment/sizing
     % Move to next subplot location 
     plotCellA = plotCellA + plotCellWidth;
 end
 hold off; 
 
 % SAVE THE OUTPUT FIGURE
-fileName = strcat(SIM.outputPath,sprintf('globalTrajectory_[ID-%.0f] %s',SIM.OBJECTS(objectNum).objectID,SIM.OBJECTS(objectNum).name));
-set(figureHandle,'Visible','on');                                        % Make it visable for saving
-savefig(figureHandle,fileName);                                            % As matlab figure 
+set(figureHandle,'Visible','on');                % Make it visable for saving
+savefig(figureHandle,figurePath);                % As matlab figure 
+% Publish as .pdf if requested
+if DATA.figureProperties.publish
+	GetFigurePDF(figureHandle,figurePath);   
+end
 set(figureHandle,'Visible','off');
-% ITERATE PLOT
-currentFigure = currentFigure + 1;
+currentFigure = currentFigure + 1;  % Iterate the plot count
 end

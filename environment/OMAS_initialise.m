@@ -43,16 +43,17 @@ defaultConfig = struct('figures',{{'events','fig'}},...
                     'outputPath',OMAS_system.GetOSPathString([pwd,'\data']),... 
                     'systemFile','temp.mat',...
                          'phase','SETUP',...                               % Initialise in setup mode
-                    'threadPool',logical(false),...
-                'monteCarloMode',logical(false),...
+                    'threadPool',false,...
+                'monteCarloMode',false,...
+                   'publishMode',false,...
                      'verbosity',2,...
-                           'gui',logical(true),...
+                           'gui',true,...
                        'objects',[],...
                           'TIME',TIME);
                  
 % ///////////////////// PARSE USER INPUT PARAMETERS ///////////////////////
 fprintf('[SETUP]\tConfirming input variables.\n');
-[SIM] = GetParameterOverrides(defaultConfig,varargin);
+[SIM] = GetParameterOverrides_recursive(defaultConfig,varargin);
 clear TIME defaultConfig
 
 % Input sanity checks
@@ -87,32 +88,19 @@ end
 % SIMULATION PHASE INDICATOR
 fprintf('[%s] --> Input parameters defined.\n',SIM.phase);
 
-%% SIMULATION CONFIGURATION PROCEDURE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ///////////////// SIMULATION CONFIGURATION PROCEDURE ////////////////////
 fprintf('\n[%s]\tINITIALISING SIMULATION...\n\n',SIM.phase);
 close all; 
 
-% MAKE ANY ADDITIONAL PREPERATIONS TO THE META DATA ///////////////////////
 fprintf('[%s]\tOMAS CONFIGURATION:\n',SIM.phase);
 clear META
 [META,objectIndex] = configureSimulationParameters(SIM);
 clearvars SIM;
 fprintf('[%s]\tObjects parameterized.\n',META.phase);
 
-% INITIALISE THE GUI (IF EXISTS AND IS REQUESTED) /////////////////////////
-fprintf('[%s]\tGRAPHICS CONFIGURATION:\n',META.phase);
-fprintf('[%s]\tImporting object STLs.\n',META.phase);
-if META.gui && ~META.monteCarloMode
-%    [META,STLimports] = configureVisuals(META);
-%    fprintf('[%s]\t...%s files imported.\n',META.phase,num2str(STLimports));
-%    clear STLimports;
-else
-   fprintf('[%s]\t... STL importation supressed.\n',META.phase); 
-end
-
 % CONFIGURE THE OUTPUT SETTINGS ///////////////////////////////////////////
 fprintf('[%s]\tOUTPUT CONFIGURATION:\n',META.phase);
-% Define output path
-try
+try % Define output path
     [META.outputPath,META.outputFile] = configureOutputDirectory(META.monteCarloMode,META.outputPath);  % Get current working working directory variables
 catch outputPathError
     warning('[%s]\tUnable to generate output directory; %s',META.phase,META.outputPath);
@@ -130,18 +118,17 @@ clear figureList
 
 % DISPLAY SIMULATION CONFIGURATION 
 fprintf('[%s]\tCONFIGURATION SUMMARY:\n',META.phase);
-fprintf('[%s]\tObjects: %s\tAgents: %s\tObstacles: %s\tWaypoints: %s\n',...
-        META.phase,num2str(META.totalObjects),num2str(META.totalAgents),...
-        num2str(META.totalObstacles),num2str(META.totalWaypoints));                     % Object summary
-fprintf('[%s]\t Max Steps: %d\t Max Duration: %ds\t dt: %ss\t\n',META.phase,...
-        META.TIME.numSteps,META.TIME.duration,num2str(META.TIME.dt));   % Timing summary
+fprintf('[%s]\tObjects: %d\tAgents: %d\tObstacles: %d\tWaypoints: %d\n',...
+        META.phase,META.totalObjects,META.totalAgents,META.totalObstacles,META.totalWaypoints);                     % Object summary
+fprintf('[%s]\tMax Steps: %d\t Max Duration: %.2fs\t dt: %.3fs\t\n',META.phase,...
+        META.TIME.numSteps,META.TIME.duration,META.TIME.dt);   % Timing summary
    
 %% //////// BEGIN RUNNING THROUGH THE SIMULATION TIME CYCLE ///////////////
 fprintf('[%s]\tMoving to simulation...\n',META.phase);
 OMAS_start = tic();
 [DATA,META,EVENTS,objectIndex] = OMAS_mainCycle(META,objectIndex);
 OMAS_finish = toc(OMAS_start); 
-fprintf('[%s]\tOperation lasted %ss.\n',META.phase,num2str(OMAS_finish));
+fprintf('[%s]\tOperation lasted %.2fs.\n',META.phase,OMAS_finish);
 
 %% ///////////// ONCE COMPLETE - RUN EXTERNAL ANALYSIS ////////////////////
 try
@@ -151,7 +138,6 @@ catch analysisError
     warning('[ERROR] A problem occurred interpreting the output data');
     rethrow(analysisError);
 end
-
 % DELETE THE SYSTEM TEMPORARY FILE
 delete([META.outputPath,META.systemFile]);
 
@@ -179,8 +165,8 @@ SIM.TIME.endTime     = SIM.TIME.duration + SIM.TIME.startTime;
 SIM.TIME.timeVector  = SIM.TIME.startTime:SIM.TIME.dt:(SIM.TIME.endTime);  % The progressive time vector
 SIM.TIME.currentTime = SIM.TIME.startTime;
 SIM.TIME.frequency   = 1/SIM.TIME.dt;                                      % Define the simulation frequency 
-SIM.TIME.numSteps    = size(SIM.TIME.timeVector,2);                % Number of resulting steps
-SIM.TIME.currentStep = 1;                                          % Initialise the current time properties 
+SIM.TIME.numSteps    = size(SIM.TIME.timeVector,2);                        % Number of resulting steps
+SIM.TIME.currentStep = 1;                                                  % Initialise the current time properties 
 
 % INPUT LOGIC VERIFICATION
 assert(SIM.TIME.duration  >= SIM.TIME.dt,'Simulation timestep must be lower than the total duration.');
@@ -193,7 +179,7 @@ assert(SIM.TIME.idleTimeOut >= 0,'Simulation time-out duration must be a positiv
 objectIndex = SIM.objects; 
 SIM = rmfield(SIM,'objects');                                              % Remove cell array to reduce data overhead
 % DEFINE THE NUMBER OF AGENTS
-SIM.totalObjects = uint8(numel(objectIndex));                             % Define the object number
+SIM.totalObjects = uint16(numel(objectIndex));                             % Define the object number
 
 %PREPARE THE META.OBJECT GLOBAL STATUS VECTOR
 for entity = 1:SIM.totalObjects
@@ -233,7 +219,7 @@ for entity = 1:SIM.totalObjects
     %% ////////////// ASSIGN INITIAL .VIRTUAL PARAMETERS //////////////////
     objectIndex{entity}.VIRTUAL.R = Rxyz;
     if objectIndex{entity}.VIRTUAL.type == OMAS_objectType.agent
-       objectIndex{entity}.VIRTUAL.idleStatus = logical(false);            % Initialise the agent as active
+       objectIndex{entity}.VIRTUAL.idleStatus = false;            % Initialise the agent as active
     end
     
     % IF THERE IS NO DETECTION RANGE GIVEN (object/blind agent)
@@ -267,7 +253,7 @@ for entity = 1:SIM.totalObjects
                               'globalState',[globalXYZPosition;globalXYZVelocity;globalXYZquaternion],...
                                         'R',Rxyz,...                                          % Current Global-Body rotation matrix
                         'relativePositions',zeros(SIM.totalObjects,3),...                     % Relative distances between objects [dx;dy;dz]*objectCount
-                             'objectStatus',logical(zeros(SIM.totalObjects,(numel(eventEnums)-1)/2)));                   
+                             'objectStatus',false(SIM.totalObjects,(numel(eventEnums)-1)/2));                   
     % ASSIGN NaN TO LOCATIONS OF SELF-REFERENCE            
     SIM.OBJECTS(entity).relativePositions(entity,:) = NaN;                 % Mark self reference in the META structure as a NaN.
     % CHECK FOR SIMULATION/SAMPLING FREQUENCY ERROR
@@ -364,29 +350,7 @@ simCluster = parcluster('local');
 poolObject = parpool(simCluster,'IdleTimeout', 120);   % Generate thread pool, 2hour timeout
 fprintf('[SETUP]\t... Thread pool ready.\n');
 end
-% % GET THE SIMULATION SUBDIRECTORY SET
-% function configureDependencies(wrkDir,dirList)
-% 
-% % Parse known paths
-% pathCell = regexp(path, pathsep, 'split');                                 % The name of the paths
-% % If a cell array is passed
-% if iscell(dirList)
-%     for i = 1:size(dirList,2)                                              % Windows is not case-sensitive
-%         pathName = OMAS_system.GetOSPathString([wrkDir,'\',dirList{i}]);   % Get the dependancy path string, ensure aligned with host OS
-%         if ~any(strcmpi(pathName, pathCell))
-%             addpath(pathName);
-%         end
-%     end
-% elseif ischar(dirList)
-%     % Windows is not case-sensitive
-%     pathName = OMAS_system.GetOSPathString([wrkDir,'\',dirList]);          % Get the dependancy path string, ensure aligned with host OS
-%     if ~any(strcmpi(pathName, pathCell))
-%         addpath(pathName);
-%     end
-% else
-%     error('Dependency not valid/recognised, please provide a string or cell array of strings.');
-% end
-% end
+
 % CONFIGURE THE OUTPUT DIRECTORY
 function [outputPath,fileString] = configureOutputDirectory(MCenableFlag,absolutePath)
 % INPUTS:
@@ -406,16 +370,15 @@ absolutePath = OMAS_system.GetOSPathString(absolutePath);                  % Ali
 % we must handle the failed generation of the output directory.
 
 % BUILD DESIRED OUTPUT PATH
-fileString = strcat('sessiondata',datestr(datetime('now'),' yyyy-mm-dd @ HH-MM-SS')); % Record current time                     % Build filestring
+fileString = ['[',datestr(datetime('now'),'yyyy-mm-dd @ HH-MM-SS'),'] session_data']; % Record current time                     % Build filestring
 
 % DETERMINE IF MONTECARLO BEHAVIOUR IS REQUIRED
 if MCenableFlag                             
     flag = 0;
     while flag ~= 1
         % RANDOMISE THE FILE NAME
-        fileString = strcat('cycledata-[',sprintf('%d',randi([0,9],1,10)),']');
-        % CREATE OUTPUT DIRECTORY
-        flag = mkdir(absolutePath,fileString);
+        fileString = sprintf('[%s] cycle_data',sprintf('%d',randi([0,9],1,10)));
+        flag = mkdir(absolutePath,fileString);                             % Create output directory
     end
     % Assign output path
     outputPath = OMAS_system.GetOSPathString([absolutePath,fileString,'\']);

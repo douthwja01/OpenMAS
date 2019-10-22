@@ -401,11 +401,7 @@ classdef scenarioBuilder
             % Label the scenario
             obj.name = 'Apposing line configuration';            
             obj.objects = config.objects;
-            % LINE AXIS
-            axis = config.pointB - config.pointA;
-            % Ensure the heading is a unit vector
-            headingReference = unit(config.heading);
-            
+
             % DISTRIBUTE THE OBJECTS EQUALLY ALONG THE AXIS
             if isnumeric(config.objects)
                 nObjects = config.objects;
@@ -413,10 +409,16 @@ classdef scenarioBuilder
                 nObjects = numel(config.objects);
             end
             
+            headingReference = unit(config.heading);    % Ensure the heading is a unit vector
+            lineLength = norm(config.pointB - config.pointA);
+            lineAxis = (config.pointB - config.pointA)/lineLength;
+            % Linearly interpolate
+            segments = linspace(0,lineLength,nObjects);
+                        
             % Design the parameters for each object
             for node = 1:nObjects
                 % OBJECT POSITION
-                obj.positions(:,node) = config.pointA + (norm(axis)/nObjects)*(node-1)*unit(axis);
+                obj.positions(:,node)  = config.pointA + segments(node)*lineAxis;
                 % OBJECT VELOCITY
                 obj.velocities(:,node) = config.velocities*config.heading;
                 % ORIENTATION
@@ -660,10 +662,9 @@ classdef scenarioBuilder
                         
             % GENERATE THE FIGURE
             figureHandle = figure(plotnum);
-%             axis('equal');
             axis vis3d;
             view([45,45]);
-            xlabel('X(m)'); ylabel('Y(m)'); zlabel('Z(m)');
+            xlabel('x (m)'); ylabel('y (m)'); zlabel('z (m)');
             hold on; grid on;
             ax = gca;
             set(ax,'FontSize',12,'fontWeight','bold');
@@ -742,18 +743,18 @@ classdef scenarioBuilder
             % inputs and allow them to be compared to a default input
             % structure. This should be called from a get_scenario file.
             
-            % Unwrap nested cell inputs
-            if numel(scenarioParameters) == 1 && iscell(scenarioParameters)
-                while numel(scenarioParameters) == 1 && iscell(scenarioParameters)
-                    scenarioParameters = scenarioParameters{1};
-                end
-            end
-                        
-            % Input sanity check
-            assert(mod(numel(scenarioParameters),2) == 0,' Please provide list of parameter:value pairs');
-            
+%             % Unwrap nested cell inputs
+%             if numel(scenarioParameters) == 1 && iscell(scenarioParameters)
+%                 while numel(scenarioParameters) == 1 && iscell(scenarioParameters)
+%                     scenarioParameters = scenarioParameters{1};
+%                 end
+%             end
+%                         
+%             % Input sanity check
+%             assert(mod(numel(scenarioParameters),2) == 0,' Please provide list of parameter:value pairs');
+%             
             % Call the generic parameter overrider
-            [config] = GetParameterOverrides(defaultConfig,scenarioParameters);
+            [config] = GetParameterOverrides_recursive(defaultConfig,scenarioParameters);
         end
     end
 end

@@ -12,7 +12,7 @@ classdef circularBuffer
         function obj = circularBuffer(data)
             obj.data = data; % Just store, regardless of its type
         end
-        % Reference proceedure
+        % Reference procedure
         function out = subsref(obj,s)
             
             switch s(1).type
@@ -104,8 +104,13 @@ classdef circularBuffer
                             newDim{i} = assignmentDim{i};
                         end
                     end
-
-                    obj.data(newDim{:}) = input;                           % Assign new value to buffer
+                    % Attempt to assign new value
+                    try
+                        obj.data(newDim{:}) = input;                           % Assign new value to buffer
+                    catch insertError
+                        warning('Unable to insert value into circular buffer, do the dimensions match?');
+                        rethrow(insertError);
+                    end
                 otherwise
                     error(['Error(circularBuffer): Use bracket always... Currently used ',s(1).type,' !!!']);
             end

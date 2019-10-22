@@ -12,14 +12,16 @@ classdef agent_formation < agent
         % FORMATION PARAMETERS
         adjacencyMatrix; % Example adjacency matrix
     end
-    %%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = agent_formation(varargin)
             % GET THE VELOCITCY OBSTACLE (VO) AGENT TOOLS
             obj@agent(varargin);                                           % Get the supercalss
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
     end
     % ///////////// SHIYU'S FORMATION CONTROL TECHNIQUES //////////////////

@@ -7,23 +7,40 @@ classdef agent_test < agent
     
     properties
     end
-    %  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTOR
+        % Constructor
         function obj = agent_test(varargin)
 
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj@agent(varargin);                                           % Get super class 'agent'
-
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
             
+            % Assign defaults
+            obj.localState = zeros(6,1);
             [obj] = obj.SetBufferSize(5);
             
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
+        end  
+        % Setup
+        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+            % This function is called in order to build the initial state
+            % vector for the generic agent class 'objectDefinition'.
+            % INPUTS:
+            
+            % ASSUMPTIONS:
+            % - The designed state is described in the ENU axes.
+            % - The state is of the form:
+            % - [x y z phi theta psi]
+            
+            % BUILD STATE VECTOR
+            obj.localState = zeros(6,1);
+            obj.localState(4:6) = localXYZrotations;  % The euler rotations are rotations about the local X,Y,Z respectively
+            % RETAIN THE PRIOR STATE FOR REFERENCE
+            obj.VIRTUAL.priorState = obj.localState;
         end
-        % AGENT MAIN CYCLE 
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
@@ -55,27 +72,9 @@ classdef agent_test < agent
             [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});
             % /////////////////////////////////////////////////////////////
             
-                            
-            % PLOTTING THE COMPLETE OBJECT SURROUNDINGS
-%             if obj.objectID == 1
-%                 figureHandle = figure(1);
-%                 [figureHandle] = obj.GetObjectScene([obstacleSet;agentSet;waypointSet],figureHandle);   % Plot the objects
-%                 [figureHandle] = obj.GetAnimationFrame(ENV,figureHandle,'objectScene.gif');             % Store the annimations
-%             end
-                        
-%             if obj.objectID == visualiseAgent  && visualiseProblem == 1
-%                 p_j = obj.GetLastMeasurementByObjectID(agentSet(1).objectID,'position')
-%                 
-%                 p_j = obj.GetTrajectoryByObjectID(agentSet(1).objectID,'position')
-%                 
-%                 plot3(ax,p_j(1,:)',p_j(2,:)',p_j(3,:)','b');
-%                 
-%             end
-            
-            
             % REQUEST A SEQUENCE OF ROTATIONAL RATES
-            [omega] = obj.proceduralHeadingRate(ENV,3);
-%             omega = zeros(3,1);
+%             [omega] = obj.proceduralHeadingRate(ENV,3);
+            omega = zeros(3,1);
             % REQUEST A CONSTANT SPEED
             velocity = [norm(desiredVelocity);0;0];
             
@@ -83,9 +82,9 @@ classdef agent_test < agent
             [newState] = obj.updateLocalState(ENV,obj.localState,velocity,omega);
             
             % //////////////// UPDATE GLOBAL PROPERTIES ///////////////////
-            [obj] = obj.updateGlobalProperties_TEST(ENV.dt,newState);
+            [obj] = obj.updateGlobalProperties(ENV.dt,newState);
             % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
-            obj.DATA.inputNames = {'Phi (rad)','Pitch (rad)','Psi (rad)'};
+            obj.DATA.inputNames = {'$\phi (rad)$','$\theta (rad)$','$\psi (rad)$'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = newState(4:6);         % Record the control inputs
         end       
     end
@@ -207,112 +206,6 @@ classdef agent_test < agent
                 [~,Xset] = ode45(@(t,X) obj.dynamics_simple(X,velocity,omega), tspan, X, opts);
                 X = Xset(end,:)';
             end
-        end
-        % INITIALISE THE STATE VECTOR AS [x y z phi theta psi]
-        function [obj] = initialise_localState(obj,localXYZvelocity,localXYZrotations)
-            % This function is called in order to build the initial state
-            % vector for the generic agent class 'objectDefinition'.
-            % INPUTS:
-            
-            % ASSUMPTIONS:
-            % - The designed state is described in the ENU axes.
-            % - The state is of the form:
-            % - [x y z phi theta psi]
-            
-            % BUILD STATE VECTOR
-            obj.localState = zeros(6,1);
-            obj.localState(4:6) = localXYZrotations;  % The euler rotations are rotations about the local X,Y,Z respectively
-            % RETAIN THE PRIOR STATE FOR REFERENCE
-            obj.VIRTUAL.priorState = obj.localState;
-        end
-        % GLOBAL UPDATE - EULER 6DOF(3DOF) [x y z phi theta psi],[x y psi]
-        function [obj] = updateGlobalProperties_TEST(obj,dt,eulerState)
-            % This function computes the position, velocity and 
-            % quaternion in the global ENU frame from a 6DOF state vector 
-            % with euler rotations.
-            
-            % This function is intended for state vectors of the form:
-            % - [x y z phi theta psi]
-            % - [x y phi]
-            
-            % DEFINE ROTATION INDICES FOR 2D AND 3D ROTATING SYSTEMS
-            if numel(eulerState) == 6
-                positionIndices = 1:3;
-                eulerIndices = 4:6;                     % The rotations about X,Y,Z
-            elseif numel(eulerState) == 3
-                positionIndices = 1:2;
-                eulerIndices = 3;                       % The rotations about Z
-            else
-                error('State notation not recognised');
-            end
-            
-            % EQUIVALENT RATES
-            velocity_k_plus   = (eulerState(positionIndices) - obj.VIRTUAL.priorState(positionIndices))/dt;
-            eulerRates_k_plus = (eulerState(eulerIndices) - obj.VIRTUAL.priorState(eulerIndices))/dt;  
-            
-            % ///// IF ALL WAYPOINTS ARE ACHEIVED; FREEZE THE AGENT ///////
-            if isprop(obj,'targetWaypoint')
-                if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                    obj.VIRTUAL.idleStatus = logical(true);
-                    velocity_k_plus   = zeros(numel(positionIndices),1);   % Freeze the agent
-                    eulerRates_k_plus = zeros(numel(eulerIndices),1);      % Freeze the agent
-                end   
-            end
-
-            % EULER ROTATIONS -> GLOBAL ROTATIONS
-            if numel(eulerRates_k_plus) ~= 3
-                localAxisRates = [0;0;1]*eulerRates_k_plus; 
-                velocity_k_plus = [velocity_k_plus;0];
-            else
-                % CALCULATE THE GLOBAL AXIS RATES (FROM 3DOF)
-                localAxisRates = eulerRates_k_plus;                        % Rotations rates are negative
-            end
-            
-            % /////////// DISPLAY OBJECT ID FOR UPDATE/CLEARITY ///////////
-%             fprintf('Updating %s [ID:%s]\n',obj.name,num2str(obj.objectID));
-                        
-            % MAP LOCAL RATES TO THE NEW QUATERNION POSE (maps a local vector to global)
-            % quaternion_k_plus & obj.VIRTUAL.quaternion must define the 
-            % rotation from the global axes to the new body pose. 
-
-%             % PREVIOUS QUATERNION              % [ IF THE QUATERNION DEFINES B-G ]   
-%             quaternion_k = obj.VIRTUAL.quaternion;            
-%             % THE LOCAL AXIS RATES              
-%             omega = eulerRates_k_plus;
-%             % UPDATE THE QUATERNION POSE
-%             quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt)
-%             % REDEFINE THE ROTATION MATRIX
-%             R_k_plus = quat2rotm(quaternion_k_plus')
-            
-%             display('test values');
-
-            % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
-            % PREVIOUS QUATERNION                % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.VIRTUAL.quaternion;   
-            % PREVIOUS ROTATION-MATRIX
-            R_k_plus = quat2rotm(quaternion_k');
-            % THE GLOBAL AXIS RATES       
-            omega = R_k_plus'*localAxisRates;
-            % UPDATE THE QUATERNION POSE
-            quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt);
-            % REDEFINE THE ROTATION MATRIX
-            R_k_plus = quat2rotm(quaternion_k_plus');
-            
-%             % MAP EULER ANGLE STATE TO NEW ROTATION MATRIX
-%             angles = eulerState(4:6);
-%             R_k_plus = eul2rotm(angles','XYZ');
-%             quaternion_k_plus = rotm2quat(R_k_plus)'
-%             quaternion_k_plus = eul2quat(angles','XYZ')';
-%             R_k_plus = quat2rotm(quaternion_k_plus');
-
-            % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
-            globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
-            % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
-                                                      globalVelocity_k_plus,... % Global velocity at k plus
-                                                      quaternion_k_plus,...     % Quaternion at k plus
-                                                      eulerState);              % The new state for reference
         end
     end
 end

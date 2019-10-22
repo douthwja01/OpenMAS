@@ -5,15 +5,13 @@
 % Author: James A. Douthwaite
 
 classdef agent_2D < agent
-%%% AGENT(2D) BASE CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % AGENT(2D) BASE CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % This class contains the basic properties of a generic agent, neither
     % aerial or ground based.
-    properties
-        % PROPERTIES UNIQUE TO THE RECIPROCAL VO METHOD
-    end
-    %% ////////////////////// MAIN CLASS METHODS //////////////////////////
+
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTOR
+        % Constructor
         function [obj] = agent_2D(varargin)
             % This function is to construct the agent object using the
             % object defintions held in the 'objectDefinition' base class.
@@ -23,32 +21,31 @@ classdef agent_2D < agent
             % obj     - The constructed object
             
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);                        % Call the super class            
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % AGENT SENSES IN 3D
-            obj.VIRTUAL.is3D = logical(false);          % Indicate the agent is operating in 2d
-            
-            % Initialise memory structure (with 2D varient)
-            [obj.MEMORY] = obj.GetMemoryStructure(obj.maxSamples);
+            obj@agent(varargin);                            % Call the super class            
 
-            % CHECK FOR USER OVERRIDES
-            obj = obj.configurationParser(obj,varargin);
+            % Assign defaults (2D)
+            obj = obj.SetDetectionRadius(inf);
+            obj = obj.SetVIRTUALparameter('is3D',false);    % Indicate the agent is operating in 2d
+            obj.DYNAMICS = obj.CreateDYNAMICS();            % Override 3D dynamics with 2D
+            obj.localState = zeros(6,1);                    % Default state
+            
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin);             % Recursive overrides
+            % Re-affirm associated properties
+            obj.MEMORY = obj.GetMemoryStructure(obj.maxSamples);  % Initialise memory structure (with 2D varient)             
+            % /////////////////////////////////////////////////////////////
         end
-        % SETUP - STATE [x y psi]
+        % Setup (state [x y psi])
         function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
             % object.
-            % The default state vector:
-            % [x y psi]
-            
-            % BUILD STATE VECTOR
-            obj.localState = zeros(3,1);
-            obj.localState(3) = localXYZrotations(3);
-            % RETAIN THE PRIOR STATE FOR REFERENCE
-            obj.VIRTUAL.priorState = obj.localState;
+
+            % Initialises the state vector [x y psi; dx dy dpsi]
+            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
         end
-        % MAIN
+        % Main
         function [obj] = main(obj,ENV,varargin)
             % INPUTS:
             % TIME     - The TIME simulations structure
@@ -80,7 +77,7 @@ classdef agent_2D < agent
             end
             
             if ENV.currentTime >= 5 && ENV.currentTime < 10
-                headingRate = -0.5;
+                headingRate = 0.5;
                 fprintf('left...\n');
             end
             
@@ -93,35 +90,19 @@ classdef agent_2D < agent
                 
             end
             
-            % GET THE NEW STATE VECTOR
-            [dXdt] = obj.dynamics_singleIntegrator(obj.localState,[speed;0],headingRate);
-            newState = obj.localState + dXdt*ENV.dt;
-            % UPDATE THE CLASS GLOBAL PROPERTIES 
-            [obj] = obj.updateGlobalProperties_ENU(ENV.dt,newState);
+%             % GET THE NEW STATE VECTOR
+%             [dXdt] = obj.dynamics_singleIntegrator(obj.localState,[speed;0],headingRate);
+%             newState = obj.localState + dXdt*ENV.dt;
+%             % UPDATE THE CLASS GLOBAL PROPERTIES 
+%             [obj] = obj.updateGlobalProperties(ENV.dt,newState);
+
+            [obj] = obj.controller(ENV.dt,desiredVelocity);
         end
     end
     
-    %% /////////////////////// AUXILLARY METHODS //////////////////////////
-    
-    % ///////////////////// (2D) SENSORY FUNCTIONS ////////////////////////
-    methods
-        % 2D SENSOR MODEL - LOCAL GPS & PITOT TUBE
-        function [position,velocity,radius] = GetAgentMeasurements(obj)
-            % This function makes estimates of the agent's current position
-            % and velocity states (defined in obj.localState).
-            positionIndices = 1:2;
-            velocityIndices = 4:5;
-            % GET THE LOCAL ABSOLUTE VARIABLES
-            position =  obj.localState(positionIndices,1) + obj.SENSORS.sigma_position*rand(2,1); % Get the absolute position measurement
-            velocity =  obj.localState(velocityIndices,1) + obj.SENSORS.sigma_velocity*rand(2,1); % Get the absolute velocity measurement          
-            % RADIUS IS ASSUMED KNOWN
-            radius = obj.VIRTUAL.radius;
-        end
-    end
-    
-    % //////////////////////// DYNAMICS & CONTROL //////////////////////////
+    %% /////////////////////// DYNAMICS & CONTROL /////////////////////////
     methods   
-        % 2D CONTROLLER
+        % CONTROLLER (2D)
         function [obj] = controller(obj,dt,desiredVelocity)
             % This function computes the agents change in state as a result
             % of the desired 2D velocity vector. This function is designed
@@ -134,28 +115,28 @@ classdef agent_2D < agent
             assert(~any(isnan(desiredVelocity)),'The desired velocity vector contains NaNs.'); 
             
             % Input sanity check #2 - Zero vector
-            [unitDirection,desiredSpeed] = obj.nullVelocityCheck(desiredVelocity);   
+            [heading,speed] = obj.nullVelocityCheck(desiredVelocity);   
+
+            % Get the relative heading
+            [dHeading] = obj.GetVectorHeadingAngles([1;0],heading); % Relative heading angles   
+            % The desired heading rate
+            omega = (-dHeading)/dt;
             
-            % APPLY SPEED CONSTRAINT
-            if abs(desiredSpeed) > obj.maxSpeed
-                desiredSpeed = sign(desiredSpeed)*obj.maxSpeed; 
-            end  
+            % Apply kinematic constraints to state changess
+            [omega_actual,speed_actual] = obj.ApplyKinematicContraints(dt,omega,speed);
             
-            % GET THE EQUIVALENT HEADING ANGLE
-            [dHeading] = obj.GetVectorHeadingAngles([1;0],unitDirection); % Relative heading angles   
-            omega = -dHeading/dt;
-            desiredVelocity = [desiredSpeed;0];
-            
-            % //////////////////// SIMPLE DYNAMICS ////////////////////////
-            [dX] = obj.dynamics_simple(obj.localState(1:3),desiredVelocity,omega);
-            obj.localState(1:3) = obj.localState(1:3) + dt*dX;
-            obj.localState(4:6) = dX; 
-            
-            % ///////////// UPDATE OBJECT GLOBAL PROPERTIES /////////////// 
-            if obj.isIdle()
-                obj.localState(4:5) = zeros(2,1);
+            % OMIT TRAJECTORY CHANGES IF IDLE
+            if obj.GetIdleStatus()
+                omega_actual = 0;
+                speed_actual = 0;
+                obj = obj.SetNominalSpeed(0);
             end
             
+            % //////////////////// SIMPLE DYNAMICS ////////////////////////
+            [dX] = obj.dynamics_simple(obj.localState(1:3),[speed_actual;0],omega_actual);
+            obj.localState(1:3) = obj.localState(1:3) + dt*dX;
+            obj.localState(4:6) = dX; 
+                        
             % ///////////// UPDATE OBJECT GLOBAL PROPERTIES ///////////////
             [obj] = obj.updateGlobalProperties_2DVelocities(dt,obj.localState);
         end
@@ -188,19 +169,8 @@ classdef agent_2D < agent
             % BOUND THE ABSOLUTE LINEAR VELOCITY
             [achievedSpeed] = obj.boundValue(achievedSpeed,-obj.DYNAMICS.linearVelocityLimits(1),obj.DYNAMICS.linearVelocityLimits(1)); 
         end
-        % INITIALISE 2D DYNAMIC PARAMETERS
-        function [obj] = GetDynamicParameters(obj)
-            % This function calls the dynamics structure that gives the
-            % agent dynamic/kinematic limits and parameters.
-            % BUILD THE DYNAMICS SUB-STRUCTURE
-            obj.DYNAMICS = struct('linearVelocityLimits',[inf;inf],...     % Limits on the agents linear velocity 
-                              'linearAccelerationLimits',[inf;inf],...     % Limits on the agents linear acceleration
-                                 'angularVelocityLimits',[inf;inf],...     % Limits on the agents angular velocity
-                             'angularAccelerationLimits',[inf;inf]);       % Limits on the agents angular acceleration
-        end
     end
-    
-    % /////////// AGENT/DERIVATES GLOBAL UPDATE/STATE FUNCTIONS ///////////
+    %% ////////////////// GLOBAL UPDATE/STATE FUNCTIONS ///////////////////
     methods
         % INITIAL 2D STATE - [x y psi dx dy dpsi]
         function [obj] = initialise_2DVelocities(obj,localXYZVelocity,localXYZrotations)
@@ -214,75 +184,45 @@ classdef agent_2D < agent
             obj.localState(3) = localXYZrotations(3);
             obj.localState(4:5) = localXYZVelocity(1:2);
             % RETAIN THE PRIOR STATE FOR REFERENCE
-            obj.VIRTUAL.priorState = obj.localState;
+            obj = obj.SetVIRTUALparameter('priorState',obj.localState);
         end
         % GLOBAL UPDATE - STATE VECTOR DEFINED AS: [x y psi dx dy dpsi]'
         function [obj] = updateGlobalProperties_2DVelocities(obj,dt,eulerState)
             % This function preforms the state update for a state vector
             % defined as [x y psi dx dy dpsi].
  
-            velocityIndices = 4:5;
+            velocityIndices  = 4:5;
             headingRateIndex = 6;
             
             % EQUIVALENT RATES
-            velocity_k_plus = eulerState(velocityIndices);                 % Use the linear velocity directly.
-            localAxisRates  = eulerState(headingRateIndex);                % Use the heading rate directly.
+            localLinearRates  = eulerState(velocityIndices);               % Use the linear velocity directly.
+            localAngularRates = eulerState(headingRateIndex);              % Use the heading rate directly.
                         
             % MAP TO GLOBAL 3D REPRESENTATION
-            velocity_k_plus = [velocity_k_plus;0];  
-            localAxisRates  = [0;0;1]*localAxisRates;
+            localLinearRates  = [localLinearRates;0];  
+            localAngularRates = [0;0;1]*localAngularRates;
             
             % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
             % PREVIOUS QUATERNION                                          % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.VIRTUAL.quaternion;   
+            quaternion_k = obj.GetVIRTUALparameter('quaternion');   
             % PREVIOUS ROTATION-MATRIX
             R_k_plus = quat2rotm(quaternion_k');
             % THE GLOBAL AXIS RATES       
-            omega = R_k_plus'*localAxisRates;
+            omega = R_k_plus'*localAngularRates;
             % UPDATE THE QUATERNION POSE
             quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt);
             % REDEFINE THE ROTATION MATRIX
             R_k_plus = quat2rotm(quaternion_k_plus');
                         
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
-            globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
+            globalVelocity_k_plus = R_k_plus'*localLinearRates;
             globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
+            
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
             [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
                                                       globalVelocity_k_plus,... % Global velocity at k plus
                                                       quaternion_k_plus,...     % Quaternion at k plus
                                                       eulerState);              % The new state for reference
-        end
-    end
-    
-    %% ////////////////////// SIMULATION INTERFACES ///////////////////////
-    methods (Static)
-        % GET EMPTY MEMORY STRUCTURE (2D trajectories)
-        function [memStruct] = GetMemoryStructure(horizonSteps)
-            % This function contains a basic agent-memory structure. This
-            % is used to retain information on observed objects and maintain 
-            % a regular structure.
-            
-            % Input sanity check
-            if nargin < 1
-                horizonSteps = 10; % Duration retained in memory
-            end
-            
-            % Create emptry memory structure
-            memStruct = struct(...
-                'name','temp',...
-                'objectID',uint8(0),...
-                'type',OMAS_objectType.misc,...
-                'sampleNum',uint8(1),...
-                'time',circularBuffer(NaN(1,horizonSteps)),...
-                'position',circularBuffer(NaN(2,horizonSteps)),...
-                'velocity',circularBuffer(NaN(2,horizonSteps)),...
-                'radius',circularBuffer(NaN(1,horizonSteps)),...
-                'range',circularBuffer(NaN(1,horizonSteps)),...
-                'heading',circularBuffer(NaN(1,horizonSteps)),...
-                'width',circularBuffer(NaN(1,horizonSteps)),...
-                'geometry',struct('vertices',[],'faces',[],'normals',[],'centroid',[]),...
-                'priority',[]);
         end
     end
 end

@@ -47,7 +47,7 @@ waypointIndex{2}.VIRTUAL.globalVelocity = zeros(3,1);
 waypointIndex{2}.VIRTUAL.quaternion = [1;0;0;0];                           % Append properties from the sphereical scenario
 
 for index = 1:numel(waypointIndex)
-   waypointIndex{index} = waypointIndex{index}.createAgentAssociation(agentIndex{1},1/index);  % Create waypoint with association to agent 
+   waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(agentIndex{1},1/index);  % Create waypoint with association to agent 
 end
 
 % BUILD THE COLLECTIVE OBJECT INDEX

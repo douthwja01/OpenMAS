@@ -1,0 +1,24 @@
+﻿Build started 18/10/2018 15:13:42.
+     1>Project "C:\Users\uos\Desktop\RVO2\build2\examples\Circle.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Touching "Circle.dir\Release\Circle.unsuccessfulbuild".
+       CustomBuild:
+         All outputs are up-to-date.
+         Building Custom Rule C:/Users/uos/Desktop/RVO2/examples/CMakeLists.txt
+         CMake does not need to re-run because C:/Users/uos/Desktop/RVO2/build2/examples/CMakeFiles/generate.stamp is up-to-date.
+       ClCompile:
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /IC:\Users\uos\Desktop\RVO2\src /nologo /W3 /WX- /O2 /Ob2 /Oy- /D WIN32 /D _WINDOWS /D NDEBUG /D "CMAKE_INTDIR=\"Release\"" /D _MBCS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /GR /Fo"Circle.dir\Release\\" /Fd"Circle.dir\Release\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt ..\..\examples\Circle.cpp
+         Circle.cpp
+       Link:
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\uos\Desktop\RVO2\build2\examples\Release\Circle.exe" /INCREMENTAL:NO /NOLOGO ..\src\Release\RVO.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /ManifestFile:"Circle.dir\Release\Circle.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /PDB:"C:/Users/uos/Desktop/RVO2/build2/examples/Release/Circle.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:/Users/uos/Desktop/RVO2/build2/examples/Release/Circle.lib" /MACHINE:X86 Circle.dir\Release\Circle.obj  /machine:X86
+         Circle.vcxproj -> C:\Users\uos\Desktop\RVO2\build2\examples\Release\Circle.exe
+       Manifest:
+         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /outputresource:"C:\Users\uos\Desktop\RVO2\build2\examples\Release\Circle.exe;#1" /manifest Circle.dir\Release\Circle.exe.intermediate.manifest
+       FinalizeBuildStatus:
+         Deleting file "Circle.dir\Release\Circle.unsuccessfulbuild".
+         Touching "Circle.dir\Release\Circle.lastbuildstate".
+     1>Done Building Project "C:\Users\uos\Desktop\RVO2\build2\examples\Circle.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:03.92

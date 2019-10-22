@@ -6,23 +6,20 @@
 % Author: James A. Douthwaite
 
 classdef agent_HRVO < agent_RVO
-%% INITIALISE THE AGENT SPECIFIC PARAMETERS
     properties
         % PROPERTIES UNIQUE TO THE HRVO METHOD
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
-        % CONSTRUCTOR
+        % Constructor
         function obj = agent_HRVO(varargin)
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
-            % GET THE VELOCITCY OBSTACLE (VO) AGENT TOOLS
-            obj@agent_RVO(varargin);                                       % Get the supercalss
             
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % Call the super class
+            obj@agent_RVO(varargin);  
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % ///////////////////////////////////////////////////////////// 
         end
         
         % MAIN CYCLE IS INHERITED FROM THE SUPERCLASS

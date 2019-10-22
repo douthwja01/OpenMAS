@@ -4,14 +4,14 @@
 
 % Author: James A. Douthwaite 20/05/2016
 
-classdef objectDefinition
-%%% BASIC OBJECT CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+classdef objectDefinition %< handle
+    % OBJECT BASE CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties
         % SIMULATION IDENTIFIERS
         objectID = 0;
         name;
         % KINEMATIC PROPERTIES
-        localState  = zeros(12,1);                                         % Other properties derived from the state.
+        localState  = zeros(6,1);                                          % Other properties derived from the state.
         % GEOMETRIC PROPERTIES
         GEOMETRY = struct('vertices',[],...
                           'faces',[],...
@@ -22,10 +22,11 @@ classdef objectDefinition
         % VIRTUAL PROPERTIES (Virtual (SIMULATION) data container)
         VIRTUAL;                                  % Object operates in 3D logical
     end
-    % CLASS METHODS
+    
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods (Access = public)
-        % CONSTRUCTOR METHOD
-        function obj   = objectDefinition(varargin)
+        % Constructor
+        function [obj] = objectDefinition(varargin)
             % This function is designed to automatically apply a generic
             % naming convention to all objects generated prior to a
             % simulation.
@@ -36,36 +37,34 @@ classdef objectDefinition
             
             % Check all system paths are available
             obj.GetPathDependencies();
-
-            % ASSIGN VIRTUAL PROPERTIES
-            [obj.VIRTUAL]  = obj.GetVIRTUAL();
             
-            % GET GEOMETRY IF POSSIBLE (FOR ALL CLASS SIBLINGS)
-            [obj.GEOMETRY] = obj.GetObjectGeometry();                      % Get the geometry of the object
-            
-            % ALLOCATE OBJECT ID
-            spawnNewObject = 0;
+            % Assign the ObjectID (if required)
             if obj.objectID == 0                                           % Generate objectID if not allocated by a super class
-                obj.objectID = obj.GetObjectID();                          % Assign the number as an ID tag
+                obj.objectID = obj.CreateObjectID();                       % Assign the number as an ID tag
                 spawnNewObject = 1;
+            else
+                spawnNewObject = 0;
             end
-            % GENERATE OBJECT NAME IF REQUIRED
-            if numel(obj.name) < 1   
-                obj.name = obj.GetName(obj.objectID);                % No input name string specified, use greek naming scheme
-            end            
             
-            % ////////// HANDLING THE USERS INPUTS AS OVERRIDES ///////////
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % Assign a name string
+            if numel(obj.name) < 1   
+                obj.name = obj.CreateName(obj.objectID);                   % No input name string specified, use greek naming scheme
+            end  
+            
+            % Assign default 
+            obj.VIRTUAL  = obj.CreateVIRTUAL();   % The VIRTUAL structure
+            obj.GEOMETRY = obj.CreateGEOMETRY();  % Get the geometry of the object
+
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
             
             % ////////// DISPLAY THE CURRENT OBJECT PROPERTIES ////////////
             if spawnNewObject
                 fprintf('Objectcount: %d\tname: %s\ttype: %s\n',obj.objectID,obj.name,class(obj));
             end            
         end 
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
+        % Setup (global default)
         function [obj] = setup(obj,localXYZvelocity,localXYZrotations)     % [x y z phi theta psi]
             % This function is called in order to build the initial state
             % vector for the generic agent class 'objectDefinition'.
@@ -76,13 +75,11 @@ classdef objectDefinition
             % - The state is of the form:
             % - [x y z phi theta psi]
             
-            % BUILD STATE VECTOR
+            % Build state vector
             obj.localState = zeros(6,1);
             obj.localState(4:6) = localXYZrotations;
-            % RETAIN THE PRIOR STATE FOR REFERENCE
-            obj.VIRTUAL.priorState = obj.localState;
         end
-        % /////////////////// DEFAULT MAIN CYCLE //////////////////////////
+        % Main (global default)
         function [obj] = main(obj,ENV,varargin)
             % This is a generic process cycle of an object that accepts no
             % input commands/feedback and simply updates its states based
@@ -102,76 +99,40 @@ classdef objectDefinition
             % MAINTAIN LOCAL INPUT CONDITIONS
             % Default behaviour of a system is to move with constant input
             % conditions.
-            [dXdt]   = obj.dynamics_singleIntegrator(obj.localState,[0;0;0],[0;0;0]);
+            [dXdt]   = obj.dynamics_singleIntegrator(obj.localState,[0;0;0;0;0;0]);
             newState = obj.localState + dt*dXdt;
             
             % UPDATE THE CLASS GLOBAL PROPERTIES
-            obj = obj.updateGlobalProperties_ENU(dt,newState);
+            obj = obj.updateGlobalProperties(dt,newState);
         end
     end
     
     %% /////////////////////// CHECK FUNCTIONS ////////////////////////////
     methods
-        % Check dimensionality of object
-        function [flag] = is3D(obj)
-            flag = obj.VIRTUAL.is3D;
+        % Get the 'idle' status
+        function [flag] = IsIdle(obj)
+            flag = obj.GetVIRTUALparameter('idleStatus');
         end
-        % Check if idle
-        function [flag] = isIdle(obj)
-            flag = obj.VIRTUAL.idleStatus;
+        % Get the dimensionality of the object
+        function [flag] = Is3D(obj)
+            flag = obj.GetVIRTUALparameter('is3D');
         end
     end
-    %% //////////////////////// GET FUNCTIONS /////////////////////////////
+    %% ////////////////////// GET/SET FUNCTIONS ///////////////////////////
     methods
-        % Get the import the geometry associated with the class
-        function [GEOMETRY] = GetObjectGeometry(obj)
-            % This function prepares object STL files for representation.
-            % ASSUMPTIONS:
-            % - The object stl file has the same name as the object being simulated.
-            % - The STL is correctly rotated to match the axes of XYZ of the agents
-            %   local frame.
-            
-            % ABSOLUTE PATH TO THE OBJECT STL LOCATION
-            absPath = mfilename('fullpath');
-            absPath = strrep(absPath,'objectDefinition','');               % Get the current m-files directory
-            
-            % GET THE AGENT SUPERCLASSES
-            aliases = superclasses(obj);
-            aliases = vertcat(class(obj),aliases);
-            % MOVE THROUGH THE CLASS HEIRARCHY
-            for aliasNo = 1:numel(aliases)
-                % BUILD THE STL ASSOCIATION
-                filename = strcat(absPath,char(aliases(aliasNo)),'.stl');  % Build the associated STL path
-                % GET THE OBJECT PATCH FROM STL FILE (in the object directory)
-                [GEOMETRY,getFlag] = OMAS_graphics.importStlFromFile(filename);
-                if getFlag
-                    break                                                  % Successful import
-                end
-            end
-            
-            % IF PATCH RETURNED, PROCESS FOR SIMULATION
-            if isstruct(GEOMETRY)
-               % NORMALISE THE IMPORTED GEOMETRY
-                GEOMETRY = OMAS_graphics.normalise(GEOMETRY);                 % Normalise
-                GEOMETRY = OMAS_graphics.scale(GEOMETRY,obj.VIRTUAL.radius);  % Scale
-                GEOMETRY.normals = OMAS_graphics.normals(GEOMETRY);
-                % ADD CENTROID
-                GEOMETRY.centroid = zeros(1,3);                                 % Assume vertices are relative to a centroid
-            else
-                % GEOMETRIC PROPERTIES
-                GEOMETRY = struct('vertices',[],...
-                                  'faces',[],...
-                                  'normals',[],...
-                                  'centroid',zeros(1,3));                  % If the object is something other than a point.        
-            end
-            % Return patch, empty if not successful
-        end
         % Get the VIRTUAL structure
-        function [VIRTUAL]  = GetVIRTUALparameters(obj)
+        function [VIRTUAL]	= GetVIRTUAL(obj)
             VIRTUAL = obj.VIRTUAL;
-        end    
+        end  
+        % Set the virtual structure
+        function [obj]      = SetVIRTUAL(obj,VIRTUAL)
+            % Input sanity check
+            assert(isstruct(VIRTUAL),"The object's VIRTUAL field must be a structure.");
+            % Assign the virtual structure
+            obj.VIRTUAL = VIRTUAL;
+        end        
         % Get the virtual parameter
-        function [value]    = GetVIRTUALparameter(obj,label)
+        function [value]	= GetVIRTUALparameter(obj,label)
             % Input sanity check
             assert(ischar(label),"The property must be specified as a string.");
             assert(isprop(obj,'VIRTUAL'),"Object has no VIRTUAL property."); 
@@ -179,28 +140,81 @@ classdef objectDefinition
             % Set the parameter to the field
             value = obj.VIRTUAL.(label);
         end
+        % Set the virtual parameter
+        function [obj]      = SetVIRTUALparameter(obj,label,value)
+            % Input sanity check
+            assert(ischar(label),"The property must be specified as a string.");
+            assert(isprop(obj,'VIRTUAL'),"Object has no VIRTUAL property."); 
+            assert(isfield(obj.VIRTUAL,label),sprintf('"%s" is not a VIRTUAL parameter.',label));
+            % Set the parameter to the field
+            obj.VIRTUAL.(label) = value;
+        end
+        % Get general parameter
+        function [value]	= GetParameter(obj,label)
+            % Input sanity check
+            assert(ischar(label) && isprop(obj,label),'The provided must be a parameter.');
+            value = obj.(label);
+        end
+        % Set general parameter
+        function [obj]      = SetParameter(obj,label,value)
+            % Input sanity check
+            assert(ischar(label) && isprop(obj,label),'The provided must be a parameter.');
+            obj.(label) = value;
+        end
     end
-    % Only the objectDefinition class needs access
+    %% ////////////////// BASIC PROPERTY ASSIGNMENTS //////////////////////
+    methods
+        % PARSE A GENERIC INPUT SET AGAINST A DEFAULT CONFIG STRUCTURE
+        function [obj]      = ApplyUserOverrides(obj,pairArray)
+            % This function is designed to parse a generic set of user
+            % inputs and allow them to be compared to a default input
+            % structure. This should be called in the class constructor
+            
+            % Input sanity check #1
+            if nargin < 2 || numel(pairArray) == 0
+                return
+            end
+            % Call the all parameter overrider
+            [obj] = GetParameterOverrides_recursive(obj,pairArray);
+        end
+        % Get the object GEOMETRY structure
+        function [GEOMETRY] = CreateGEOMETRY(obj)
+            % This function prepares object STL files for representation.
+            % ASSUMPTIONS:
+            % - The object stl file has the same name as the object being simulated.
+            % - The STL is correctly rotated to match the axes of XYZ of the agents
+            %   local frame.
+            
+            % This functions allow additional operations to the GEOMETRY
+            % structure to happen other than sourcing the basic structure.
+            
+            % Call the generic object.stl geometry parser
+            [GEOMETRY] = obj.parseObjectGeometry(obj);
+        end
+    end
+    % Only the objectDefinition class has access
     methods (Static, Access = private)  
-        % Get the object parameters
-        function [VIRTUAL]  = GetVIRTUAL()
+        % Get the object VIRTUAL structure
+        function [VIRTUAL]  = CreateVIRTUAL()
             % This is function that assembles the template desciption of an
             % object
-            % DEFINE THE VIRTUAL STRUCTURE
-            VIRTUAL = struct(...
-                         'type',OMAS_objectType.misc,...
-                         'hitBoxType',OMAS_hitBoxType.none,...
-                         'radius',0.5,...                                  % Diameter of 1m
-                         'colour',rand(1,3,'single'),...                   % Virtual colour (for plotting)
-                         'symbol','square',...                             % Representative symbol
-                         'globalPosition',[0;0;0],...                      % Global Cartesian position
-                         'globalVelocity',[0;0;0],...                      % Global Cartesian velocity
-                         'quaternion',[1;0;0;0],...                        % Global quaternion pose
-                         'idleStatus',logical(true),...                    % Object idle logical
-                         'is3D',logical(true));                            % Object operates in 3D logical
+            
+            % Define the VIRTUAL structure
+            VIRTUAL = struct();
+            VIRTUAL.type = OMAS_objectType.misc;
+            VIRTUAL.hitBoxType = OMAS_hitBoxType.none;
+            VIRTUAL.radius = 0.5;                      % Diameter of 1m
+            VIRTUAL.colour = rand(1,3,'single');       % Virtual colour (for plotting)
+            VIRTUAL.symbol = 'square';                 % Representative symbol
+            VIRTUAL.globalPosition = [0;0;0];          % Global Cartesian position
+            VIRTUAL.globalVelocity = [0;0;0];          % Global Cartesian velocity
+            VIRTUAL.quaternion = [1;0;0;0];            % Global quaternion pose
+            VIRTUAL.idleStatus = true;                 % Object idle logical
+            VIRTUAL.is3D = true;                       % Object operates in 3D logical
+            VIRTUAL.priorState = [];                            
         end
         % Get the object name
-        function [namestr]  = GetName(objectID)
+        function [namestr]  = CreateName(objectID)
             % No input name string specified, use greek naming scheme
             defaultID = { 'alpha', 'beta','gamma', 'delta','epsilon'  ...
                         ,  'zeta',  'eta','theta',  'iota','kappa'    ...
@@ -217,7 +231,7 @@ classdef objectDefinition
             namestr = sprintf('%s%03d',defaultID{IDvalue},cycle+1);
         end
         % Get the object ID
-        function [objectID] = GetObjectID()
+        function [objectID] = CreateObjectID()
             % This function allocates a basic ID convention to the class
             % heirarchy to provide object automatic numeration.
             
@@ -232,99 +246,11 @@ classdef objectDefinition
                 objectCount = objectCount + 1;
             end
             % ALLOCATE OBJECT ID
-            objectID = uint8(objectCount);
+            objectID = uint16(objectCount);
         end 
     end
-    %% //////////////////////// SET FUNCTIONS /////////////////////////////
-    methods 
-        % Set the objects radius
-        function [obj] = SetRadius(obj,radius)
-            obj.radius = radius;            % Define the radius
-            obj.VIRTUAL.radius = radius;    % Virtual representations
-        end
-        % Set the objects apparent colour
-        function [obj] = SetColour(obj,colour)
-            assert(ischar(colour) || isnumeric(colour),'The colour must be a character or rgb vector [1x3]');
-            obj.VIRTUAL.colour = colour;
-        end
-        % Set the objects symbol
-        function [obj] = SetSymbol(obj,symbol)
-            obj.VIRTUAL.symbol = symbol; 
-        end
-        % Set the hitbox type
-        function [obj] = SetHitBoxType(obj,hitBoxType)
-            % Input sanity check
-            assert(~ischar(hitBoxType),"Type must be specified as a OMAS object type.");
-            assert(isprop(obj,'VIRTUAL'),"The object does not have a VIRTUAL property.");
-            % Allocate the object hit-box type
-            obj.VIRTUAL.hitBoxType = hitBoxType;
-        end
-        % Set the object type
-        function [obj] = SetType(obj,type)
-            % Input sanity check
-            assert(~ischar(type),"Type must be specified as a OMAS object type.");
-            assert(isprop(obj,'VIRTUAL'),"The object does not have a VIRTUAL property.");
-            % Allocate the object type
-            obj.VIRTUAL.type = type;
-        end
-        % Set the virtual field
-        function [obj] = SetVIRTUAL(obj,VIRTUAL)
-            % Input sanity check
-            assert(isstruct(VIRTUAL),"The object's VIRTUAL field must be a structure.");
-            % Assign the virtual structure
-            obj.VIRTUAL = VIRTUAL;
-        end
-    end
-    %% ///////////////// BASIC STATE UPDATE FUNCTIONS /////////////////////
-    methods
-        % The agent object has both a local NED and global ENU state to
-        % allow control and avoidance simulation to be conducted
-        % simulaneously within the common frame of references. The local
-        % state vector is of the form:
-        % Xi_frd = [x;y;z;psi;the;phi;u;v;w;p;q;r]_i
-        % where as the global is of the form:
-        % Xi_enu = [x;y;z;dx;dy;dz;q1;q2;q3;q4]_i.
-        
-        % The functions below provide the utilities to update both during
-        % each time cycle.
 
-        % UPDATE AGENT STATE VECTOR FROM LOCAL ACCELERATIONS
-        function [dXdt] = dynamics_doubleIntegrator(obj,X,linearAcceleration,headingAcceleration)
-            % This function provides a basic model for the agent
-            % kinematics, controlled by linear and angular acceleration inputs            
-            
-            % ASSUMPTIONS
-            % - The state vector is of the form:
-            %   X = [x eta ; dx deta ] ; U = [ddx ; ddeta]
-            % - The inputs are an order higher than the highest order
-            %   states.
-            
-            % SET THE INPUT ORDER
-            % The input "linearAcceleration" and "headingAcceleration" are
-            % related to the second order of the states directly.
-            systemOrder = 2;
-            % PASS THE SECOND ORDER STATES TO THE N-ORDER INTEGRATOR
-            dXdt = obj.dynamics_NIntegrator(X,systemOrder,linearAcceleration,headingAcceleration);
-        end
-        % UPDATE AGENT STATE VECTOR FROM LOCAL VELOCITIES
-        function [dXdt] = dynamics_singleIntegrator(obj,X,linearRates,headingRates)
-            % This function preforms the state update directly from a
-            % velocity vector in the body axis system.
-            
-            % ASSUMPTIONS
-            % - The state vector is of the form:
-            %   X = [x eta] ; U = [dx ; deta]
-            % - The inputs are an order higher than the highest order
-            %   states.
-            
-            % SET THE INPUT ORDER
-            % The input "linearRates" and "headingRate" are related are the
-            % first order of the states directly.
-            systemOrder = 1; 
-            % PASS THE FIRST ORDER STATES TO THE N-ORDER INTEGRATOR
-            dXdt = obj.dynamics_NIntegrator(X,systemOrder,linearRates,headingRates);
-        end
-    end
+    %% ///////////////// BASIC STATE UPDATE FUNCTIONS /////////////////////
     methods (Static)
         % STATE UPDATE - TWO WHEELED DIFFERENTIAL ROBOT
         function [dXdt] = dynamics_differencialDrive(X,d,a_left,a_right)
@@ -349,6 +275,32 @@ classdef objectDefinition
             dXdt(1) = speed*cos(X(3));
             dXdt(2) = speed*sin(X(3));
             dXdt(3) = headingRate;
+        end
+        % STATE UPDATE - DOUBLE INTEGRATOR
+        function [dXdt] = dynamics_doubleIntegrator(X,U)
+            % The relationship between the input and state vector is by
+            % definition of a double integrator: dX(dX/dt)/dt = U
+            
+            % X(t) here is assumed to be of the form X(t) = [q;dq]
+            
+            qDim = length(X)/2;
+            
+            % dXdt is of the form dX(t) = [dq;ddq];
+            dXdt = [X(qDim+1:2*qDim,1);     % Velocity states
+                    U];                     % Acceleration states
+        end
+        % STATE UPDATE - SINGLE INTEGRATOR
+        function [dXdt] = dynamics_singleIntegrator(X,U)
+            % The relationship between the input and state vector is by
+            % definition of a single integrator: dX/dt = U
+            
+            % Sanity check
+            assert(numel(X) == numel(U),"Expecting the number of inputs to correspond to the state vector.");
+            
+            % X(t) here is assumed to be of the form X(t) = [q]
+            
+            % The change in state is literally the input
+            dXdt = U;            
         end
         % STATE UPDATE - SIMPLE EULER VELOCITIES
         function [dXdt] = dynamics_simple(X,velocity_k_plus,omega_k_plus)
@@ -379,59 +331,6 @@ classdef objectDefinition
             dXdt(linearIndices) = velocity_k_plus;
             dXdt(angularIndices) = omega_k_plus;
         end
-        % STATE UPDATE - N-ORDER INTEGRATOR; INPUT OF THE HIGHEST ORDER
-        function [dXdt] = dynamics_NIntegrator(X,order,U_linear,U_angular)
-            % This function preforms the state update from an input vector
-            % of relation N to the given state parameter.
-            % ASSUMPTIONS:
-            % - The agent is capable of changing its heading instanaeously.
-            % - obj.localState is of length N*states of the form [x,dx,ddx,...]
-            
-            % INPUTS:
-            % X            - The current state of order 0:n-1
-            % n            - The order of the input
-            % linearRates  - Defined as the rates along the body axes (m/s)
-            % headingRates - Defined as the euler rates [dphi;dtheta;dpsi] (rad/s)
-            
-            % CHECK EXPECTED INPUT DIMENSIONS
-            Aflag = numel(U_linear) == 3 && numel(U_angular) == 3;   % IS 3D
-            Bflag = numel(U_linear) == 2 && numel(U_angular) == 1;   % IS 2D
-            assert((Aflag + Bflag) == 1,'Integrator inputs are of the wrong dimensions');
-            
-            % CALCULATE THE STATE-INPUT PARAMETERS
-            % Either rotation occurs in one dimension (2D) or in three (3D)
-            rotationDOF = numel(U_angular); % Is heading a yaw (2D) or [phi,theta psi] (3D)
-            if rotationDOF == 1
-                linearIndices = 1:2;
-                angularIndices = 3;     % Is 2D
-            else
-                linearIndices = 1:3;
-                angularIndices = 4:6;   % Is 3D
-            end
-            
-            % 'n' represents the order of the inputs, and also an order beyond 
-            % the state vector (i.e X = [x dx], U = [ddx])
-            
-            % ENSURE THIS CONVENTION
-            stateNum = numel([linearIndices,angularIndices]);
-            assert(mod(numel(X),stateNum) == 0,'The number of states does not correspond to the input order.');
-             
-            % THE 'n+1'th ORDER INPUTS
-            U = zeros(numel(X),1);
-            U(linearIndices,1)  = U_linear;
-            U(angularIndices,1) = U_angular;                     % The 'nth' order axial inputs
-                        
-            % MAP THE HIGHER ORDER STATES TO THE LOWER STATE CHANGES
-            % dX = [0 1 0][x;dx]
-            %      [0 0 1][U]
-            % CONSTRUCT MAPPING MATRICES
-            mappingMatrix = [zeros(stateNum*(order),stateNum),diag(ones(stateNum*(order),1))];
-            
-            
-            assert(size(mappingMatrix,2) == size([X;U],1),'Integration dimensions are incorrect');
-            % INTEGRATE THE LOWER ORDER STATES, CONCATINATE THE INPUTS AS
-            dXdt = mappingMatrix*[X;U];  
-        end
     end
     
     %% ////////////////// SIMULATION & CORE INTERFACES ////////////////////
@@ -445,15 +344,11 @@ classdef objectDefinition
             
             % BUILD STATE VECTOR
             obj.localState = zeros(12,1);
-            obj.localState(4:6) = localXYZrotations;
+            obj.localState(4:5) = localXYZrotations(1:2);
+            %obj.localState(4:6) = localXYZrotations;       % Represent yaw relative to initial position    
             obj.localState(7:9) = localXYZVelocity;
             % RETAIN THE PRIOR STATE FOR REFERENCE
             obj.VIRTUAL.priorState = obj.localState;
-        end
-        % GLOBAL UPDATE - DEFAULT 
-        function [obj] = updateGlobalProperties(obj,dt,eulerState)
-            % SIMPLY A MAP TO THE 3D UPDATE FUNCTION
-            obj = obj.updateGlobalProperties_ENU(dt,eulerState);
         end
         % GLOBAL UPDATE - STATE VECTOR DEFINED AS: [x_t;x_dot]'
         function [obj] = updateGlobalProperties_3DVelocities(obj,dt,eulerState)
@@ -464,32 +359,31 @@ classdef objectDefinition
             angleIndices = 4:6;
             
             % USE THE 'RATE' STATES DIRECTLY
-            velocity_k_plus = eulerState(positionIndices+6);
-            localAxisRates  = eulerState(angleIndices+6);
+            localLinearRates  = eulerState(positionIndices+6);
+            localAngularRates = eulerState(angleIndices+6);
             
             % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
             % PREVIOUS QUATERNION                                          % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.VIRTUAL.quaternion;   
+            quaternion_k = obj.GetVIRTUALparameter('quaternion');   
             % PREVIOUS ROTATION-MATRIX
             R_k_plus = quat2rotm(quaternion_k');
             % THE GLOBAL AXIS RATES       
-            omega = R_k_plus'*localAxisRates;
+            omega = R_k_plus'*localAngularRates;
             % UPDATE THE QUATERNION POSE
             quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt);
             % REDEFINE THE ROTATION MATRIX
-            R_k_plus = quat2rotm(quaternion_k_plus');
-                        
+            R_k_plus = quat2rotm(quaternion_k_plus');         
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
-            globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
+            globalVelocity_k_plus = R_k_plus'*localLinearRates;
             globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
-                                                      globalVelocity_k_plus,... % Global velocity at k plus
-                                                      quaternion_k_plus,...     % Quaternion at k plus
-                                                      eulerState);              % The new state for reference
+            obj = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
+                                                    globalVelocity_k_plus,... % Global velocity at k plus
+                                                    quaternion_k_plus,...     % Quaternion at k plus
+                                                    eulerState);              % The new state for reference
         end
         % GLOBAL UPDATE - EULER 6DOF(3DOF) [x y z phi theta psi],[x y psi]
-        function [obj] = updateGlobalProperties_ENU(obj,dt,eulerState)
+        function [obj] = updateGlobalProperties(obj,dt,eulerState)
             % This function computes the position, velocity and 
             % quaternion in the global ENU frame from a 6DOF state vector 
             % with euler rotations.
@@ -499,72 +393,63 @@ classdef objectDefinition
             % - [x y phi]
                                    
             % NOTATION INDICIES
-            if numel(eulerState) == 6
+            if obj.Is3D
                 positionIndices = 1:3;
                 eulerIndices = 4:6;                     % The rotations about X,Y,Z
-            elseif numel(eulerState) == 3
+            else
                 positionIndices = 1:2;
                 eulerIndices = 3;                       % The rotations about Z
-            else
-                error('State notation not recognised');
             end
             
-            % EQUIVALENT RATES
-            velocity_k_plus   = (eulerState(positionIndices) - obj.VIRTUAL.priorState(positionIndices))/dt;
-            eulerRates_k_plus = (eulerState(eulerIndices) - obj.VIRTUAL.priorState(eulerIndices))/dt;  
-            
-            % IF ALL WAYPOINTS ARE ACHEIVED; FREEZE THE AGENT
-            if isprop(obj,'targetWaypoint')
-                if isempty(obj.targetWaypoint) && ~isempty(obj.achievedWaypoints)
-                    obj.VIRTUAL.idleStatus = 1;
-                    velocity_k_plus   = zeros(numel(positionIndices),1);   % Freeze the agent
-                    eulerRates_k_plus = zeros(numel(eulerIndices),1);      % Freeze the agent
-                end   
+            % Populate the prior state if necessary
+            if isempty(obj.VIRTUAL.priorState)
+                obj = obj.SetVIRTUALparameter('priorState',obj.localState);
             end
-
+            % Get the previous state
+            priorState = obj.GetVIRTUALparameter('priorState');
+            
+            % Equivalent rates
+            localLinearRates  = (eulerState(positionIndices) - priorState(positionIndices))/dt;
+            localAngularRates = (eulerState(eulerIndices) - priorState(eulerIndices))/dt;  
+            
             % EULER ROTATIONS -> GLOBAL ROTATIONS
-            if numel(eulerRates_k_plus) ~= 3
-                localAxisRates = [0;0;1]*eulerRates_k_plus; 
-                velocity_k_plus = [velocity_k_plus;0];
-            else
-                % CALCULATE THE GLOBAL AXIS RATES (FROM 3DOF)
-                localAxisRates = eulerRates_k_plus;                        % Rotations rates are negative
+            if numel(localAngularRates) ~= 3
+                localAngularRates = [0;0;1]*localAngularRates; 
+                localLinearRates  = [localLinearRates;0];
             end
                         
             % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
-            % PREVIOUS QUATERNION                % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.VIRTUAL.quaternion;   
+            % PREVIOUS QUATERNION                   % [ IF THE QUATERNION DEFINES GB ]
+            quaternion_k = obj.GetVIRTUALparameter('quaternion');   
             % PREVIOUS ROTATION-MATRIX
             R_k_plus = quat2rotm(quaternion_k');
             % THE GLOBAL AXIS RATES       
-            omega = R_k_plus'*localAxisRates;
+            omega = R_k_plus'*localAngularRates;
             % UPDATE THE QUATERNION POSE
             quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt);
             % REDEFINE THE ROTATION MATRIX
             R_k_plus = quat2rotm(quaternion_k_plus');    
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
-            globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
+            globalVelocity_k_plus = R_k_plus'*localLinearRates;
             globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
-                                                      globalVelocity_k_plus,... % Global velocity at k plus
-                                                      quaternion_k_plus,...     % Quaternion at k plus
-                                                      eulerState);              % The new state for reference
+            obj = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
+                                                    globalVelocity_k_plus,... % Global velocity at k plus
+                                                    quaternion_k_plus,...     % Quaternion at k plus
+                                                    eulerState);              % The new state for reference
         end
         % GLOBAL UPDATE - EULER 6DOF(3DOF) (NO ROTATIONS)
-        function [obj] = updateGlobalProperties_ENU_fixedFrame(obj,dt,eulerState)
+        function [obj] = updateGlobalProperties_fixedFrame(obj,dt,eulerState)
             % This function computes the position and velocity whilst 
             % maintaining a fixed quaternion rotation (constant reference 
             % orientation) in the global ENU frame from a 6DOF state vector 
             % with euler rotations.
             
             % NOTATION INDICIES
-            if numel(eulerState) == 6
+            if obj.Is3D
                 positionIndices = 1:3;
-            elseif numel(eulerState) == 3
-                positionIndices = 1:2;
             else
-                error('State notation not recognised');
+                positionIndices = 1:2;
             end
             
             % Equivalent velocity
@@ -574,8 +459,10 @@ classdef objectDefinition
             if numel(eulerState) ~= 6
                 velocity_k_plus = [velocity_k_plus;0];
             end
+            % Get the current rotation
+            q_k = obj.GetVIRTUALparameter('quaternion');
             % NEW ROTATION MATRIX (G>B)            
-            R_k_plus = OMAS_geometry.quaternionToRotationMatrix(obj.VIRTUAL.quaternion);
+            R_k_plus = OMAS_geometry.quaternionToRotationMatrix(q_k);
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
             globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
             globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
@@ -585,7 +472,7 @@ classdef objectDefinition
                                                       quaternion_k_plus,...     % Quaternion at k plus
                                                       eulerState);              % The new state for reference
         end
-        % GLOBAL UPDATE - DIRECTLY
+        % GLOBAL UPDATE - DIRECTLY (global default)
         function [obj] = updateGlobalProperties_direct(obj,p,v,q,X)
             % Under this notation, the state vector already contains the
             % global parameters of the object.
@@ -602,8 +489,8 @@ classdef objectDefinition
             assert(numel(v) == 3 && size(v,2) == 1,'Global velocity must be a 3D column vector [3x1].');
             assert(numel(q) == 4 && size(q,2) == 1,'Global pose must be a 4D quaternion vector [4x1].');
             assert(numel(X) == numel(obj.localState) && size(obj.localState,2) == 1,'The length of the objects state update must match the its local state.');       
-            
-            % ///////////////// REASSIGN K+1 PARAMETERS //////////////////////////
+                                    
+            % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
             % Assign the global parameters
             obj.VIRTUAL.globalPosition = p;                                % Reassign the global position
             obj.VIRTUAL.globalVelocity = v;                                % Reassign the global velocity
@@ -613,68 +500,51 @@ classdef objectDefinition
             obj.localState = X;                                            % Update the current state
         end
     end
-    % //////////////////// SIMULATION STATIC METHODS //////////////////////
     methods (Static)
-        % BOUND VALUE
-        function [boundedVector] = boundValue(inputVector,lower,upper)
-            % This function simply bounds a value between two given values
+        % Generic .STL to geometry parser
+        function [GEOMETRY] = parseObjectGeometry(entity)
+            % This function prepares object STL files for representation.
+            % ASSUMPTIONS:
+            % - The object stl file has the same name as the object being simulated.
+            % - The STL is correctly rotated to match the axes of XYZ of the agents
+            %   local frame.
             
-            boundPerDim = size(lower,1) == size(inputVector,1);
-            assert(size(lower,1) == size(upper,1),'Please specify the same number of upper and lower bounds');
-                        
-            if boundPerDim
-                % ELSE ASSUME THERE IS UPPER AND LOWER BOUND FOR EACH VECTOR
-                % DIMENSION
-                for ind = 1:size(inputVector,1)
-                    if inputVector(ind) < lower(ind)
-                        inputVector(ind) = lower(ind);
-                    end
-                    if inputVector(ind) > upper(ind)
-                        inputVector(ind) = upper(ind);
-                    end
+            % ABSOLUTE PATH TO THE OBJECT STL LOCATION
+            absPath = mfilename('fullpath');
+            absPath = strrep(absPath,'objectDefinition','');               % Get the current m-files directory
+            
+            % GET THE AGENT SUPERCLASSES
+            aliases = superclasses(entity);
+            aliases = vertcat(class(entity),aliases);
+            % MOVE THROUGH THE CLASS HEIRARCHY
+            for aliasNo = 1:numel(aliases)
+                % BUILD THE STL ASSOCIATION
+                filename = strcat(absPath,char(aliases(aliasNo)),'.stl');  % Build the associated STL path
+                % GET THE OBJECT PATCH FROM STL FILE (in the object directory)
+                [GEOMETRY,getFlag] = OMAS_graphics.importStlFromFile(filename);
+                if getFlag
+                    break                                                  % Successful import
                 end
+            end
+            
+            % IF PATCH RETURNED, PROCESS FOR SIMULATION
+            if isstruct(GEOMETRY)
+                % Get the entities representative radius
+                entityRadius = entity.GetVIRTUALparameter('radius');
+                % NORMALISE THE IMPORTED GEOMETRY
+                GEOMETRY = OMAS_graphics.normalise(GEOMETRY);              % Normalise
+                GEOMETRY = OMAS_graphics.scale(GEOMETRY,entityRadius);     % Scale
+                GEOMETRY.normals = OMAS_graphics.normals(GEOMETRY);
+                % ADD CENTROID
+                GEOMETRY.centroid = zeros(1,3);                            % Assume vertices are relative to a centroid
             else
-                % THERE IS ONE BOUND FOR ALL DIMENSIONS
-                for ind = 1:size(inputVector,1)
-                    if inputVector(ind) < lower
-                        inputVector(ind) = lower;
-                    end
-                    if inputVector(ind) > upper
-                        inputVector(ind) = upper;
-                    end 
-                end
+                % GEOMETRIC PROPERTIES
+                GEOMETRY = struct('vertices',[],...
+                                  'faces',[],...
+                                  'normals',[],...
+                                  'centroid',zeros(1,3));                  % If the object is something other than a point.        
             end
-            boundedVector = inputVector;
-        end     
-        % ATTEMPT TO DEAL WITH NESTED CELL ARRAY INPUTS
-        function [inputParameters] = inputHandler(inputParameters)
-            
-            if ~iscell(inputParameters)
-                error('Expecting a cell array of label:value pairs.');
-            end
-            t = 1;
-            while numel(inputParameters) == 1 && t < 10
-                inputParameters = inputParameters{:};
-                t = t + 1;
-                if t == 10
-                    error('Error unpacking the input vector.');
-                end
-            end
-        end
-        % PARSE A GENERIC INPUT SET AGAINST A DEFAULT CONFIG STRUCTURE
-        function [config] = configurationParser(defaultConfig,inputParameters)
-            % This function is designed to parse a generic set of user
-            % inputs and allow them to be compared to a default input
-            % structure. This should be called in the class constructor
-            
-            % Input sanity check #1
-            if nargin < 2 || isempty(inputParameters)
-                config = defaultConfig;
-                return
-            end
-            
-            % Call the all parameter overrider
-            config = GetParameterOverrides(defaultConfig,inputParameters);
+            % Return patch, empty if not successful
         end
         % Dependancy check for all objects
         function GetPathDependencies()

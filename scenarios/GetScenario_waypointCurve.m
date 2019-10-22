@@ -52,7 +52,7 @@ for index = 1:inputConfig.waypoints
     waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocities(:,index);
     waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternions(:,index);
     % Assign waypoint to agent with priority
-    waypointIndex{index} = waypointIndex{index}.createAgentAssociation(agentIndex{1},1/index);  % Create waypoint with association to agent
+    waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(agentIndex{1},1/index);  % Create waypoint with association to agent
 end
 
 % BUILD THE COLLECTIVE OBJECT INDEX

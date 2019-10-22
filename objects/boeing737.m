@@ -6,16 +6,16 @@ classdef boeing737 < fixedWing
     properties
         % Any specific properties of globalhawk
     end
-    %  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
-        % CONSTRUCTOR METHOD
+        % Constructor
         function obj = boeing737(varargin)
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj@fixedWing(varargin);                                       % Create the super class 'agent'
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
     end
 end

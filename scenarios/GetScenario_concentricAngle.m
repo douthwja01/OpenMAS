@@ -32,7 +32,7 @@ agentNumber = numel(agentIndex);                    % Declare the number of agen
 agentConfig = SBinstance.planarAngle(...
     'objects',agentNumber,...
     'radius',inputConfig.agentOrbit,...
-    'velocities',inputConfig.agentVelocity,...
+    'velocity',inputConfig.agentVelocity,...
     'offsetAngle',inputConfig.angle);
 
 %% ASSIGN GLOBAL PARAMETERS TO THE AGENT INDEX
@@ -42,7 +42,7 @@ for index = 1:agentNumber
     % APPLY GLOBAL STATE VARIABLES
     agentIndex{index}.VIRTUAL.globalPosition = agentConfig.positions(:,index) + inputConfig.noiseFactor*randn(3,1);
     agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocities(:,index) + inputConfig.noiseFactor*randn(3,1);
-    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternions(:,index);
+    agentIndex{index}.VIRTUAL.quaternion     = agentConfig.quaternions(:,index);
 end
 
 %% DEFINE WAYPOINTS AND ASSIGN GLOBAL PARAMETERS
@@ -64,7 +64,7 @@ for index = 1:agentNumber
     waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.positions(:,index);
     waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocities(:,index);
     waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternions(:,index);
-    waypointIndex{index} = waypointIndex{index}.createAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
+    waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
 end
 % BUILD THE COLLECTIVE OBJECT INDEX
 objectIndex = horzcat(agentIndex,waypointIndex);

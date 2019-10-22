@@ -9,7 +9,7 @@ classdef earth < obstacle_spheroid
         radius    = 6.371E+06;      % Radius of the earth (m)
         axialRate = 7.2921150E-5;   % Rotational rate about its vertical axes(rad/s)
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % CONSTRUCTION METHOD
         function obj = earth(varargin)
@@ -19,17 +19,15 @@ classdef earth < obstacle_spheroid
                         
             % CALL THE SUPERCLASS CONSTRUCTOR
             obj = obj@obstacle_spheroid(varargin); 
-            % Unpack the input vector if necessary
-            [varargin] = obj.inputHandler(varargin);
-            % OVERRIDE OBJECT VIRTUAL PROPERTIES
-            obj.VIRTUAL.radius = obj.radius;                               % The radius of the earth (m)
-            obj.VIRTUAL.colour = single([0,0,1]);                          % Must be a row vector of type single
-            
-            % IMPORT THE OBJECT'S GEOMETRY IF IT EXISTS
-            [obj.GEOMETRY] = OMAS_graphics.scale(obj.GEOMETRY,obj.VIRTUAL.radius);  % Scale
 
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % Assign "Earth" properties
+            obj = obj.SetVIRTUALparameter('radius', obj.radius);    % The radius of the earth (m)                       
+            obj = obj.SetVIRTUALparameter('colour', single([0,0,1]));
+            obj.GEOMETRY = OMAS_graphics.scale(obj.GEOMETRY,obj.VIRTUAL.radius);  % Scale
+
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end 
         % ///////////////////// SETUP FUNCTION ////////////////////////////
         % SETUP - X = [x;x_dot]' 3D STATE VECTOR

@@ -11,9 +11,10 @@ classdef agent_2D_test < agent_2D
     properties
 
     end
-%%  CLASS METHODS
+    
+    %% ////////////////////////// MAIN METHODS ////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = agent_2D_test(varargin)
             % This function is to construct the agent object using the
             % object defintions held in the 'objectDefinition' base class.
@@ -22,21 +23,19 @@ classdef agent_2D_test < agent_2D
             % OUTPUTS:
             % obj     - The constructed object
             
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj@agent_2D(varargin); 
             
+            % Assign defaults
             obj.localState = zeros(4,1);
             
-            % AGENT DEFAULT KINEMATIC LIMITATIONS
-%             obj.linearVelocityLimits = [inf;inf];
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % //////////////// Check for user overrides ///////////////////            
+            % - It is assumed that overrides to the properties are provided
+            %   via the varargin structure.
+            [obj] = obj.ApplyUserOverrides(varargin); 
+            % /////////////////////////////////////////////////////////////
         end
-        % ///////////////// AGENT MAIN CYCLE //////////////////////////////
+        % Main
         function obj = main(obj,ENV,varargin)
             % INPUTS:
             % TIME     - The TIME simulations structure
@@ -68,10 +67,10 @@ classdef agent_2D_test < agent_2D
             obj.DATA.inputNames = {'dx (m/s)','dy (m/s)'};
             obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = [obj.localState(3:4,1)];         % Record the control inputs 
         end
-        % /////////////////////////////////////////////////////////////////
-
+    end
+    methods
         % UPDATE GLOBAL PROPERTIES
-        function [obj] = updateGlobalProperties(obj,dt,localState_update)
+        function [obj] = updateGlobalProperties_TEST(obj,dt,localState_update)
            % This function computes the new global parameters for the given
            % agent based on its new state.
            
@@ -128,9 +127,5 @@ classdef agent_2D_test < agent_2D
             obj.localState = localState_update;  
         end
     end
-    %% STATIC AGENT TOOLS
-    methods (Static)
-       
-    end  
 end
 

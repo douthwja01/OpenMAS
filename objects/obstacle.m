@@ -10,32 +10,26 @@ classdef obstacle < objectDefinition
     % aerial or ground based.
     properties
         % OBSTACLE VIRTUAL PROPERTIES
-
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % CONSTRUCTION METHOD
         function obj = obstacle(varargin)
             % This function is to construct the obstacle object using the
             % object defintions held in the 'objectDefinition' base class.
             
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
+            % Call the super class
+            obj = obj@objectDefinition(varargin); 
             
-            % CALL THE SUPERCLASS CONSTRUCTOR
-            obj = obj@objectDefinition(varargin); % Call the super class
+            % Allocate obstacle defaults
+            obj = obj.SetVIRTUALparameter('type',OMAS_objectType.obstacle);
+            obj = obj.SetVIRTUALparameter('hitBoxType',OMAS_hitBoxType.spherical);
+            obj = obj.SetVIRTUALparameter('symbol','o'); 
+            obj = obj.SetVIRTUALparameter('priorState',obj.localState); 
             
-            % ALLOCATE DEFAULT OBJECT-SPECIFIC CONSTANTS 
-            obj.VIRTUAL.type       = OMAS_objectType.obstacle;
-            obj.VIRTUAL.hitboxType = OMAS_hitBoxType.spherical; 
-            obj.VIRTUAL.symbol = 'o';
-            obj.VIRTUAL.radius = 1;
-                      
-            % CHECK FOR USER OVERRIDES
-            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin{:}); 
-            obj = obj.configurationParser(obj,varargin{:});
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end      
     end
 end

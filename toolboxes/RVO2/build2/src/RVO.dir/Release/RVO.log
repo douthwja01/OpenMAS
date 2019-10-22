@@ -1,0 +1,24 @@
+﻿Build started 18/10/2018 15:13:40.
+     1>Project "C:\Users\uos\Desktop\RVO2\build2\src\RVO.vcxproj" on node 2 (build target(s)).
+     1>InitializeBuildStatus:
+         Touching "RVO.dir\Release\RVO.unsuccessfulbuild".
+       CustomBuild:
+         All outputs are up-to-date.
+         Building Custom Rule C:/Users/uos/Desktop/RVO2/src/CMakeLists.txt
+         CMake does not need to re-run because C:/Users/uos/Desktop/RVO2/build2/src/CMakeFiles/generate.stamp is up-to-date.
+       ClCompile:
+         All outputs are up-to-date.
+       Lib:
+         c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\Lib.exe /OUT:"C:\Users\uos\Desktop\RVO2\build2\src\Release\RVO.lib" /NOLOGO RVO.dir\Release\Agent.obj
+         RVO.dir\Release\KdTree.obj
+         RVO.dir\Release\Obstacle.obj
+         RVO.dir\Release\RVOSimulator.obj  /machine:X86
+         RVO.vcxproj -> C:\Users\uos\Desktop\RVO2\build2\src\Release\RVO.lib
+       FinalizeBuildStatus:
+         Deleting file "RVO.dir\Release\RVO.unsuccessfulbuild".
+         Touching "RVO.dir\Release\RVO.lastbuildstate".
+     1>Done Building Project "C:\Users\uos\Desktop\RVO2\build2\src\RVO.vcxproj" (build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:01.95

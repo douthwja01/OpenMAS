@@ -12,32 +12,27 @@ classdef obstacle_cuboid < obstacle
         Yscale = 1;
         Zscale = 1;
     end
-%%  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
+        % Constructor
         function obj = obstacle_cuboid(varargin)
             % This function constructs the cuboid obstacle. The object must
             % be imported and represented with a global position and
             % velocity as all other objects are in OMAS.
                         
-            % CALL THE SUPERCLASS CONSTRUCTOR
+            % Call the super class
             obj = obj@obstacle(varargin); 
-            % Unpack the input vector if necessary
-            [varargin] = obj.inputHandler(varargin);
-            % ALLOCATE DEFAULT OBJECT-SPECIFIC CONSTANTS 
-            obj.VIRTUAL.hitBoxType = OMAS_hitBoxType.OBB;
             
-            % CONSTRUCT THE GEOMETRY FROM DEFINITION INSTEAD
-            [obj.GEOMETRY] = OMAS_graphics.defineCuboidFromRadius(zeros(3,1),obj.VIRTUAL.radius);
-            [obj.GEOMETRY] = OMAS_graphics.scale(obj.GEOMETRY,[obj.Xscale;obj.Yscale;obj.Zscale]);
-            
-            % CALCULATE EQUIVALENT RADII FOR CONTINUITY
-            obj.VIRTUAL.radius = sqrt(obj.Xscale^2 + obj.Yscale^2 + obj.Zscale^2); % Redefine the maximal radii      
-            
-            % CHECK FOR USER OVERRIDES
-            obj.VIRTUAL = obj.configurationParser(obj.VIRTUAL,varargin); 
-            obj = obj.configurationParser(obj,varargin);         
-        end 
+            % Assign defaults
+            obj = obj.SetVIRTUALparameter('hitBoxType',OMAS_hitBoxType.OBB);
+            obj.GEOMETRY = OMAS_graphics.defineCuboidFromRadius(zeros(3,1),obj.VIRTUAL.radius);
+            obj.GEOMETRY = OMAS_graphics.scale(obj.GEOMETRY,[obj.Xscale;obj.Yscale;obj.Zscale]);
+            obj = obj.SetVIRTUALparameter('radius',sqrt(obj.Xscale^2 + obj.Yscale^2 + obj.Zscale^2)); % Redefine the maximal radii      
+
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
+        end    
 
         % COMPUTE CLOSEST FACE TO POINT
         function [d,faceID] = faceClosestToPoint(obj,patchObj,p) 

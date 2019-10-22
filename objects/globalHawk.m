@@ -6,16 +6,16 @@ classdef globalHawk < fixedWing
     properties
         % Any specific properties of globalhawk
     end
-    %  CLASS METHODS
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
-        % CONSTRUCTOR METHOD
+        % Constructor
         function obj = globalHawk(varargin)
-            % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@fixedWing(varargin);                                       % Create the super class 'agent'
-            % INPUT HANDLING (Clean up nested loops)
-            [varargin] = obj.inputHandler(varargin);
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % Call the super class
+            obj@fixedWing(varargin);   
+            
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
     end
 end

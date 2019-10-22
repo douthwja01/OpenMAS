@@ -15,29 +15,29 @@ classdef ISS < agent
     end
 
     methods 
-        % CONSTRUCTOR METHOD
+        % Constructor
         function obj = ISS(varargin)
             % This function is called to create the 'agent_example' class,
             % which then takes on the new parameters specified.
             
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
-            % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);                                           % Create the super class 'agent' 
-            % GET THE DYNAMICS PROPERTIES
-            [obj.DYNAMICS] = obj.GetDynamicsProperties();
+            % Call the super class
+            obj@agent(varargin);                                           
             
-            % VIRTUAL DEFINITION
-            [obj] = obj.SetRadius(sqrt((obj.length/2)^2 + (obj.width/2)^2 + (obj.height/2)^2));
-            % CHECK FOR USER OVERRIDES
-            [obj] = obj.configurationParser(obj,varargin);
+            % Assign defaults
+            obj.DYNAMICS = obj.CreateDYNAMICS();
+            obj.GEOMETRY = OMAS_graphics.scale(obj.GEOMETRY,[obj.length/2,obj.width/2,obj.height/2]); % To match real world dimensions
+            obj = obj.SetRadius(sqrt((obj.length/2)^2 + (obj.width/2)^2 + (obj.height/2)^2));
             
-            % SCALING
-            [obj.GEOMETRY] = OMAS_graphics.scale(obj.GEOMETRY,[obj.length/2,obj.width/2,obj.height/2]); % To match real world dimensions
+            % //////////////// Check for user overrides ///////////////////
+            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
+        end 
+        % Setup
+        function [obj] = setup(obj,v,eta)
+            obj.localState = zeros(6,1);
+            obj.localState(4:6,1) = eta;
         end
-        % AGENT MAIN CYCLE 
+        % Main 
         function [obj] = main(obj,ENV,varargin)
             % This function is designed to contain everything your agent does
             % in a given simulation timestep. As an 'agent', a list of
@@ -87,7 +87,7 @@ classdef ISS < agent
             eulerState = obj.localState + dt*dXdt;
             
             % UPDATE THE 'agent_example' PROPERTIES WITH ITS NEW STATE
-            [obj] = obj.updateGlobalProperties_ENU(dt,eulerState);
+            [obj] = obj.updateGlobalProperties(dt,eulerState);
         end
     end
     
