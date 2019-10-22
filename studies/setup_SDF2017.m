@@ -1,4 +1,4 @@
-%% SENSOR DATA FUSION 2017 (SDF2017_examples.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SENSOR DATA FUSION 2017 (setup_SDF2017.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This script generates the experimental data used in the SDF2017 paper.
 % This configuration is not intended to be changed, only to run these
 % specific tests to reproduce example figures
