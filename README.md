@@ -5,10 +5,11 @@
 An open-source modelling environment for simulating multi-agent systems with 
 complex agent decision mechanics and dynamic behaviour.
 
-Author:	James A. Douthwaite Ph.D MEng 
-  		University Of Sheffield
-  		Department of Automatic Control & Systems Engineering
-  		United Kingdom
+Author:	
+James A. Douthwaite Ph.D MEng,
+University Of Sheffield,
+Department of Automatic Control & Systems Engineering,
+United Kingdom
 
 For queries regarding the project, please email me at: douthwaiteja@gmail.com
 
