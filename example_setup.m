@@ -167,6 +167,6 @@ load(strcat(META.outputPath,'OBJECTS.mat'));
 % objectDATA = DATA.objectIndex{1,1}.DATA;
 % figure()
 % grid on; 
-% plot(META.TIME.timeVector,objectDATA.query)
+% plot(META.TIME.timeVector,objectDATA.inputs)
 % xlabel('time (s)');
 % legend('Location','southeast');
