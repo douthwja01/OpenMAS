@@ -12,26 +12,24 @@ classdef agent_formation_VO < agent_VO & agent_formation
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
         % Constructor
-        function obj = agent_formation_VO(varargin)
-
+        function [this] = agent_formation_VO(varargin)
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj = obj@agent_VO(varargin);
-            
+            this = this@agent_VO(varargin);
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % ///////////////////////////////////////////////////////////// 
         end
         % Setup X = [x;x_dot]' 
-        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+        function [this] = setup(this,localXYZVelocity,localXYZrotations)
             % The state initialiser must be called 'initialise_localState'
             % and instead calls the 'initialise_3DVelocities' function in
             % this case. 
             
             % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
-            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+            [this] = this.setup_3DVelocities(localXYZVelocity,localXYZrotations);
         end
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % obj      - The agent object
             % TIME     - The current time structure
@@ -42,21 +40,19 @@ classdef agent_formation_VO < agent_VO & agent_formation
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100 + obj.objectID);
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                overHandle = figure(100 + this.objectID);
                 hold on; grid on;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
             end 
             
             % DEFAULT BEHAVIOUR 
-            dt = ENV.dt;
-            desiredSpeed = obj.nominalSpeed;
             desiredHeadingVector = [1;0;0];
-            desiredVelocity = desiredHeadingVector*desiredSpeed;
+            desiredVelocity = desiredHeadingVector*this.v_nominal;
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
+            [this,obstacleSet,agentSet] = this.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
 
             % ////////////////// FORMATION CONTROLLER /////////////////////
             % We wish to conduct formation control with the other agents
@@ -64,9 +60,7 @@ classdef agent_formation_VO < agent_VO & agent_formation
             L = 0;
             if ~isempty(agentSet) 
                 % PASS AGENT SET TO FORMATION CONTROLLER
-                [vi,L] = obj.formationControl_distance(agentSet);        % Get the force vector
-                % DEFINE VELOCITY REQUEST
-                desiredVelocity = vi;
+                [desiredVelocity,L] = this.formationControl_distance(agentSet);      % Get the force vector
             end
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
@@ -76,27 +70,19 @@ classdef agent_formation_VO < agent_VO & agent_formation
             if ~isempty(avoidanceSet) && avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(desiredVelocity,avoidanceSet,visualiseProblem);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm 
-            % APPLY SPEED CONSTRAINT
-            if norm(desiredVelocity) > obj.maxSpeed
-                desiredSpeed = obj.maxSpeed;
-                desiredVelocity = (desiredVelocity/norm(desiredVelocity))*desiredSpeed;
-            end   
                         
             % /////// COMPUTE STATE CHANGE FROM CONTROL INPUTS ////////////
-            [obj] = obj.controller(dt,desiredVelocity);
-              
-            % ////// GLOBAL UPDATE FOR STATE WITH RETAINED VELOCITES //////
-            [obj] = obj.updateGlobalProperties_3DVelocities(dt,obj.localState);
-            
+            [this] = this.Controller(ENV.dt,desiredVelocity);
+                        
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs
-            obj.DATA.lypanov(ENV.currentStep) = L;                               % Record the lypanov value
+            this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
+            this.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = [this.localState(7);this.localState(4:6)];         % Record the control inputs
+            this.DATA.lypanov(ENV.currentStep) = L;                               % Record the lypanov value
         end
     end
 end

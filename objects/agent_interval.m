@@ -25,7 +25,7 @@ classdef agent_interval < agent
             this.DYNAMICS = this.CreateDYNAMICS();
             
             % //////////////// Check for user overrides ///////////////////
-            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Main (default for interval options)
@@ -80,7 +80,7 @@ classdef agent_interval < agent
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
             [headingVector] = this.GetTargetHeading();
-            desiredVelocity = mid(headingVector*this.nominalSpeed);
+            desiredVelocity = mid(headingVector*this.v_nominal);
             
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %                                                             %
@@ -91,7 +91,7 @@ classdef agent_interval < agent
             % [figureHandle] = this.GetObjectScene(gcf);
             
             % PASS THE DESIRED VELOCITY TO THE DEFAULT CONTROLLER
-            [this] = this.controller(ENV.dt,desiredVelocity);
+            [this] = this.Controller(ENV.dt,desiredVelocity);
         end
     end
    
@@ -189,24 +189,7 @@ classdef agent_interval < agent
             % Up to this point, the measurement intervals are stored in
             % 'observedObject'. From here the position and velocity
             % intervals for the object must be estimated.
-            
-            
-            % If there is no prior measurement, return before linear estimation
-            if ~this.IsInMemory(observedObject.objectID)
-                % Retain the current position only
-%                 observedObject.x_k = [mid(positionBox);zeros(6,1)];
-                return;
-            else
-                % Get the last object state
-%                 x_k = this.GetLastMeasurementByID(observedObject.objectID,'x_k');
-            end
-            
-            % Estimate the state of the obstacle
-%             observedObject.x_k = this.linearStateEstimation(dt,x_k,positionBox);
-            
-            % Re-populate implied fields
-            % observedObject.position = observedObject.x_k(1:3,1);
-            % observedObject.velocity = observedObject.x_k(4:6,1);            
+                    
             % Define the position and velocity
             observedObject.position = positionBox;
             observedObject.velocity = observedObject.velocity + midrad(0,3*this.SENSORS.sigma_velocity);
@@ -221,7 +204,7 @@ classdef agent_interval < agent
             % - sigma_velocity     - The velocity measurement standard deviation
             % - confidenceInterval - The number of standard deviations (typically 3)
             % localState           - The current state of the object
-            % .VIRTUAL.radius      - The radius of the object
+            % radius               - The radius of the object
             
             % Input sanity check
             assert(isstruct(this.SENSORS) && ~isempty(this.SENSORS),'The SENSOR structure is absent.');
@@ -245,49 +228,11 @@ classdef agent_interval < agent
             v_i = this.localState(velocityIndices,1) + midrad(v_uncertainty,this.SENSORS.confidenceAssumption*this.SENSORS.sigma_velocity);
             
             % Assume the knowledge of the radius is absolute
-            r_i = this.GetVIRTUALparameter('radius');
+            r_i = this.radius;
         end
     end
     
     %% /////////////////////// STATE ESTIMATIION //////////////////////////
-    methods
-        % GET LINEAR STATE ESTIMATION
-        function [x_k,x_k_plus] = linearStateEstimation(this,dt,x_0,p_meas)
-            % This function takes the previous known state of the obstacle
-            % and estimates its new state.
-            
-            % INPUTS:
-            % dt     - The time-steps
-            % x_k    - The current record
-            % p_meas - The new measured position
-            
-            % Constants
-            pIndices = 1:3; vIndices = 4:6; aIndices = 7:9;
-            
-            tempUncertainty = 1E-5;
-            
-            p_k =  p_meas;
-            v_k = (p_meas - x_0(pIndices,1))/dt;
-            a_k = (v_k - x_0(vIndices,1))/dt;
-            x_k = [p_k;v_k;a_k];
-            
-            % Retain the estimates of the states
-            x_k = mid(x_k);
-            
-            % The next state from the 'x_k'
-            dt_matrix = [1,0,0,dt,0,0,0.5*dt^2,0,0;
-                0,1,0,0,dt,0,0,0.5*dt^2,0;
-                0,0,1,0,0,dt,0,0,0.5*dt^2;
-                0,0,0,1,0,0,dt,0,0;
-                0,0,0,0,1,0,0,dt,0;
-                0,0,0,0,0,1,0,0,dt;
-                0,0,0,0,0,0,1,0, 0;
-                0,0,0,0,0,0,0,1, 0;
-                0,0,0,0,0,0,0,0, 1];
-            % Linear prediction of the next time-step
-            x_k_plus = dt_matrix*x_k;
-        end
-    end
     methods (Static)
         % ESTIMATE POSITION
         function [p] = linKin_position(dt,p0,v0)
@@ -804,8 +749,8 @@ classdef agent_interval < agent
             logicalIDIndex = [this.MEMORY(:).objectID] == objectID;
             priority_j = 1/mid(this.MEMORY(logicalIDIndex).range(this.MEMORY(logicalIDIndex).sampleNum));
         end
-        % GET EMPTY MEMORY STRUCTURE (3D trajectories)
-        function [memStruct]  = GetMemoryStructure(this,horizonSteps)
+        % GET EMPTY MEMORY STRUCTURE (3D trajectories) [AGENT OVERRIDE]
+        function [memStruct]  = CreateMEMORY(this,horizonSteps)
             % This function contains a basic agent-memory structure. This
             % is used to retain information on observed objects and maintain
             % a regular structure.

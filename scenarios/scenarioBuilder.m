@@ -623,7 +623,7 @@ classdef scenarioBuilder
                 uniformObjectStates(velocityTuple,index) = stateGains(2)*uniformObjectStates(velocityTuple,index);
                 
                 % NODAL POSITIONS
-                obj.positions(:,index) = uniformObjectStates(positionTuple,index);
+                obj.positions(:,index)  = uniformObjectStates(positionTuple,index);
                 % NODAL VELOCITIES
                 obj.velocities(:,index) = uniformObjectStates(velocityTuple,index);
                                 
@@ -673,34 +673,32 @@ classdef scenarioBuilder
             agents = 0; obstacles = 0; waypoints = 0;
             for index = 1:numel(objectIndex)
                 % GET THE OBSTACLES GLOBAL PARAMETERS
-                objectName       = objectIndex{index}.name;
-                objectRadius     = objectIndex{index}.VIRTUAL.radius;
-                objectType       = objectIndex{index}.VIRTUAL.type;
-                globalPosition   = objectIndex{index}.VIRTUAL.globalPosition;
-                globalVelocity   = objectIndex{index}.VIRTUAL.globalVelocity;
-                globalQuaternion = objectIndex{index}.VIRTUAL.quaternion;
+                GLB = objectIndex{index}.GetGLOBAL();
+                objectName  = objectIndex{index}.name;
+                objectID    = objectIndex{index}.objectID;
+
                 % GET THE ROTATION MATRIX GOING FROM BODY-GLOBAL
-                [R_q] = OMAS_geometry.quaternionToRotationMatrix(globalQuaternion);
+                [R_q] = OMAS_geometry.quaternionToRotationMatrix(GLB.quaternion);
                 % PLOT THE OBJECT ORIENTATION TRIAD
-                OMAS_graphics.drawTriad(figureHandle,globalPosition,R_q');
+                OMAS_graphics.drawTriad(figureHandle,GLB.position,R_q');
                 % PLOT THE POSITIONS
-                scatter3(globalPosition(1),globalPosition(2),globalPosition(3),'r');               
+                scatter3(GLB.position(1),GLB.position(2),GLB.position(3),'r');               
                 % PLOT THE VELOCITY VECTORS
-                quiv = quiver3(globalPosition(1),globalPosition(2),globalPosition(3),...
-                               globalVelocity(1),globalVelocity(2),globalVelocity(3),'c');
+                quiv = quiver3(GLB.position(1),GLB.position(2),GLB.position(3),...
+                               GLB.velocity(1),GLB.velocity(2),GLB.velocity(3),'c');
                 quiv.AutoScaleFactor = 1;
                 % DETERMINE REPRESENTATION IF THE OBJECT HAS GEOMETRY
                 if size(objectIndex{index}.GEOMETRY.vertices,1) < 1
                     % REPRESENT AS SPHERE WITH DEFINED RADIUS
-                    [geometry] = OMAS_graphics.defineSphere(globalPosition,objectRadius);
+                    [geometry] = OMAS_graphics.defineSphere(GLB.position,GLB.radius);
                     vertexData = geometry.vertices;
                     faceData = geometry.faces;
                     entityFaceAlpha = 0.3;
                     entityLineWidth = 0.05;
                     entityEdgeAlpha = 0.1;                                 % Show representative shapes with higher alpha              
                 else
-                    vertexData = objectIndex{index}.GEOMETRY.vertices*R_q + globalPosition';
-                    faceData = objectIndex{index}.GEOMETRY.faces;
+                    vertexData = objectIndex{index}.GEOMETRY.vertices*R_q + GLB.position';
+                    faceData   = objectIndex{index}.GEOMETRY.faces;
                     entityFaceAlpha = 0.8;
                     entityLineWidth = 1;
                     entityEdgeAlpha = 0.8; %0.2; 
@@ -715,7 +713,7 @@ classdef scenarioBuilder
                                     'FaceLighting','gouraud',...
                                     'LineWidth',entityLineWidth);
                 % PLOT REPRESENTATION
-                switch objectType
+                switch GLB.type
                     case OMAS_objectType.agent
                         set(entityHandle,'FaceColor','b');
                         agents = agents + 1;
@@ -729,8 +727,8 @@ classdef scenarioBuilder
                         set(entityHandle,'FaceColor','m');
                 end
                 % ADD ANNOTATION
-                annotationText = sprintf('    %s [ID:%s]',objectName,num2str(objectIndex{index}.objectID));
-                text(globalPosition(1),globalPosition(2),globalPosition(3),char(annotationText));
+                annotationText = sprintf('    %s [ID:%s]',objectName,num2str(objectID));
+                text(GLB.position(1),GLB.position(2),GLB.position(3),char(annotationText));
             end
             % ADD TITLE
             titleStr = sprintf('Test scenario: %.0f agents, %.0f obstacles and %.0f waypoints.',agents,obstacles,waypoints);
@@ -743,16 +741,6 @@ classdef scenarioBuilder
             % inputs and allow them to be compared to a default input
             % structure. This should be called from a get_scenario file.
             
-%             % Unwrap nested cell inputs
-%             if numel(scenarioParameters) == 1 && iscell(scenarioParameters)
-%                 while numel(scenarioParameters) == 1 && iscell(scenarioParameters)
-%                     scenarioParameters = scenarioParameters{1};
-%                 end
-%             end
-%                         
-%             % Input sanity check
-%             assert(mod(numel(scenarioParameters),2) == 0,' Please provide list of parameter:value pairs');
-%             
             % Call the generic parameter overrider
             [config] = GetParameterOverrides_recursive(defaultConfig,scenarioParameters);
         end

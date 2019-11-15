@@ -44,8 +44,6 @@ classdef agent_2D_RVO2 < agent_2D_RVO
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
             [obj] = obj.ApplyUserOverrides(varargin); 
-            % Re-affirm associated properties   
-            [obj] = obj.SetRadius(obj.radius);                             % Reaffirm radius against .VIRTUAL
             % /////////////////////////////////////////////////////////////
         end
     end
@@ -120,7 +118,7 @@ classdef agent_2D_RVO2 < agent_2D_RVO
                 % PROCESS THE OBSTACLE'S VERTICES
                 obstacleRef.position = p_j + p_i;
                 obstacleRef.velocity = v_j + v_i;
-%                 obstacleRef.geometry.vertices = obstacleRef.geometry.vertices + [agentPosition;0]';
+%               obstacleRef.geometry.vertices = obstacleRef.geometry.vertices + [agentPosition;0]';
                 g_j = obj.GetLastMeasurementByID(obstacleIDs(item),'geometry');
                 
                 % [TO-DO] PASS THE OBSTACLE GEOMETRY 
@@ -197,13 +195,13 @@ classdef agent_2D_RVO2 < agent_2D_RVO
 %             end
             
             % CALL THE SECOND LINEAR PROGRAM
-            [obj,lineObjFail,optimalVelocity] = obj.linearProgram2(obj.orcaLines,obj.maxSpeed,prefVelocity,logical(false));
+            [obj,lineObjFail,optimalVelocity] = obj.linearProgram2(obj.orcaLines,obj.v_max,prefVelocity,logical(false));
             
             % IF SOME ORCA-LINES FAIL
             % This function will generate direction based ORCA lines where
             % the previous lines failed.
             if lineObjFail < numel(obj.orcaLines)
-                [obj,optimalVelocity] = obj.linearProgram3(obj.orcaLines,numObstLines,lineObjFail,obj.maxSpeed,optimalVelocity);
+                [obj,optimalVelocity] = obj.linearProgram3(obj.orcaLines,numObstLines,lineObjFail,obj.v_max,optimalVelocity);
             end
             % REASSIGN OUTPUT VELOCITY
 %             avoidanceVelocity = optimalVelocity;

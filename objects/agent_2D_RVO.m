@@ -22,8 +22,6 @@ classdef agent_2D_RVO < agent_2D_VO & agent_RVO
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
             [obj] = obj.ApplyUserOverrides(varargin); 
-            % Re-affirm associated properties   
-            [obj] = obj.SetRadius(obj.radius);                             % Reaffirm radius against .VIRTUAL
             % /////////////////////////////////////////////////////////////
         end
         

@@ -22,7 +22,7 @@ classdef ARdrone < agent
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
         % Constructor
-        function [obj] = ARdrone(varargin)
+        function [this] = ARdrone(varargin)
             % This function is to construct the ARdrone object using the
             % object defintions held in the 'agent' class.
             % INPUTS:
@@ -32,41 +32,37 @@ classdef ARdrone < agent
 
             
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj = obj@agent(varargin);
+            this = this@agent(varargin);
             
             % Assign ARdrone parameters
-            obj.GEOMETRY = obj.CreateGEOMETRY();
-            obj.DYNAMICS = obj.CreateDYNAMICS();        % Get the dynamic parameters
-            obj.SENSORS  = obj.CreateSENSORS();         % Get the sensor parameters
-            obj = obj.SetRadius(obj.GEOMETRY.length/2); % Reaffirm radius against .VIRTUAL
+            this.GEOMETRY = this.CreateGEOMETRY();
+            this.DYNAMICS = this.CreateDYNAMICS();    % Get the dynamic parameters
+            this.SENSORS  = this.CreateSENSORS();     % Get the sensor parameters
+            this.radius   = this.GEOMETRY.length/2;   % Reaffirm radius against .VIRTUAL
             
             % //////////////// Check for user overrides ///////////////////            
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin);               % Recursive overrides
-            % Re-affirm associated properties
-            [obj.MEMORY] = obj.GetMemoryStructure(obj.maxSamples);  % Initialise memory structure (with 2D varient)             
-            [obj] = obj.SetRadius(obj.radius);                      % Reaffirm radius against .VIRTUAL
+            [this] = this.ApplyUserOverrides(varargin); 
+            % Recursive overrides % Initialise memory structure (with 2D varient)             
             % /////////////////////////////////////////////////////////////
         end
-
         % Setup - LOCAL STATE [x;x_dot]'
-        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+        function [this] = setup(this,localXYZVelocity,localXYZrotations)
             % This function generates the initial state vector for the
             % ARdrone model from the global parameters provided from the
             % scenario.
 
             % DEFINE THE INITIAL STATE
-            obj.localState = zeros(12,1);
+            this.localState = zeros(12,1);
             
             % MAPPING FROM XYZ CONVENTION TO THE NED CONVENTION
-            obj.localState(4:6) = enu2ned(localXYZrotations);
-            obj.localState(7:9) = enu2ned(localXYZVelocity);
+            this.localState(4:6) = enu2ned(localXYZrotations);
+            this.localState(7:9) = enu2ned(localXYZVelocity);
             
             % Capture the prior state
-            obj = obj.SetVIRTUALparameter('priorState',obj.localState); % Record the previous state
+            this = this.SetGLOBAL('priorState',this.localState); % Record the previous state
         end
-        
         % THIS CLASS HAS NO 'main' CYCLE
         % The ARdrone class is designed to simply provide the dynamics of a
         % ARdrone quadrotor MAV.
@@ -104,15 +100,15 @@ classdef ARdrone < agent
     %% ////////////////////// PROPERTY ASSIGNMENTS ////////////////////////
     methods 
         % Get the (ARdrone) DYNAMICS structure
-        function [DYNAMICS] = CreateDYNAMICS(obj)
+        function [DYNAMICS] = CreateDYNAMICS(this)
             % This function imports the complete set of dynamic properties
             % for the ARdrone 2.0 quadrotor UAV.
             
             % Get the default structure
-            [DYNAMICS] = obj.CreateDYNAMICS_default();
+            [DYNAMICS] = this.CreateDYNAMICS_default();
             
             % ALTER THE DYNAMICS BASED ON THE CONFIGURATION
-            switch upper(obj.config)
+            switch upper(this.config)
                 case 'NONE'
                     DYNAMICS.m = 0.366;
                 case 'OUTDOOR'
@@ -194,13 +190,13 @@ classdef ARdrone < agent
             DYNAMICS.omega_min = 0;
         end
         % Get the (ARdrone) GEOMETRY structure
-        function [GEOMETRY] = CreateGEOMETRY(obj)
+        function [GEOMETRY] = CreateGEOMETRY(this)
             
             % Parse the geometry associated with the object
-            [GEOMETRY] = obj.GetObjectGeometry(obj);
+            [GEOMETRY] = this.GetObjectGeometry(this);
             
             % ALTER THE DYNAMICS BASED ON THE CONFIGURATION
-            switch upper(obj.config)
+            switch upper(this.config)
                 case 'NONE'
                     GEOMETRY.width  = 0.450;
                     GEOMETRY.length = 0.290;
@@ -215,12 +211,12 @@ classdef ARdrone < agent
             end
         end
         % Get the (ARdrone) SENSOR structure
-        function [SENSORS]  = CreateSENSORS(obj)
+        function [SENSORS]  = CreateSENSORS(this)
             % This function gets the ARdrone 2.0's sensor-specific data and
             % imports them to OMAS's obj.SENSOR structure.
             
             % Get the default SENSOR structure
-            SENSORS = obj.SENSORS;
+            SENSORS = this.SENSORS;
             SENSORS.ultrasound_freq = 40E3;     % Ultrasonic range-finder frequency (Hz)
             SENSORS.ultrasound_range = 6;       % Ultrasonic range-fidner range (m)
             SENSORS.camera_freq = 30;           % Camera capture frequency (fps)      
@@ -229,32 +225,32 @@ classdef ARdrone < agent
     %% /////////////////////// MODELLING/DYNAMICS /////////////////////////
     methods
         % GET THE STATE UPDATE (USING ODE45)
-        function [X] = updateNonLinearPlant(obj,TIME,X0,U)
+        function [X] = UpdateNonLinearPlant(this,ENV,X0,U)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
             X = X0; % Default to no change
             
             % DETERMINE THE INTEGRATION PERIOD
-            if TIME.currentTime ~= TIME.timeVector(end)
+            if ENV.currentTime ~= ENV.timeVector(end)
                 % INTEGRATE THE DYNAMICS OVER THE TIME STEP 
-                [~,Xset] = ode45(@(t,X) obj.ARdrone_nonLinear_openLoop(X,U),...
-                    [0 TIME.dt],X0,odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
+                [~,Xset] = ode45(@(t,X) this.ARdrone_nonLinear_openLoop(X,U),...
+                    [0 ENV.dt],X0,odeset('RelTol',1e-2,'AbsTol',ENV.dt*1E-2));
                 X = Xset(end,:)';
             end
         end 
         % GET THE STATE UPDATE (USING ODE45)
-        function [X] = updateLinearPlant(obj,TIME,X0,U)
+        function [X] = UpdateLinearPlant(this,ENV,X0,U)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
             X = X0; % Default to no change
             
             % DETERMINE THE INTEGRATION PERIOD
-            if TIME.currentTime ~= TIME.timeVector(end)
+            if ENV.currentTime ~= ENV.timeVector(end)
                 % INTEGRATE THE DYNAMICS OVER THE TIME STEP 
-                [~,Xset] = ode45(@(t,X) obj.ARdrone_linear_openLoop(obj.SYS,X,U),...
-                    [0 TIME.dt],X0,odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
+                [~,Xset] = ode45(@(t,X) this.ARdrone_linear_openLoop(this.SYS,X,U),...
+                    [0 ENV.dt],X0,odeset('RelTol',1e-2,'AbsTol',ENV.dt*1E-2));
                 X = Xset(end,:)';
             end
         end
@@ -322,22 +318,27 @@ classdef ARdrone < agent
             t7 = t3.*t5.*1.703233590182648e-4;
             t8 = t3.*t6.*1.703233590182648e-4;
             dX = [x_dot;y_dot;z_dot;PHI_dot;THETA_dot;PSI_dot;THETA_t.*(-9.81e2./1.0e2);PHI_t.*(9.81e2./1.0e2);t2.*(-7.4695e-5)-t4.*7.4695e-5-t5.*7.4695e-5-t6.*7.4695e-5;t7+t8-t2.*t3.*1.703233590182648e-4-t3.*t4.*1.703233590182648e-4;-t7+t8+t2.*t3.*1.703233590182648e-4-t3.*t4.*1.703233590182648e-4;t2.*8.35028369553581e-4-t4.*8.35028369553581e-4+t5.*8.35028369553581e-4-t6.*8.35028369553581e-4];
-
         end 
     end
     % ///////////////////////// OMAS INTERFACES ///////////////////////////
     methods 
         % UNIQUE GLOBAL UPDATE FOR [x;x_dot]'
-        function [obj] = updateGlobalProperties_ARdrone(obj,dt,eulerState)
+        function [obj] = GlobalUpdate_ARdrone(obj,dt,eulerState)
             % This function preforms the state update for a state vector
             % defined as [x y z phi theta psi dx dy dz dphi dtheta dpsi].
             
-            positionIndices = 1:3;
-            angleIndices = 4:6;
-            
+%             positionIndices = 1:3;
+%             angleIndices = 4:6;
             % EQUIVALENT RATES
-            velocity_k_plus = eulerState(7:9,1);
-            localAxisRates  = eulerState(10:12,1);
+            v_k_plus = eulerState(7:9,1);
+            localAxisRates  = eulerState(10:12,1);  
+            
+            % Define prior properties
+            p_k = obj.GetGLOBAL('position');
+            v_k = obj.GetGLOBAL('velocity');
+            q_k = obj.GetGLOBAL('quaternion');   % XYZ QUATERNION
+
+            
 %             velocity_k_plus = (eulerState(positionIndices) - obj.VIRTUAL.priorState(positionIndices))/dt;
 %             localAxisRates  = (eulerState(angleIndices) - obj.VIRTUAL.priorState(angleIndices))/dt; 
             
@@ -352,9 +353,9 @@ classdef ARdrone < agent
             
             % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
             % PREVIOUS QUATERNION                                          % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.VIRTUAL.quaternion;   % XYZ QUATERNION
+            
             % PREVIOUS ROTATION-MATRIX
-            R_k = OMAS_geometry.quaternionToRotationMatrix(quaternion_k);     % XYZ ROTATION
+            R_k = OMAS_geometry.quaternionToRotationMatrix(q_k);     % XYZ ROTATION
 %             mapAngle = pi;
 %             XYZ2NED = [ 1             0              0;
 %                         0 cos(mapAngle) -sin(mapAngle);
@@ -368,18 +369,18 @@ classdef ARdrone < agent
             omega = R_k'*(NED2XYZ*localAxisRates);
             
             % UPDATE THE QUATERNION POSE
-            quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt);
+            q_k_plus = OMAS_geometry.integrateQuaternion(q_k,omega,dt);
             % REDEFINE THE ROTATION MATRIX
-            R_k_plus = OMAS_geometry.quaternionToRotationMatrix(quaternion_k_plus);
+            R_k_plus = OMAS_geometry.quaternionToRotationMatrix(q_k_plus);
             
             % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
-            globalVelocity_k_plus = R_k_plus'*(NED2XYZ*velocity_k_plus);
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
+            v_k_plus = R_k_plus'*(NED2XYZ*v_k_plus);
+            p_k_plus = p_k + dt*v_k;
             % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
-                                                      globalVelocity_k_plus,... % Global velocity at k plus
-                                                      quaternion_k_plus,...     % Quaternion at k plus
-                                                      eulerState);              % The new state for reference
+            [obj] = obj.GlobalUpdate_direct(...
+                p_k_plus,...    % Global position at k plius
+                v_k_plus,...    % Global velocity at k plus
+                q_k_plus);      % Quaternion at k plus
         end
     end
 end

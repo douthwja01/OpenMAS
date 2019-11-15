@@ -15,7 +15,7 @@ addpath('toolboxes');
 fprintf('[SETUP]\tInitialising example script.\n');
 
 %% INITIALISE ANY TOOLBOXES
-IntLab();   % Load Intlab
+%IntLab();   % Load Intlab
 % OMAS_objectDiagnostics()
 
 %% SIMULATION PARAMETERS
@@ -23,15 +23,15 @@ IntLab();   % Load Intlab
 sim_outputPath = strcat(userdir,'\desktop\OpenMAS_data');
 sim_vebosity   = 1;
 sim_warningDistance = 2;
-sim_maxDuration = 18; 
+sim_maxDuration = 8; 
 sim_timeStep    = 0.25;                        % Nominal (0.25s)
 sim_idleTimeOut = 20*sim_timeStep; 
 
 % sim_publishFigures = true;
 sim_publishFigures = false;
 % sim_figureSet = {'all'};
-sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
-% sim_figureSet = {'plan','inputs','isometric','gif'}; 
+% sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
+sim_figureSet = {'plan','inputs','isometric','gif'}; 
 
 %% SCENARIO PARAMETERS 
 sim_agentNumber     = 3;                   
@@ -53,23 +53,25 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = objectDefinition('radius',sim_agentRadius);     
 %     agentIndex{index} = agent('radius',sim_agentRadius);
 %     agentIndex{index} = agent_test('radius',sim_agentRadius);
-%     agentIndex{index} = agent_2D('radius',sim_agentRadius);  
+%     agentIndex{index} = agent_2D();  
 %     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_example('radius',sim_agentRadius);
 
 % DYNAMICS
+    agentIndex{index} = quadcopter_legacy();
+%     agentIndex{index} = quadcopter();
 %     agentIndex{index} = ARdrone();
 %     agentIndex{index} = ARdrone_LQR();
 %     agentIndex{index} = ARdrone_MPC();
-%     agentIndex{index} = quadcopter_shiyu();
-%     agentIndex{index} = quadcopter();
-    agentIndex{index} = quadcopter_formation('adjacencyMatrix',sim_adjacencyMatrix);
+%     agentIndex{index} = quadcopter_formation('adjacencyMatrix',sim_adjacencyMatrix);
+    
 
 %     agentIndex{index} = fixedWing();
 %     agentIndex{index} = globalHawk();
 %     agentIndex{index} = boeing737();
 %     agentIndex{index} = A10();
 
+%     agentIndex{index} = planetoid();
 %     agentIndex{index} = earth();
 %     agentIndex{index} = moon();
 %     agentIndex{index} = ISS();
@@ -91,8 +93,8 @@ for index = 1:sim_agentNumber
 
 % INTERVAL AVOIDANCE
 %     agentIndex{index} = agent_interval();
-%     agentIndex{index} = agent_vectorSharing_interval('radius',sim_agentRadius);
-%     agentIndex{index} = agent_2D_vectorSharing_interval('radius',sim_agentRadius);
+%     agentIndex{index} = agent_IA('radius',sim_agentRadius);
+%     agentIndex{index} = agent_2D_IA('radius',sim_agentRadius);
 
 % VELOCITY OBSTACLE METHODS
 %     agentIndex{index} = agent_VO('radius',sim_agentRadius);

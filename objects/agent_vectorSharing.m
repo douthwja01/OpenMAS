@@ -14,35 +14,31 @@ classdef agent_vectorSharing < agent
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
         % Constructor
-        function obj = agent_vectorSharing(varargin)
+        function [this] = agent_vectorSharing(varargin)
             % Call the super class
-            obj@agent(varargin);                                    % Get super class 'agent'
+            this@agent(varargin);                                    % Get super class 'agent'
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
-            [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
+            [this.SENSORS] = this.GetDefaultSensorParameters();       % Default sensing
             %[obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
             
             % Assign defaults
-            obj.DYNAMICS = obj.CreateDYNAMICS();                    % Dynamic
-            obj = obj.SetBufferSize(1);                             % Only one needed
-            obj = obj.SetDetectionRadius(obj.SENSORS.range);
+            this.DYNAMICS = this.CreateDYNAMICS();                    % Dynamic
+            this = this.SetBufferSize(1);                             % Only one needed
+            this.detectionRadius = this.SENSORS.range;
             
             % //////////////// Check for user overrides ///////////////////            
-            % - It is assumed that overrides to the properties are provided
-            %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin);               % Recursive overrides
-            % Re-affirm associated properties   
-            [obj] = obj.SetRadius(obj.radius);                      % Reaffirm radius against .VIRTUAL
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Setup - X = [x;x_dot]' 3D STATE VECTOR
-        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+        function [this] = setup(this,localXYZVelocity,localXYZrotations)
             % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
-            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+            [this] = this.setup_3DVelocities(localXYZVelocity,localXYZrotations);
         end        
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
@@ -55,8 +51,8 @@ classdef agent_vectorSharing < agent
             % PLOT AGENT FIGURE
             visualiseFlag = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseFlag == 1
-                overHandle = figure(100+obj.objectID);
+            if this.objectID == visualiseAgent && visualiseFlag == 1
+                overHandle = figure(100+this.objectID);
                 hold on; grid on;
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
@@ -64,12 +60,12 @@ classdef agent_vectorSharing < agent
                         
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj] = obj.GetAgentUpdate(ENV,varargin{1});                
+            [this] = this.GetAgentUpdate(ENV,varargin{1});                
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            headingVector   = obj.GetTargetHeading();
-            desiredVelocity = headingVector*obj.nominalSpeed;
+            headingVector   = this.GetTargetHeading();
+            desiredVelocity = headingVector*this.v_nominal;
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
@@ -77,24 +73,24 @@ classdef agent_vectorSharing < agent
             if avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,visualiseFlag);
+                [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(desiredVelocity,visualiseFlag);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
                        
             % /////// COMPUTE STATE CHANGE FROM CONTROL INPUTS ////////////
-            [obj] = obj.controller(ENV.dt,desiredVelocity);
+            [this] = this.Controller(ENV.dt,desiredVelocity);
                         
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'$\phi$ (rad)','$\theta$ (rad)','$\psi$ (rad)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);  
+            this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
+            this.DATA.inputNames = {'$\phi$ (rad)','$\theta$ (rad)','$\psi$ (rad)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(4:6);  
         end
     end
     % AGENT SPECIFIC METHODS
     methods
         % GET THE AVOIDANCE CORRECTION
-        function [headingVector,speed] = GetAvoidanceCorrection(obj,desiredVelocity,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(this,desiredVelocity,visualiseProblem)
             % This function calculates the collision avoidance velocity in
             % light of the current obstacles
             
@@ -106,34 +102,34 @@ classdef agent_vectorSharing < agent
             end
             
             % AGENT KNOWLEDGE
-            [p_i,v_i,r_i] = obj.GetAgentMeasurements(); % Its own position, velocity and radius
+            [p_i,v_i,r_i] = this.GetAgentMeasurements(); % Its own position, velocity and radius
             
             % Define the obstacle list
-            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
+            obstacleIDs = [this.MEMORY([this.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
             
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             optimalSet = [];
             for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
+                p_j = this.GetLastMeasurementByID(obstacleIDs(item),'position');
                 
                 % Neighbour condition
-                neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
-                neighbourConditionB = norm(p_j) < obj.neighbourDist;        
+                neighbourConditionA = item < this.maxNeighbours;            % Maximum number of neighbours
+                neighbourConditionB = norm(p_j) < this.neighbourDist;        
                 if ~neighbourConditionA || ~neighbourConditionB
                     continue
                 end
                 
                 % Get further obstacle information
-                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius');
+                v_j = this.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = this.GetLastMeasurementByID(obstacleIDs(item),'radius');
                 
                 % OBSTACLE KNOWLEDGE
                 p_j = p_j + p_i;
                 v_j = v_j + v_i; % Convert relative parameters to absolute
 
                 % COMPUTE THE VECTOR SHARING PROBLEM
-                [Voptimal] = obj.define3DVectorSharingVelocity(desiredVelocity,p_i,v_i,r_i,p_j,v_j,r_j,visualiseProblem);
+                [Voptimal] = this.Define3DVectorSharingVelocity(desiredVelocity,p_i,v_i,r_i,p_j,v_j,r_j,visualiseProblem);
                 
                 % Add the potential velocity and the control effort
                 optimalSet = horzcat(optimalSet,[Voptimal;abs(norm(desiredVelocity - Voptimal))]);
@@ -160,7 +156,7 @@ classdef agent_vectorSharing < agent
             end
         end
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
-        function [U_a] = define3DVectorSharingVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
+        function [U_a] = Define3DVectorSharingVelocity(this,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
             % This function calculates the avoidance vectors based on the
             % principle of vector sharing.
             % INPUTS:
@@ -226,7 +222,7 @@ classdef agent_vectorSharing < agent
             % unitAcceleration = -r_m/norm(r_m);
 
             % PLOT THE SCENARIO IF REQUESTED
-            if visualiseProblem == 1 && obj.objectID == 1
+            if visualiseProblem == 1 && this.objectID == 1
                 % A & B's current trajectory at tau
                 VaDotTau = v_a*tau;
                 VbDotTau = v_b*tau;     % Velocity projections

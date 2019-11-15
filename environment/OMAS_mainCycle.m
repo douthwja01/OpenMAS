@@ -88,18 +88,19 @@ while step <= META.TIME.numSteps
     
     % 3. ////////////// UPDATE THE GLOBAL STATES (@t=k) ////////////////////
     for ID1 = 1:META.totalObjects                                          % For each META object element
-        % Extract the VIRTUAL structure
-        tempVIRTUAL = objectIndex{ID1}.GetVIRTUAL();
-        
         % Update META.OBJECT the structure
-%         META.OBJECTS(ID1) = OMAS_updateGlobalStates_mex(META,objectIndex{ID1}.objectID,...
-%                                                              tempVIRTUAL.globalVelocity,...
-%                                                              tempVIRTUAL.quaternion,...
-%                                                              tempVIRTUAL.idleStatus); 
-        META.OBJECTS(ID1) = OMAS_updateGlobalStates(META,objectIndex{ID1}.objectID,...
-                                                             tempVIRTUAL.globalVelocity,...
-                                                             tempVIRTUAL.quaternion,...
-                                                             tempVIRTUAL.idleStatus); 
+%         META.OBJECTS(ID1) = OMAS_updateGlobalStates_mex(...
+%             META,...
+%             objectIndex{ID1}.objectID,...
+%             objectIndex{ID1}.GetGLOBAL('velocity'),...
+%             objectIndex{ID1}.GetGLOBAL('quaternion'),...
+%             objectIndex{ID1}.GetGLOBAL('idleStatus'));   
+        META.OBJECTS(ID1) = OMAS_updateGlobalStates(...
+            META,...
+            objectIndex{ID1}.objectID,...
+            objectIndex{ID1}.GetGLOBAL('velocity'),...
+            objectIndex{ID1}.GetGLOBAL('quaternion'),...
+            objectIndex{ID1}.GetGLOBAL('idleStatus')); 
     end
     % /////////////////////////////////////////////////////////////////////
     
@@ -113,7 +114,7 @@ while step <= META.TIME.numSteps
 %     end
     
     % 5. //////// UPDATE SIMULATION/ENVIRONMENTAL META DATA (@t=k) ////////
-    [META,metaEVENTS] = updateSimulationMeta(META,objectIndex);            % Update META snapshot with equivilant objectIndex.state
+    [META,metaEVENTS] = UpdateSimulationMeta(META,objectIndex);            % Update META snapshot with equivilant objectIndex.state
     % LOG THE META EVENTS
     if ~isempty(metaEVENTS)                                                % If META events occurred this timestep
         EVENTS = vertcat(EVENTS,metaEVENTS);                               % Append to global EVENTS
@@ -125,7 +126,7 @@ while step <= META.TIME.numSteps
         objectSnapshot = objectIndex;                                      % Make a temporary record of the object set
         parfor (ID1 = 1:META.totalObjects)
             % MOVE THROUGH OBJECT INDEX AND UPDATE EACH AGENT
-            [objectIndex{ID1},objectEVENTS] = updateObjects(META,objectSnapshot,objectIndex{ID1});            
+            [objectIndex{ID1},objectEVENTS] = UpdateObjects(META,objectSnapshot,objectIndex{ID1});            
             % LOG THE OBJECT EVENTS
             if ~isempty(objectEVENTS)
                 EVENTS = vertcat(EVENTS,objectEVENTS);
@@ -134,7 +135,7 @@ while step <= META.TIME.numSteps
     else
         for ID1 = 1:META.totalObjects
             % MOVE THROUGH OBJECT INDEX AND UPDATE EACH AGENT
-            [objectIndex{ID1},objectEVENTS] = updateObjects(META,objectIndex,objectIndex{ID1}); % Update objectIndex snapshot with new META data
+            [objectIndex{ID1},objectEVENTS] = UpdateObjects(META,objectIndex,objectIndex{ID1}); % Update objectIndex snapshot with new META data
             % LOG THE OBJECT EVENTS
             if ~isempty(objectEVENTS)                                      % If objectEVENTS occur in this timestep
                 EVENTS = vertcat(EVENTS,objectEVENTS);                     % Append to global EVENTS
@@ -151,7 +152,7 @@ META.TIME.endStep = META.TIME.currentStep;
 META.TIME.endTime = META.TIME.currentTime; 
 end
 % UPDATE THE OBJECT META PROPERTIES
-function [SIM,metaEVENTS]	= updateSimulationMeta(SIM,objectIndex)
+function [SIM,metaEVENTS]	= UpdateSimulationMeta(SIM,objectIndex)
 % In this function we wish to update the global separations and event
 % conditions based on the new 'globalState' properties.
 
@@ -210,11 +211,12 @@ end
 % DEFAULT DETECTION CONDITION
 detectionLogicals = zeros(SIM.totalObjects);
 for entityA = 1:SIM.totalObjects
-    % CHECK OBJECTS HAVE THE CAPACITY TO OBSERVE OTHER OBJECTS
+    % Check objects have the capacity to observe other objects
     if SIM.OBJECTS(entityA).type ~= OMAS_objectType.agent
         continue
     end
-    % CHECK ALL AGENT OBSERVATIONS
+    
+    % Check all agent observations
     for entityB = 1:SIM.totalObjects                                       % Object B's position in the META.OBJECTS
         % SKIP SELF-REFERENCE    
         if SIM.OBJECTS(entityA).objectID == SIM.OBJECTS(entityB).objectID                                           
@@ -423,7 +425,7 @@ end
        
 end
 % UPDATE THE OBJECT PROPERTIES
-function [referenceObject,objectEVENTS] = updateObjects(SIM,objectIndex,referenceObject)
+function [referenceObject,objectEVENTS] = UpdateObjects(SIM,objectIndex,referenceObject)
 % This function updates a referenceObject class against the rest of the
 % objectIndex, independantly of the SIM.OBJECTS META data.
 % INPUTS:

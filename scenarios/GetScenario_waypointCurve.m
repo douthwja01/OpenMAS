@@ -25,9 +25,9 @@ agentNumber = numel(agentIndex);                    % Declare the number of agen
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning agent definition...\n'); 
 for i=1:agentNumber
-    agentIndex{i}.VIRTUAL.globalPosition = [0;0;0] + inputConfig.noiseFactor*randn(3,1);
-    agentIndex{i}.VIRTUAL.globalVelocity = [inputConfig.agentVelocity;0;0] + inputConfig.noiseFactor*randn(3,1);
-    agentIndex{i}.VIRTUAL.quaternion = [1;0;0;0];
+    agentIndex{i}.SetGLOBAL('position',[0;0;0] + inputConfig.noiseFactor*randn(3,1));
+    agentIndex{i}.SetGLOBAL('velocity',[inputConfig.agentVelocity;0;0] + inputConfig.noiseFactor*randn(3,1));
+    agentIndex{i}.SetGLOBAL('quaternion',[1;0;0;0]);
 end
 
 %% DEFINE THE WAYPOINT CONFIGURATION
@@ -48,9 +48,9 @@ for index = 1:inputConfig.waypoints
     nameString = sprintf('WP-%s',agentIndex{1}.name);
     waypointIndex{index} = waypoint('radius',inputConfig.waypointRadius,'name',nameString);
     % APPLY GLOBAL STATE VARIABLES
-    waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.positions(:,index);
-    waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocities(:,index);
-    waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternions(:,index);
+    waypointIndex{index}.SetGLOBAL('position',waypointConfig.positions(:,index));
+    waypointIndex{index}.SetGLOBAL('velocity',waypointConfig.velocities(:,index));
+    waypointIndex{index}.SetGLOBAL('quaternion',waypointConfig.quaternions(:,index));
     % Assign waypoint to agent with priority
     waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(agentIndex{1},1/index);  % Create waypoint with association to agent
 end
@@ -61,6 +61,5 @@ objectIndex = horzcat(agentIndex,waypointIndex);
 if inputConfig.plot
     SBinstance.plotObjectIndex(objectIndex);
 end
-% CLEAR THE REMAINING VARIABLES
-clearvars -except objectIndex
+clearvars -except objectIndex % Clean-up
 end

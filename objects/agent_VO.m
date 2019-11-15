@@ -17,37 +17,33 @@ classdef agent_VO < agent
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function [obj] = agent_VO(varargin)
+        function [this] = agent_VO(varargin)
 
             % Call the superclass
-            obj@agent(varargin);  
+            this@agent(varargin);  
                         
             % VELOCITY OBSTACLE PARAMETERS
-            obj.feasabliltyMatrix = obj.GetFeasabilityGrid(-ones(3,1)*obj.maxSpeed,...
-                                                            ones(3,1)*obj.maxSpeed,...
-                                                            obj.pointDensity); 
+            this.feasabliltyMatrix = this.GetFeasabilityGrid(...
+                -ones(3,1)*this.v_max,...
+                ones(3,1)*this.v_max,...
+                this.pointDensity); 
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
-            [obj.SENSORS] = obj.GetDefaultSensorParameters();              % Default sensing
+            [this.SENSORS] = this.GetDefaultSensorParameters();              % Default sensing
             %[obj.SENSORS] = obj.GetCustomSensorParameters();              % Experimental sensing
             % /////////////////////////////////////////////////////////////
                              
-            % //////////////// Check for user overrides ///////////////////            
-            % - It is assumed that overrides to the properties are provided
-            %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin); 
-            % Re-affirm associated properties   
-            [obj] = obj.SetRadius(obj.radius);                             % Reaffirm radius against .VIRTUAL
-            [obj] = obj.SetDetectionRadius(obj.neighbourDist);             % Define the sensor range by the neighbour distance
+            % //////////////// Check for user overrides ///////////////////
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Setup - X = [x;x_dot]' 3D STATE VECTOR
-        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+        function [this] = setup(this,localXYZVelocity,localXYZrotations)
             % BUILD THE STATE VECTOR FOR A 3D SYSTEM WITH CONCATINATED VELOCITIES
-            [obj] = obj.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+            [this] = this.setup_3DVelocities(localXYZVelocity,localXYZrotations);
         end
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
@@ -58,8 +54,8 @@ classdef agent_VO < agent
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100 + obj.objectID);
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                overHandle = figure(100 + this.objectID);
                 hold on; grid on;
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
@@ -67,12 +63,12 @@ classdef agent_VO < agent
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
+            [this,obstacleSet,agentSet] = this.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            [headingVector] = obj.GetTargetHeading();
-            desiredVelocity = headingVector*obj.nominalSpeed;
+            [headingVector] = this.GetTargetHeading();
+            desiredVelocity = headingVector*this.v_nominal;
 
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
@@ -81,18 +77,18 @@ classdef agent_VO < agent
             if ~isempty(avoidanceSet) && avoidanceEnabled
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm      
             
             % /////// COMPUTE STATE CHANGE FROM CONTROL INPUTS ////////////
-            [obj] = obj.controller(ENV.dt,desiredVelocity);
+            [this] = this.Controller(ENV.dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = [obj.localState(7);obj.localState(4:6)];         % Record the control inputs
+            this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
+            this.DATA.inputNames = {'Vx (m/s)','Roll (rad)','Pitch (rad)','Yaw (rad)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = [this.localState(7);this.localState(4:6)];         % Record the control inputs
         end
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
@@ -100,52 +96,52 @@ classdef agent_VO < agent
     % //////////////////// VELOCITY OBSTACLE METHODS //////////////////////
     methods
         % GET THE VO VELOCITY CORRECTION
-        function [headingVector,speed] = GetAvoidanceCorrection(obj,desiredVelocity,visualiseProblem)
+        function [headingVector,speed] = GetAvoidanceCorrection(this,desiredVelocity,visualiseProblem)
             % This function calculates the collision avoidance heading and
             % velocity correction.
             
             % AGENT KNOWLEDGE
-            [p_i,v_i,r_i] = obj.GetAgentMeasurements();                    % Its own position, velocity and radius
+            [p_i,v_i,r_i] = this.GetAgentMeasurements();                    % Its own position, velocity and radius
             
             % Define the obstacle list
-            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
+            obstacleIDs = [this.MEMORY([this.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
 
             % BUILD THE VELOCITY OBSTACLE SET
             VO = [];
             for item = 1:numel(obstacleIDs)
                 % Obstacle data
-                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
+                p_j = this.GetLastMeasurementByID(obstacleIDs(item),'position');
                 
                 % NEIGHBOUR CONDITIONS
-                neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
-                neighbourConditionB = norm(p_j) < obj.neighbourDist;       % [CONFIRMED] 
+                neighbourConditionA = item < this.maxNeighbours;            % Maximum number of neighbours
+                neighbourConditionB = norm(p_j) < this.neighbourDist;       % [CONFIRMED] 
                 if ~neighbourConditionA || ~neighbourConditionB
                     continue
                 end
                 
                 % More obstacle information
-                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius');                                
+                v_j = this.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = this.GetLastMeasurementByID(obstacleIDs(item),'radius');                                
                 % Make none-relative
                 p_j = p_j + p_i; 
                 v_j = v_j + v_i;                                           % Convert relative parameters to absolute
                 tau_b = 0;
                 
                 % DEFINE THE VELOCITY OBSTACLE PROPERTIES
-                VO_i = obj.define3DVelocityObstacle(p_i,v_i,r_i,p_j,v_j,r_j,tau_b,visualiseProblem);
+                VO_i = this.define3DVelocityObstacle(p_i,v_i,r_i,p_j,v_j,r_j,tau_b,visualiseProblem);
                 % Add a unique identifier
                 VO_i.objectID = obstacleIDs(item);             
                 VO = vertcat(VO,VO_i);
             end
 
             % GET THE CAPABLE VELOCITIES (GIVEN AS ABSOLUTE VELOCITIES                
-            capableVelocities = obj.feasabliltyMatrix;                     % Get all the feasible velocities this timestep 
+            capableVelocities = this.feasabliltyMatrix;                     % Get all the feasible velocities this timestep 
 
             % SUBTRACT THE VELOCITY OBSTACLES FROM THE VELOCITY FIELDS
-            escapeVelocities = obj.GetEscapeVelocities(capableVelocities,VO); % The viable velocities from the capable 
+            escapeVelocities = this.GetEscapeVelocities(capableVelocities,VO); % The viable velocities from the capable 
             
             % APPLY THE MINIMUM DIFFERENCE SEARCH STRATEGY
-            [avoidanceVelocity] = obj.strategy_minimumDifference(desiredVelocity,escapeVelocities);
+            [avoidanceVelocity] = this.strategy_minimumDifference(desiredVelocity,escapeVelocities);
                 
             % SPECIAL CASE- VELOCITY MAGNITUDE IS ZERO
             speed = norm(avoidanceVelocity);
@@ -155,7 +151,7 @@ classdef agent_VO < agent
             end
 
             % PLOT THE VECTOR CONSTRUCT
-            if visualiseProblem && obj.objectID == visualiseProblem
+            if visualiseProblem && this.objectID == visualiseProblem
                 % PLOT THE LEADING TANGENT VECTOR
                 OMAS_geometry.drawTriad(p_a,eye(3));
                 
@@ -179,7 +175,7 @@ classdef agent_VO < agent
         end
         
         % GET THE VIABLE ESCAPE VELOCITIES
-        function [escapeVelocities] = GetEscapeVelocities(obj,velocityMatrix,VOlist)
+        function [escapeVelocities] = GetEscapeVelocities(this,velocityMatrix,VOlist)
             % This function takes a matrix of potential velocities and
             % compares them against the agents Velocity Obstacle set. A
             % matrix of escape velocities is then produced.
@@ -203,7 +199,7 @@ classdef agent_VO < agent
                     if VOlist(VOnumber).openAngle < 0.9*pi
                         % DETERMINE WHETHER POINT IS WITHIN VO
 %                        [flag] = obj.isInsideVO(VOlist(VOnumber),candidatePoint);
-                        [flag] = obj.isInCone(VOlist(VOnumber),candidatePoint);
+                        [flag] = this.isInCone(VOlist(VOnumber),candidatePoint);
                     end
                     
                     % Move to the next VO
@@ -220,7 +216,7 @@ classdef agent_VO < agent
             escapeVelocities = escapeVelocities(:,~isnan(escapeVelocities(1,:)));
         end
         % COMPARE POINT TO CONE GEOMETRY
-        function [flag] = isInCone(obj,VO,probePoint)      
+        function [flag] = isInCone(this,VO,probePoint)      
             % INPUTS:
             % v_b
             % mod_VOaxis
@@ -240,14 +236,14 @@ classdef agent_VO < agent
                         
             % CHECK POINT RELATION TO CONE GEOMETRY
             flag = 0;
-            conditionA = theta - VO.openAngle/2 < obj.epsilon;             % With an angle tolerance
+            conditionA = theta - VO.openAngle/2 < this.epsilon;             % With an angle tolerance
             conditionB = probeDot > 0;                                     % In the same direction as the axis vector
             if conditionA && conditionB                                    % Half the cone's open angle
                 flag = 1;
             end
         end
         % ASSEMBLE THE 3D VELOCITY OBSTACLE (VO)
-        function [VO] = define3DVelocityObstacle(obj,p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn)
+        function [VO] = define3DVelocityObstacle(this,p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn)
             % This function assembles the 3D geometric collision avoidance
             % problem from the relative information observed from the
             % virtual sensor systems.
@@ -310,10 +306,10 @@ classdef agent_VO < agent
                 'truncationCircleRadius',(r_a + r_b)/tau);
             % /////////////////////////////////////////////////////////////
             % IS Va INSIDE THE VO
-            [VO.isVaInsideCone] = obj.isInCone(VO,v_a); 
+            [VO.isVaInsideCone] = this.isInCone(VO,v_a); 
             
             % PROBLEM VISUALISATION
-            if plotOn && obj.objectID == 1               
+            if plotOn && this.objectID == 1               
                 % PLOT THE CONE CONSTRUCTION
                 coneApex = p_a + VO.apex;
                 coneCenter = coneApex + VO.axisUnit*VO.axisLength; 
@@ -365,7 +361,7 @@ classdef agent_VO < agent
                 try
                     tangentPoint = coneApex + leadingTangentVector;
                     nodes = 11;
-                    obj.vectorCone(coneApex,coneCenter,tangentPoint,nodes,'g');
+                    this.vectorCone(coneApex,coneCenter,tangentPoint,nodes,'g');
                 catch
                 end
             end

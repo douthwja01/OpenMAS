@@ -8,33 +8,31 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
         % Constructor
-        function [obj] = agent_2D_vectorSharing(varargin)
+        function [this] = agent_2D_vectorSharing(varargin)
 
             % Call the super class
-            obj@agent_2D(varargin);    
+            this@agent_2D(varargin);    
 
             % //////////////////// SENSOR PARAMETERS //////////////////////
-%             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
-            [obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
+%             [this.SENSORS] = this.GetDefaultSensorParameters();     % Default sensing
+            [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
 
-            % //////////////// Check for user overrides ///////////////////            
-            % - It is assumed that overrides to the properties are provided
-            %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin); 
+            % //////////////// Check for user overrides ///////////////////
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Setup - X = [x y psi dx dy dpsi]
-        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+        function [this] = setup(this,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a generic
             % object.
             % The default state vector:
             % [x y psi dx dy dpsi]
             % INITIALISE THE 2D STATE VECTOR WITH CONCANTINATED VELOCITIES
-            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
+            [this] = this.setup_2DVelocities(localXYZVelocity,localXYZrotations);
         end
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
@@ -50,21 +48,21 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100+obj.objectID);
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                overHandle = figure(100+this.objectID);
                 hold on; grid on;
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
             end 
                         
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
+            [this,obstacleSet,agentSet] = this.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
             % /////////////////////////////////////////////////////////////
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            desiredHeadingVector = obj.GetTargetHeading();
-            desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
+            desiredHeadingVector = this.GetTargetHeading();
+            desiredVelocity = desiredHeadingVector*this.v_nominal;
 
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
@@ -73,22 +71,22 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             if ~isempty(avoidanceSet) 
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
             
             % ///////////////////// CONTROLLER ////////////////////////////
-            [obj] = obj.controller(dt,desiredVelocity);
+            this = this.Controller(dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);      % Record when the algorithm is ran
-            obj.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);         % Record the control inputs
+            this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt);      % Record when the algorithm is ran
+            this.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(4:6);         % Record the control inputs
             
             % // DISPLAY CONFLICT RESOLUTION
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                obj = obj.GetAnimationFrame(overHandle,ENV,'resolutionZone.gif');
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                this = this.GetAnimationFrame(overHandle,ENV,'resolutionZone.gif');
                 close(overHandle);
             end
         end
@@ -135,7 +133,7 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
                 v_j = v_j + v_i;                                           % Convert relative parameters to absolute
 
                 % COMPUTE THE VECTOR SHARING PROBLEM
-                [Voptimal] = obj.define2DVectorSharingVelocity(desiredVelocity,p_i,v_i,r_i,p_j,v_j,r_j,visualiseProblem);
+                [Voptimal] = obj.Define2DVectorSharingVelocity(desiredVelocity,p_i,v_i,r_i,p_j,v_j,r_j,visualiseProblem);
                 optimalSet = horzcat(optimalSet,[Voptimal;abs(norm(desiredVelocity - Voptimal))]);
             end
             
@@ -162,7 +160,7 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             end
         end
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
-        function [U_a] = define2DVectorSharingVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
+        function [U_a] = Define2DVectorSharingVelocity(obj,desiredVelocity,p_a,v_a,r_a,p_b,v_b,r_b,visualiseProblem)
             % This function calculates the avoidance vectors based on the
             % principle of vector sharing.
             % INPUTS:
@@ -182,7 +180,7 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             p_a = [p_a;0]; v_a = [v_a;0];
             p_b = [p_b;0]; v_b = [v_b;0];
             % Pass to the 3D function
-            [U_a] = obj.define3DVectorSharingVelocity(desiredVelocity,...
+            [U_a] = obj.Define3DVectorSharingVelocity(desiredVelocity,...
                                                       p_a,v_a,r_a,p_b,v_b,r_b,...
                                                       visualiseProblem);
             % Reform the inputs for 2D application

@@ -8,27 +8,26 @@ classdef agent_2D_IA < agent_2D_vectorSharing & agent_interval
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods
         % Constructor
-        function [obj] = agent_2D_IA(varargin)
+        function [this] = agent_2D_IA(varargin)
 
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent_2D_vectorSharing(varargin);                             % Get super class 'agent'
+            this@agent_2D_vectorSharing(varargin);                             % Get super class 'agent'
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
 %             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
-            [obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
+            [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
             
-            obj.nominalSpeed = 2;
-            obj.maxSpeed = 4;
+            % Defaults
+            this.v_nominal = 2;
+            this.v_max = 4;
             
-            % //////////////// Check for user overrides ///////////////////            
-            % - It is assumed that overrides to the properties are provided
-            %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin); 
+            % //////////////// Check for user overrides ///////////////////
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % This function is designed to house a generic agent process
             % cycle that results in an acceleration vector in the global axis.
             % INPUTS:
@@ -41,8 +40,8 @@ classdef agent_2D_IA < agent_2D_vectorSharing & agent_interval
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100+obj.objectID);
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                overHandle = figure(100+this.objectID);
                 hold on; grid on;
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
@@ -51,13 +50,13 @@ classdef agent_2D_IA < agent_2D_vectorSharing & agent_interval
             %fprintf('////////// LOOP START (%s) //////////\n',obj.name);
                        
             % /////////////// GET THE INFORMATION UPDATE //////////////////
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});        % IDEAL INFORMATION UPDATE
+            [this,obstacleSet,agentSet] = this.GetAgentUpdate(ENV,varargin{1});        % IDEAL INFORMATION UPDATE
             % /////////////////////////////////////////////////////////////
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
-            headingVector = obj.GetTargetHeading();
-            nominalVelocity = headingVector*obj.nominalSpeed;
+            headingVector = this.GetTargetHeading();
+            nominalVelocity = headingVector*this.v_nominal;
             % /////////////////////////////////////////////////////////////
 
             avoidanceVelocity = nominalVelocity;
@@ -68,7 +67,7 @@ classdef agent_2D_IA < agent_2D_vectorSharing & agent_interval
             if ~isempty([obstacleSet,agentSet])
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [avoidanceHeading,avoidanceSpeed] = obj.GetAvoidanceCorrection(nominalVelocity,visualiseProblem);
+                [avoidanceHeading,avoidanceSpeed] = this.GetAvoidanceCorrection(nominalVelocity,visualiseProblem);
                 avoidanceVelocity = avoidanceHeading*avoidanceSpeed;
             end
             algorithm_dt = toc(algorithm_start);% Stop timing the algorithm
@@ -81,12 +80,12 @@ classdef agent_2D_IA < agent_2D_vectorSharing & agent_interval
             end
                 
             % ///////////// AGENT VELOCITY VECTOR CONTROLLER //////////////
-            obj = obj.controller(ENV.dt,enactedVelocity);
+            this = this.Controller(ENV.dt,enactedVelocity);
 
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt); % Record when the algorithm is ran
-            obj.DATA.inputNames = {'$v_x (m/s)$','$v_y (m/s)$','$\dot{\psi} (rad/s)$'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);         % Record the control inputs
+            this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt); % Record when the algorithm is ran
+            this.DATA.inputNames = {'$v_x (m/s)$','$v_y (m/s)$','$\dot{\psi} (rad/s)$'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(4:6);         % Record the control inputs
             
             %fprintf('////////// LOOP END (%s) //////////\n',obj.name);
         end

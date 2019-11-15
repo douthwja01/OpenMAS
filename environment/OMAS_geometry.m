@@ -141,7 +141,6 @@ classdef OMAS_geometry
             theta = atan2(U(3),norm(Uh));
         end
     end
-    
     %% QUATERNION ROTATION MATHEMATICS
     methods (Static)
         % ANALYTICALLY GET THE ROTATIONS BETWEEN TWO TRIADS
@@ -196,13 +195,13 @@ classdef OMAS_geometry
             q = GetQuaternionFromEulers_mex(eulerAngles);
         end
         % CONVERT QUATERNION INTO ROTATION ANGLES
-        function [eulerAngles] = quaternionToEulers(q)                     % NOTATION B
+        function [eta] = quaternionToEulers(q)  % NOTATION B
             % Gets the rotation angles from an equivalent quaternion
             % attitude. Associated block:
             % "Quaternions to Rotation Angles"
             assert(size(q,1) == 4,'A quaternion column vector is expected 4x1');
             % Call the associated mex file
-            eulerAngles = qRotations_mex(q);
+            eta = qRotations_mex(q);
         end
         % CONVERT ROTATION MATRIX TO QUATERNION
         function [q] = rotationMatrixToQuaternion(R)

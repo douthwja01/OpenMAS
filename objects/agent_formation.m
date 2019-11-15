@@ -18,7 +18,6 @@ classdef agent_formation < agent
         function this = agent_formation(varargin)
             % GET THE VELOCITCY OBSTACLE (VO) AGENT TOOLS
             this@agent(varargin);                                           % Get the supercalss
-            
             % //////////////// Check for user overrides ///////////////////
             [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
@@ -75,7 +74,7 @@ classdef agent_formation < agent
                 error('Agent is missing (or has not been assigned) an adjacency matrix');
             end
             
-            if this.VIRTUAL.is3D
+            if this.Is3D()
                 pi = this.localState(1:3);
                 vi = zeros(3,1);
             else
@@ -155,13 +154,10 @@ classdef agent_formation < agent
             else
                 unit_vi = vi/norm_vi;
             end
-            
-            if isprop(this,'nominalSpeed')
-                norm_vi = boundValue(norm_vi,-this.nominalSpeed,this.nominalSpeed);
-                vi = unit_vi*norm_vi;
-            else
-                error('Nominal speed not defined');
-            end
+            % Bound the value between min and maximum velocities
+            norm_vi = boundValue(norm_vi,-this.v_nominal,this.v_nominal);
+            % Return the normalised velocity
+            vi = unit_vi*norm_vi;
         end
     end
     % ///////////////// PRIMATIVE FLOCKING ALGORITHIMS
@@ -174,24 +170,27 @@ classdef agent_formation < agent
             if nargin < 4
                 weights = ones(4,1);    % Default to balances contributions
             end
+            
             p_j = []; v_j = [];
             for j = 1:numel(neighbours)
                 p_j(j,:) = this.GetLastMeasurementFromStruct(neighbours(j),'position')';
                 v_j(j,:) = this.GetLastMeasurementFromStruct(neighbours(j),'velocity')';
             end
             % The way-point position
-            p_wp = this.GetLastMeasurementFromStruct(targetWaypoint,'position');
+            if ~isempty(targetWaypoint)
+                p_wp = this.GetLastMeasurementFromStruct(targetWaypoint,'position');
+            else
+                p_wp = this.localState(1:3);
+            end
             
             % APPLY THE RULE SET
             [v_sep] = this.separationRule(p_j);
             [v_ali] = this.alignmentRule(v_j);
             [v_coh] = this.cohesionRule(p_j);
             [v_mig] = this.migrationRule(p_wp);
-            
-            % CALCULATE THE WEIGHTED CONTRIBUTIONS
+            % Calculated the weighted vectors
             v_boids = weights(1)*v_sep + weights(2)*v_ali + weights(3)*v_coh + weights(4)*v_mig;
-            
-            % RENORMALISE
+            % Renormalise the vector
             v_boids = v_boids/norm(v_boids);
         end
     end

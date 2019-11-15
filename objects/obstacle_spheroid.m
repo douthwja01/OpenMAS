@@ -11,26 +11,24 @@ classdef obstacle_spheroid < obstacle
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function obj = obstacle_spheroid(varargin)
+        function [this] = obstacle_spheroid(varargin)
             % This function constructs the cuboid obstacle. The object must
             % be imported and represented with a global position and
             % velocity as all other objects are in OMAS.
                         
             % Call the super class
-            obj = obj@obstacle(varargin); 
+            this = this@obstacle(varargin); 
 
             % Assign defaults
-            obj = obj.SetVIRTUALparameter('hitBoxType',OMAS_hitBoxType.spherical); % Spherical collider
-
+            this.SetGLOBAL('hitBoxType',OMAS_hitBoxType.spherical); % Spherical collider
             
             % CONSTRUCT THE GEOMETRY FROM DEFINITION INSTEAD
-            if size(obj.GEOMETRY.vertices,1) < 1  % If it has no geometry define it
-                radius = obj.GetVIRTUALparameter('radius');
-                [obj.GEOMETRY] = OMAS_graphics.defineSphere(zeros(3,1),radius,20);
+            if size(this.GEOMETRY.vertices,1) < 1  % If it has no geometry define it
+                [this.GEOMETRY] = OMAS_graphics.defineSphere(zeros(3,1),this.radius,20);
             end
 
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end    
 

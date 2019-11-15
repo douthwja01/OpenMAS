@@ -5,14 +5,15 @@ fprintf('[SCENARIO]\tGetting Simple thre obstacle, one waypoint scenario.\n');
 
 %% SCENARIO INPUT HANDLING ////////////////////////////////////////////////
 % DEFAULT INPUT CONDITIONS
-defaultConfig = struct('file','scenario.mat',...
-                       'agents',[],...   
-                       'agentVelocity',0,...
-                       'obstacles',[],...
-                       'obstacleRadius',1,...
-                       'waypoints',[],...
-                       'waypointRadius',0.5,...
-                       'plot',0);
+defaultConfig = struct(...
+    'file','scenario.mat',...
+    'agents',[],...   
+    'agentVelocity',0,...
+    'obstacles',[],...
+    'obstacleRadius',1,...
+    'waypoints',[],...
+    'waypointRadius',0.5,...
+    'plot',0);
                    
 % Instanciate the scenario builder
 SBinstance = scenarioBuilder();
@@ -32,8 +33,8 @@ assert(iscell(inputConfig.obstacles),'This scenario is intended to use three obs
 %% /////////////////// BUILD THE AGENTS GLOBAL STATES /////////////////////
 agentIndex = inputConfig.agents;  
 % APPLY GLOBAL STATE VARIABLES
-agentIndex{1}.VIRTUAL.globalPosition = [0;0;0];
-agentIndex{1}.VIRTUAL.globalVelocity = [1;0;0]*inputConfig.agentVelocity;
+agentIndex{1}.SetGLOBAL('position',[0;0;0]);
+agentIndex{1}.SetGLOBAL('velocity',[1;0;0]*inputConfig.agentVelocity);
 
 %% ////////////////// BUILD THE OBSTACLE GLOBAL STATES ////////////////////
 obstacleNumber = numel(inputConfig.obstacles); 
@@ -48,12 +49,10 @@ for index = 1:obstacleNumber
     obstacleIndex{index} = inputConfig.obstacles{index};                   % Get the agents from the input structure
     obstacleIndex{index}.name = sprintf('OB-%s',inputConfig.obstacles{index}.name);
     % APPLY GENERIC GLOBAL STATE VARIABLES
-    obstacleIndex{index}.VIRTUAL.globalVelocity = [0;0;0];
-    obstacleIndex{index}.VIRTUAL.quaternion = [1;0;0;0];  % Append properties from the sphereical scenario
-    
-    % GENERATE POSITIONS
-    obstacleIndex{index}.VIRTUAL.globalPosition = [((diagSpacing*index)+diffSpacing*xyVector);0];
-    xyVector = -xyVector; % OSCILLATE THE Y POSITIONS
+    obstacleIndex{index}.SetGLOBAL('position',[((diagSpacing*index)+diffSpacing*xyVector);0]);
+    obstacleIndex{index}.SetGLOBAL('velocity',[0;0;0]);
+    obstacleIndex{index}.SetGLOBAL('quaternion',[1;0;0;0]);  % Append properties from the sphereical scenario
+    xyVector = -xyVector; % Define the opposing vector
 end
 
 %% //////////////// BUILD THE WAYPOINT GLOBAL STATES //////////////////////
@@ -64,17 +63,17 @@ waypointIndex = cell(1);
 nameString = sprintf('WP-%s',agentIndex{1}.name);
 waypointIndex{1} = waypoint('radius',inputConfig.waypointRadius,'priority',1,'name',nameString);
 % APPLY GLOBAL STATE VARIABLES
-waypointIndex{1}.VIRTUAL.globalPosition = [(diagSpacing*(index+1));(diagSpacing*(index+1));0];
-waypointIndex{1}.VIRTUAL.globalVelocity = [0;0;0];
-waypointIndex{1}.VIRTUAL.quaternion = [1;0;0;0];
+waypointIndex{1}.SetGLOBAL('position',[(diagSpacing*(index+1));(diagSpacing*(index+1));0];
+waypointIndex{1}.SetGLOBAL('velocity',[0;0;0]);
+waypointIndex{1}.SetGLOBAL('quaternion',[1;0;0;0]);
 waypointIndex{1} = waypointIndex{1}.CreateAgentAssociation(agentIndex{1});  % Create waypoint with association to agent
 
 %% UPDATE THE AGENTS INITIAL HEADING
 % Design the agents initial global heading
-headingVector = waypointIndex{1}.VIRTUAL.globalPosition - agentIndex{1}.VIRTUAL.globalPosition;
+headingVector = waypointIndex{1}.GetGLOBAL('position') - agentIndex{1}.GetGLOBAL('position');
 headingVector = headingVector/norm(headingVector);
 q = OMAS_geometry.vectorsToQuaternion(headingVector,[1;0;0]);
-agentIndex{1}.VIRTUAL.quaternion = q;
+agentIndex{1}.GetGLOBAL('quaternion',q);
 
 %% /////////////// CLEAN UP ///////////////////////////////////////////////
 % BUILD THE COMPLETE OBJECT SET
@@ -83,6 +82,5 @@ objectIndex = [agentIndex,obstacleIndex,waypointIndex];
 if inputConfig.plot
     SBinstance.plotObjectIndex(objectIndex);                          % Plot the object index
 end
-% CLEAR THE REMAINING VARIABLES
-clearvars -except objectIndex
+clearvars -except objectIndex % Clean-up 
 end

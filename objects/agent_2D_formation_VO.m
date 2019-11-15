@@ -38,7 +38,7 @@ classdef agent_2D_formation_VO < agent_2D_VO & agent_formation
             % DEFAULT BEHAVIOUR 
             dt = ENV.dt;
             
-            desiredSpeed = obj.nominalSpeed;
+            desiredSpeed = obj.v_nominal;
             desiredHeadingVector = [1;0;0];
             desiredVelocity = desiredHeadingVector*desiredSpeed;
             

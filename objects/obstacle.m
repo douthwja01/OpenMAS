@@ -13,22 +13,23 @@ classdef obstacle < objectDefinition
     end
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTION METHOD
-        function obj = obstacle(varargin)
+        % Constructor
+        function [this] = obstacle(varargin)
             % This function is to construct the obstacle object using the
             % object defintions held in the 'objectDefinition' base class.
             
             % Call the super class
-            obj = obj@objectDefinition(varargin); 
+            this = this@objectDefinition(varargin); 
             
             % Allocate obstacle defaults
-            obj = obj.SetVIRTUALparameter('type',OMAS_objectType.obstacle);
-            obj = obj.SetVIRTUALparameter('hitBoxType',OMAS_hitBoxType.spherical);
-            obj = obj.SetVIRTUALparameter('symbol','o'); 
-            obj = obj.SetVIRTUALparameter('priorState',obj.localState); 
+            this.localState = zeros(6,1);
+            this.SetGLOBAL('type',OMAS_objectType.obstacle);
+            this.SetGLOBAL('hitBoxType',OMAS_hitBoxType.spherical);
+            this.SetGLOBAL('symbol','o'); 
+            this.SetGLOBAL('priorState',this.localState); 
             
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end      
     end

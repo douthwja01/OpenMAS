@@ -6,7 +6,6 @@
 % Author: James A. Douthwaite 23/05/2018
 
 classdef obstacle_cuboid < obstacle
-
     properties
         Xscale = 1;
         Yscale = 1;
@@ -15,7 +14,7 @@ classdef obstacle_cuboid < obstacle
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function obj = obstacle_cuboid(varargin)
+        function [obj] = obstacle_cuboid(varargin)
             % This function constructs the cuboid obstacle. The object must
             % be imported and represented with a global position and
             % velocity as all other objects are in OMAS.
@@ -24,10 +23,11 @@ classdef obstacle_cuboid < obstacle
             obj = obj@obstacle(varargin); 
             
             % Assign defaults
-            obj = obj.SetVIRTUALparameter('hitBoxType',OMAS_hitBoxType.OBB);
-            obj.GEOMETRY = OMAS_graphics.defineCuboidFromRadius(zeros(3,1),obj.VIRTUAL.radius);
+            obj = obj.SetGLOBAL('hitBoxType',OMAS_hitBoxType.OBB);
+            obj.GEOMETRY = OMAS_graphics.defineCuboidFromRadius(zeros(3,1),obj.radius);
             obj.GEOMETRY = OMAS_graphics.scale(obj.GEOMETRY,[obj.Xscale;obj.Yscale;obj.Zscale]);
-            obj = obj.SetVIRTUALparameter('radius',sqrt(obj.Xscale^2 + obj.Yscale^2 + obj.Zscale^2)); % Redefine the maximal radii      
+            % Define the effective (maximal) radius
+            obj.radius = sqrt(obj.Xscale^2 + obj.Yscale^2 + obj.Zscale^2);      
 
             % //////////////// Check for user overrides ///////////////////
             [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides

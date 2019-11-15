@@ -5,17 +5,18 @@ fprintf('[SCENARIO]\tGetting a scenario defined by two opposing lines of agents.
 
 %% SCENARIO INPUT HANDLING ////////////////////////////////////////////////
 % DEFAULT INPUT CONDITIONS
-defaultConfig = struct('file','scenario.mat',...
-                       'agents',[],...
-                       'agentSeparation',10,...   
-                       'agentVelocity',0,...
-                       'agentRadius',0.5,...    % Diameter of 1m
-                       'waypoints',[],...
-                       'waypointSeparation',12,...
-                       'waypointRadius',0.5,... % Diameter of 1m
-                       'padding',2,...
-                       'noiseFactor',0,...
-                       'plot',0);
+defaultConfig = struct(...
+    'file','scenario.mat',...
+    'agents',[],...
+    'agentSeparation',10,...   
+    'agentVelocity',0,...
+    'agentRadius',0.5,...    % Diameter of 1m
+    'waypoints',[],...
+    'waypointSeparation',12,...
+    'waypointRadius',0.5,... % Diameter of 1m
+    'padding',2,...
+    'noiseFactor',0,...
+    'plot',false);
                    
 % Instanciate the scenario builder
 SBinstance = scenarioBuilder();
@@ -34,8 +35,8 @@ agentSetA = agentIndex(1:agentNumber/2);
 agentSetB = agentIndex((agentNumber/2)+1:end);
 
 % GLOBAL CONFIGURATION PARAMETERS
-xSpacing = inputConfig.padding;%*inputConfig.agentRadius;
-xCoords = linspace(-(agentNumber/4),(agentNumber/4),(agentNumber/2))*xSpacing;
+xSpacing = inputConfig.padding; %*inputConfig.agentRadius;
+xCoords  = linspace(-(agentNumber/4),(agentNumber/4),(agentNumber/2))*xSpacing;
 
 setAHeadings =  [0;1;0];
 setBHeadings = -[0;1;0];
@@ -62,15 +63,15 @@ setBHeadings = -[0;1;0];
 fprintf('[SCENARIO]\tAssigning agent global parameters...\n'); 
 for index = 1:(agentNumber/2)
     % AGENT SET A
-    agentSetA{index}.VIRTUAL.radius = inputConfig.agentRadius;             % Regulate agent radius
-    agentSetA{index}.VIRTUAL.globalPosition = agentConfigA.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]; 
-    agentSetA{index}.VIRTUAL.globalVelocity = agentConfigA.velocities(:,index);
-    agentSetA{index}.VIRTUAL.quaternion     = agentConfigA.quaternions(:,index);
+    agentSetA{index}.radius = inputConfig.agentRadius;             % Regulate agent radius
+    agentSetA{index}.SetGLOBAL('position',agentConfigA.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]); 
+    agentSetA{index}.SetGLOBAL('velocity',agentConfigA.velocities(:,index));
+    agentSetA{index}.SetGLOBAL('quaternion',agentConfigA.quaternions(:,index));
     % AGENT SET B
-    agentSetB{index}.VIRTUAL.radius = inputConfig.agentRadius;             % Regulate agent radius
-    agentSetB{index}.VIRTUAL.globalPosition = agentConfigB.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]; 
-    agentSetB{index}.VIRTUAL.globalVelocity = agentConfigB.velocities(:,index);
-    agentSetB{index}.VIRTUAL.quaternion     = agentConfigB.quaternions(:,index);
+    agentSetB{index}.radius = inputConfig.agentRadius;             % Regulate agent radius
+    agentSetB{index}.SetGLOBAL('position',agentConfigB.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]); 
+    agentSetB{index}.SetGLOBAL('velocity',agentConfigB.velocities(:,index));
+    agentSetB{index}.SetGLOBAL('quaternion',agentConfigB.quaternions(:,index));
 end
 
 %% //////////////// BUILD THE WAYPOINT GLOBAL STATES //////////////////////
@@ -97,16 +98,16 @@ for index = 1:(agentNumber/2)
     % WAYPOINT SET A
     waypointSetA{index} = waypoint('radius',inputConfig.waypointRadius,'priority',1,'name',sprintf('WP-%s',agentSetA{index}.name));
     % APPLY GLOBAL STATE VARIABLES
-    waypointSetA{index}.VIRTUAL.globalPosition = waypointConfigA.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0];
-    waypointSetA{index}.VIRTUAL.globalVelocity = waypointConfigA.velocities(:,index);
-    waypointSetA{index}.VIRTUAL.quaternion     = waypointConfigA.quaternions(:,index);
+    waypointSetA{index}.SetGLOBAL('position',waypointConfigA.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]);
+    waypointSetA{index}.SetGLOBAL('velocity',waypointConfigA.velocities(:,index));
+    waypointSetA{index}.SetGLOBAL('quaternion',waypointConfigA.quaternions(:,index));
     waypointSetA{index} = waypointSetA{index}.CreateAgentAssociation(agentSetA{index});  % Create waypoint with association to agent
     % WAYPOINT SET B
     waypointSetB{index} = waypoint('radius',inputConfig.waypointRadius,'priority',1,'name',sprintf('WP-%s',agentSetB{index}.name));
     % APPLY GLOBAL STATE VARIABLES
-    waypointSetB{index}.VIRTUAL.globalPosition = waypointConfigB.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0];
-    waypointSetB{index}.VIRTUAL.globalVelocity = waypointConfigB.velocities(:,index);
-    waypointSetB{index}.VIRTUAL.quaternion     = waypointConfigB.quaternions(:,index);
+    waypointSetB{index}.SetGLOBAL('position',waypointConfigB.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]);
+    waypointSetB{index}.SetGLOBAL('velocity',waypointConfigB.velocities(:,index));
+    waypointSetB{index}.SetGLOBAL('quaternion',waypointConfigB.quaternions(:,index));
     waypointSetB{index} = waypointSetB{index}.CreateAgentAssociation(agentSetB{index});  % Create waypoint with association to agent
 end
 
@@ -117,8 +118,6 @@ objectIndex = [agentSetA,agentSetB,waypointSetA,waypointSetB];
 if inputConfig.plot
     SBinstance.plotObjectIndex(objectIndex);                            % Plot the object index
 end
-% CLEAR THE REMAINING VARIABLES
-clearvars -except objectIndex
-% 
+clearvars -except objectIndex   % Clean-up
 fprintf('[SCENARIO]\tDone.\n'); 
 end

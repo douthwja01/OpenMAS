@@ -1,256 +1,270 @@
-%% SIMPLE QUADCOPTER (adapted from the works of Dr. Shiyu Zhao) ///////////
-
-% Author: James A. Douthwaite
-
 classdef quadcopter < agent
-    properties
-        % globalPosition - The position of the object in the global axes
-        % globalVelocity - The velocity of the object in the global axes
-        % quaternion     - The quaternion representing the earth to rotated body
+   properties
+        % GLOBAL.position   - The position of the object in the global axes
+        % GLOBAL.velocity   - The velocity of the object in the global axes
+        % GLOBAL.quaternion - The quaternion representing the earth to rotated body
         
         % DYNAMICS - All the models parameters are held in the DYNAMICS
         %            container field.
-    end
-    %% ///////////////////////// MAIN METHODS /////////////////////////////
-    methods
+   end
+   %% ////////////////////////// MAIN METHODS /////////////////////////////
+   methods
         % Constructor
-        function this = quadcopter(varargin)
-            
+        function [this] = quadcopter(varargin)
             % Call the super class
-            this@agent(varargin);                                           % Create the super class 'agent'
-
-            % Assign parameters
-            [this.DYNAMICS] = this.importModelProperties();   
+            this@agent(varargin);
+            
+            % Create the dynamics of a quadcopter
+            this.DYNAMICS = this.CreateDynamics();
             
             % //////////////// Check for user overrides ///////////////////
-            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
-        end    
-        % ///////////////////// SETUP FUNCTION ////////////////////////////
-        % QUADCOPTER STATE VECTOR [pn;vn;etn;omega]
+        end 
+        % Setup
         function [this] = setup(this,localXYZVelocity,localXYZrotations)
             % This function calculates the intial state for a quadrotor
             % object.
-
-            % CALL THE STANDARD [x_t;x_dot} INITIALISER
-            this = this.initialise_3DVelocities(localXYZVelocity,localXYZrotations);
+            
+            % For a state vector defined as x_k:
+            % [x,y,z,dx,dy,dz,R11,R12,R13,R21,R22,R23,R31,R32,R33,wx,wy,wz]
+            
+            % THIS MODEL OPERATES IN THE GLOBAL FRAME
+            p0 = this.GetGLOBAL('position');   % True global position   
+            v0 = this.GetGLOBAL('velocity');   % True global velocity
+            % GET THE ROTATION MATRIX fixed local axes -> rotated global pose
+            R0 = OMAS_geometry.eulersToRotationMatrix(localXYZrotations);
+            % Build an initial (global) state vector
+            vecR0   = reshape(R0',9,1);        % Defines local vector to global vector
+            omega0  = zeros(3,1);
+            x0      = [p0;v0;vecR0;omega0];    
+            % ASSIGN THE LOCAL FRD STATE
+            this.SetGLOBAL('priorState',x0);
+            this.localState = x0;
         end
-        % //////////////////// OBJEC MAIN CYCLE ///////////////////////////
+        % Main
         function [this] = main(this,ENV,varargin)
-            % INPUTS:
-            % varargin - Cell array of inputs
-            % >dt      - The timestep
-            % >objects - The detectable objects cell array of structures
-            % OUTPUTS:
-            % obj      - The updated project
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
-            % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [this,~,~,~] = this.GetAgentUpdate(ENV,varargin{1});                   % IDEAL INFORMATION UPDATE 
+            % Update the agent with the environmental data
+            [this,~,~] = this.GetAgentUpdate(ENV,varargin{1});
+            % /////////////////////////////////////////////////////////////
             
-            % /////////////////// WAYPOINT TRACKING ///////////////////////
-            % Get desired heading
-            desiredHeadingVector = this.GetTargetHeading();
-            desiredVelocity = desiredHeadingVector*this.nominalSpeed;
-                    
-            % Express velocity vector in NED coordinates
-            if ENV.currentTime <= 1
-                desiredVelocity = zeros(3,1);
-            end
+            % The state reference
+            desiredPosition = [5;5;0];
             
             % Call the controller loop
-            this = this.controller(ENV,desiredVelocity);
+            this = this.Controller(ENV,desiredPosition);
             
             % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
             this.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{z}$ (m/s)',...
-                                   '$\dot{\phi}$ (rad/s)','$\dot{\theta}$ (rad/s)','$\dot{\psi}$ (rad/s)'};
-            this.DATA.inputs(1:numel(this.DATA.inputNames),ENV.currentStep) = this.localState(7:end);          % Record the control inputs 
+                                    '$p$ (rad/s)','$q$ (rad/s)','$r$ (rad/s)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = [this.localState(4:6);this.localState(16:end)];          % Record the control inputs 
         end
-    end
-    methods
+   end
+   %% //////////////////////// AUXILLARY METHODS //////////////////////////     
+   methods
         % The quadcopter velocity controller 
-        function [this] = controller(this,ENV,v_k)
+        function [this] = Controller(this,ENV,p_k)
             
-            % If idle, sit still
-            if this.IsIdle
-                v_k = zeros(3,1);               
-            end            
-            % Convert local velocity to state reference
-            X_desired = [zeros(5,1);this.localState(6);v_k;zeros(3,1)];
-            % UPDATE THE LOCAL STATE
-            newState = this.UpdateLocalState(ENV,this.localState,X_desired);
+            % Input sanity checks
+            assert(isColumn(p_k,3),"Expecting a numeric velocity vector.");
+            assert(1 == size(this.localState,2),"The length of the objects state update must match the its local state.");       
+                 
+            % Output reference
+            y_k = [1;1;0];
             
-            % UPDATE THE GLOBAL PROPERTIES OF THE AGENT
-            [this] = this.updateGlobalProperties_3DVelocities(ENV.dt,newState);
-        end        
-        % CONTROL SELECTION
-        function [this,Xref] = GetControllerType(this,type,dt)
-            % This functional allows multiple types of LQR control to be
-            % applied. 
-            
-            assert(ischar(type),'Please provide a control type.');
-            
-            % NO WAYPOINT IS OBSERVED, ASSUME IDLE
-            if isempty(this.targetWaypoint)
-                Xref = this.localState;
-                Xref(4:5) = zeros(2,1);  % Level attitude
-                Xref(7:12) = zeros(6,1); % No velocity
-                return
-            end
-            
-%             [R_phi] = eulerToRotationMatrix_roll(phi)
-            
-            switch upper(type)
-                case 'POSITION'
-                    % DESIGN SET POINT
-                    desiredPosition = this.targetWaypoint.position;
-                    headingAngle = this.localState(6);
-                    Xref = [desiredPosition;zeros(2,1);headingAngle;zeros(3,1);zeros(3,1)]; % Velocity control
-                case 'VELOCITY'
-                    % MODIFY FEEDBACK
-                    this.DYNAMICS.K(1:4,1:3) = zeros(4,3);              % Omit the position feedback 
-                    % DESIGN SET POINT
-                    headingAngle = this.localState(6);
-                    headingVector = this.GetTargetHeading();
-                    desiredVelocity  = headingVector*this.nominalSpeed; 
-                    Xref = [zeros(3,1);zeros(2,1);headingAngle;desiredVelocity;zeros(3,1)]; % Velocity control
-                case 'HEADING'
-                    % MODIFY FEEDBACK
-                    this.DYNAMICS.K(1:4,1:3) = zeros(4,3);              % Omit the position feedback 
-                    % GET VECTOR PROJECTIONS
-                    headingVector = this.GetTargetHeading();
-                    [dlambda,dtheta] = this.getVectorHeadingAngles([1;0;0],headingVector);
-                    desiredVelocity = headingVector*this.nominalSpeed;
-                                  
-                    headingRate = ((this.localState(6) - dlambda) - this.localState(6));
-                    ascentRate = this.nominalSpeed*sin(dtheta);
-                    % DESIGN STATE REFERENCE
-                    Xref = [zeros(3,1);...
-                            [0;0;this.localState(6)];...
-                            [desiredVelocity(1);0;ascentRate];...
-                            [0;0;headingRate]];   
-                otherwise
-                    error('Control type not recognised.');
-            end            
+            % ///////////// UPDATE THE LOCAL STATE VECTOR /////////////////
+            x_k_plus = this.UpdateLocalState(ENV,this.localState,y_k);
+            % Update the global properties
+            this = this.GlobalUpdate(x_k_plus);
         end
-        
-        % GET THE STATE UPDATE (USING ODE45)
-        function [X]  = UpdateLocalState(this,TIME,X0,X_desired)
-            % This function computes the state update for the current agent
-            % using the ode45 function.
-            
-            % DETERMINE THE INTEGRATION PERIOD
-            if TIME.currentTime == TIME.timeVector(end)
-                X = X0;
-                return
-            else
-                % INTEGRATE THE DYNAMICS OVER THE TIME STEP 
-                tspan = [0 TIME.dt];
-                opts = odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2);
-                [~,Xset] = ode45(@(t,X) this.closedLoopDynamics(X,X_desired), tspan, X0, opts);
-                X = Xset(end,:)';
-            end
-        end          
-        % THE CLOSED-LOOP DYNAMICS
-        function [dX] = closedLoopDynamics(this,X,X_desired)
-            % Get the next state from the previous state
-            
-            % THE DYNAMICAL CONSTANTSs
-            g   = this.DYNAMICS.g;       % Gravitational constant
-            e3  = this.DYNAMICS.e3;      % Body z-axes
-            m   = this.DYNAMICS.m;       % Body point mass (kg)  
-            K   = this.DYNAMICS.K;       % LQR feedback matrix
-            eta = this.localState(4:6);  % Current eulers
-
-            % Represent gravity in the body axes
-            R = OMAS_geometry.eulersToRotationMatrix(eta);
-            T_b = R*(-g*m*e3);       	% Thrust in the body axes
-            % COMPUTE THE ABSOLUTE INPUT
-            X_error = X - X_desired;
-            inputs = [T_b(3);0;0;0] - K*(X_error);
-            % COMPUTE THE OPEN-LOOP DYNAMICS
-            [dX] = this.openLoopDynamics(X,inputs);
-        end
-        % THE OPEN-LOOP DYNAMICS
-        function [dX] = openLoopDynamics(this,X,inputs)
-            % The inputs to the system are torques and forces directly.
-            % inputs = [Tb;tau_r;tau_p;tau_y]
-            
-            Vb     = X(7:9,1);
-            omegab = X(10:12,1);
-            
-            % DYNAMICS PROPERTIES
-            g  = this.DYNAMICS.g;
-            e3 = this.DYNAMICS.e3;
-            m  = this.DYNAMICS.m;
-            M  = this.DYNAMICS.M;
-            R  = OMAS_geometry.eulersToRotationMatrix(X(4:6)); % Body to navigation frame
-            
-            % LINEAR & ANGULAR INPUTS
-            Tb  = inputs(1);
-            tau = inputs(2:4);
-            
-            % CALCULATE THE STATE DIFFERENCE
-            dX = zeros(12,1);
-            dX(1:3)   = Vb;
-            dX(4:6)   = omegab;
-            dX(7:9)   = Tb*(e3/m) + R'*(e3*m*g);
-            dX(10:12) = M\(tau - OMAS_geometry.skew(omegab)*M*omegab);
-        end
-  
-    end
-    % STATIC FUNCTIONS
-    methods (Static)
-        % IMPORT THE MODEL PROPERTIES
-        function [params] = importModelProperties()
-            
-            % BUILD THE DYNAMIC PROPERTIES OF THE AGENT
-            g  = 9.81;
-            I  = eye(3);
-            e3 = I(:,3);
-            m  = 2*0.5;    % kg
-            M  = 2*diag([4.856, 4.856, 8.801])*10^(-3);
-                        
-            % PLANT MATRIX FOR STATE VECTOR 
-            % X = [x y z phi theta psi dx dy dz dphi dtheta dpsi];
-            A = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0;
-                 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0;
-                 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0;
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0;
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1;
-                 0, 0, 0, 0,-g, 0, 0, 0, 0, 0, 0, 0;
-                 0, 0, 0, g, 0, 0, 0, 0, 0, 0, 0, 0; % Gravity in XYZ
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-            
-            % INPUT MATRIX
-            B = zeros(12,4);          % input matrix
-            B(7:9,1) = e3/m;          % linear velocity terms
-            B(10:12,2:4) = inv(M);    % angular velocity terms
-            % OTHER STATE SPACE MATRICES
-            C = eye(12);
-            D = [zeros(8,4);eye(4)];
-            % LQR CONTROLLER                       
-            Q = eye(12);
-            R = eye(4);
-            % LQR CONTINUOUS FEEDBACK
-            [K_lqr,~,~] = lqr(A,B,Q,R);        
-            
-            % RE-ORGANISE THE DYNAMIC PARAMETERS
-            params = struct('g',g,...      % Gravitational constant
-                                'e3',e3,...     % Body axis Z-vector
-                                 'm',1,...      % Body mass
-                                 'M',M,...      % Inertia tensor 
-                                 'A',A,...      % Plant matrix
-                                 'B',B,...      % Input matrix
-                                 'C',C,...      % Observation matrix
-                                 'D',D,...      % Feedforward matrix
-                                 'Q',Q,...      % State penalisation matrix
-                                 'R',R,...      % Input penalisation matrix
-                                 'K',K_lqr);    % LQR feedback
-        end
-    end
+   end
+   % Dynamic functions
+   methods       
+       % Get the state update (using ode45)
+       function [x_k_plus] = UpdateLocalState(this,ENV,x_k,y_desired)
+           % This function computes the state update for the current agent
+           % using the ode45 function.
+           
+           % Integrate across the time delta "dt"
+           opts = odeset('RelTol',1e-2,'AbsTol',ENV.dt*1E-1);
+           
+           %[~,Xset] = ode45(@(t,X) this.ClosedLoopDynamics_position(X,y_desired),[0 ENV.dt],x_k,opts);
+           [~,Xset] = ode45(@(t,X) this.ClosedLoopDynamics_velocity(X,y_desired),[0 ENV.dt],x_k,opts);
+           
+           % Assign the integral state
+           x_k_plus = Xset(end,:)';
+       end
+       % Quadcopter Dynamics (Closed-loop)
+       function [dxdt] = ClosedLoopDynamics_velocity(this,x_k,v_desired)
+           
+           % Extract the current state properties
+           p_k     = x_k(1:3);
+           v_k     = x_k(4:6);
+           R_k     = reshape(x_k(7:15),3,3); % The rotation matrix components
+           eta_k   = OMAS_geometry.rotationMatrixToEulers(R_k);
+           omega_k = x_k(16:18);
+           
+           % The state reference   
+           y_k = [p_k;v_k;eta_k;omega_k];
+           
+           % Extract the parameters from the state
+           psi_desired = pi/2;
+           y_desired = [zeros(3,1);v_desired;[0;0;psi_desired];zeros(3,1)];
+           
+           % Extract DYNAMIC parameters
+           g  = this.DYNAMICS.g;
+           m  = this.DYNAMICS.m;
+           
+           % State matrix
+           A = this.DYNAMICS.A; 
+           A(4:6,7:9) = g*[ sin(psi_desired), cos(psi_desired), 0;
+                           -cos(psi_desired), sin(psi_desired), 0;
+                                           0,                0, 0];           
+           % Input matrix
+           B = this.DYNAMICS.B; 
+           
+           % LQR control gain
+           [K,~,~] = lqr(A,B,eye(12),eye(4));
+           K(:,1:3) = 0;
+           % Calculate the error
+           e_k  = y_k - y_desired;
+           du_k = -K*e_k; 
+           % Calculate the inputs
+           u_k = [m*g;0;0;0] + du_k;
+           
+           % Provide the inputs to the open-loop dynamics
+           [dxdt] = this.OpenLoopDynamics(x_k,u_k);
+       end       
+       % Quadcopter Dynamics (Closed-loop)
+       function [dxdt] = ClosedLoopDynamics_position(this,x_k,p_desired)
+           
+           % Extract the current state properties
+           p_k     = x_k(1:3);
+           v_k     = x_k(4:6);
+           R_k     = reshape(x_k(7:15),3,3); % The rotation matrix components
+           eta_k   = OMAS_geometry.rotationMatrixToEulers(R_k);
+           omega_k = x_k(16:18);
+           
+           % The state reference   
+           y_k = [p_k;v_k;eta_k;omega_k];
+           
+           % Extract the parameters from the state
+           psi_desired = 0;
+           y_desired = [p_desired(1:3);zeros(3,1);[0;0;psi_desired];zeros(3,1)];
+           
+           % Extract DYNAMIC parameters
+           e3 = this.DYNAMICS.e3;
+           g  = this.DYNAMICS.g;
+           m  = this.DYNAMICS.m;
+           I  = this.DYNAMICS.I;
+           
+           % State matrix
+           A = this.DYNAMICS.A; 
+           A(1:3,4:6) = eye(3);
+           A(4:6,7:9) = g*[ sin(psi_desired), cos(psi_desired), 0;
+                           -cos(psi_desired), sin(psi_desired), 0;
+                                           0,                0, 0];
+           A(7:9,10:12)=eye(3);
+           
+           % Input matrix
+           B = this.DYNAMICS.B; 
+           B(4:6,1) = e3/m;
+           B(10:12,2:4) = inv(I);
+           
+           % LQR control gain
+           [K,~,~] = lqr(A,B,eye(12),eye(4));
+           % Calculate the error
+           e_k  = y_k - y_desired;
+           du_k = -K*e_k; 
+           % Calculate the inputs
+           u_k = [m*g;0;0;0] + du_k;
+           
+           % Provide the inputs to the open-loop dynamics
+           [dxdt] = this.OpenLoopDynamics(x_k,u_k);
+       end
+       % Quadcopter Dynamics (Open-loop)
+       function [dxdt] = OpenLoopDynamics(this,x_k,u_k)
+           
+           % Extract the state parameters
+           v_k = x_k(4:6);
+           R_k = reshape(x_k(7:15),3,3);
+           w_k = x_k(16:18);
+           % Extract the inputs
+           f   = u_k(1);
+           tau = u_k(2:4);
+           
+           % Get the constants
+           m  = this.DYNAMICS.m;
+           g  = this.DYNAMICS.g;
+           I  = this.DYNAMICS.I;
+           e3 = this.DYNAMICS.e3;
+           
+           % nonlinear dynamics based on rotation dynamics
+           p_dot   = v_k;
+           v_dot   = f/m*R_k*e3-g*e3;
+           R_dot    = R_k*skew(w_k);
+           vecR_dot = reshape(R_dot,9,1);
+           w_dot    = inv(I)*(tau-skew(w_k)*I*w_k);
+           
+           % THE STATE DIFFERENCE
+           dxdt = [p_dot;v_dot;vecR_dot;w_dot];
+       end
+       % Global update from the new state
+       function [this] = GlobalUpdate(this,x_k_plus)
+           % This function updates the global structure from the new state
+           % definition: [p_k;v_k;vecR_k;omega_k]
+           
+           % Extract the rotation matrix components
+           R_k_plus = reshape(x_k_plus(7:15),3,3);
+           % Define the new quaternion from R
+           q_k_plus = OMAS_geometry.rotationMatrixToQuaternion(R_k_plus');
+           
+           % //////////////// UPDATE GLOBAL PROPERTIES ///////////////////
+           [this] = this.GlobalUpdate_direct(...
+               x_k_plus(1:3),...   % The global position is within the state
+               x_k_plus(4:6),...   % The global velocity is within the state
+               q_k_plus);          % Append the global quaternion
+           
+           % Ensure the local state is re-assigned 
+           this.localState = x_k_plus;
+       end
+   end
+   % Dynamics container
+   methods
+       % Get the (generic) quadcopter dynamic properties
+       function [DYNAMICS] = CreateDynamics(this)
+           % Simple quadcopter, use the default properties
+           DYNAMICS = this.CreateDynamics_default();
+       end
+       % Create (quadcopter) default dynamic structure
+       function [DYNAMICS] = CreateDynamics_default(this)
+           % Define an infinite "throw" range by default
+           DYNAMICS = struct();
+           % Define kinematic constraints
+           DYNAMICS.maxLinearVelocity      = ones(3,1)*this.v_max;	% Limits on the agents linear velocity
+           DYNAMICS.maxLinearAcceleration  = inf(3,1);            	% Limits on the agents linear acceleration
+           DYNAMICS.maxAngularVelocity     = ones(3,1)*this.w_max;	% Limits on the agents angular velocity
+           DYNAMICS.maxAngularAcceleration = inf(3,1);            	% Limits on the agents angular acceleration
+           
+           % Dynamical properties
+           DYNAMICS.e3 = [0;0;1];                                   % Local z-axis
+           DYNAMICS.g  = 300978377846937375/30680772461461504;      % Gravitational constant
+           DYNAMICS.m  = 1;                                         % Quadcopter mass
+           DYNAMICS.I  = 2*diag([4.856, 4.856, 8.801])*10^(-3);     % Quadcopter inertia
+           
+           % Control properties
+           DYNAMICS.A = zeros(12);   % Plant matrix
+           DYNAMICS.A(4:6,7:9)   = eye(3)*DYNAMICS.g;
+           DYNAMICS.A(1:3,4:6)   = eye(3);
+           DYNAMICS.A(7:9,10:12) = eye(3);
+           DYNAMICS.B = zeros(12,4); % Input matrix
+           DYNAMICS.B(4:6,1)     = DYNAMICS.e3/DYNAMICS.m;
+           DYNAMICS.B(10:12,2:4) = inv(DYNAMICS.I);
+           DYNAMICS.C = eye(12);     % Observation matrix
+           DYNAMICS.D = eye(4);      % Feed-forward matrix
+       end
+   end
 end
+

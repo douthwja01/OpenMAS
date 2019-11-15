@@ -15,7 +15,7 @@ classdef agent_2D_test < agent_2D
     %% ////////////////////////// MAIN METHODS ////////////////////////////
     methods 
         % Constructor
-        function obj = agent_2D_test(varargin)
+        function [this] = agent_2D_test(varargin)
             % This function is to construct the agent object using the
             % object defintions held in the 'objectDefinition' base class.
             % INPUTS:
@@ -24,19 +24,19 @@ classdef agent_2D_test < agent_2D
             % obj     - The constructed object
             
             % Call the super class
-            obj@agent_2D(varargin); 
+            this@agent_2D(varargin); 
             
             % Assign defaults
-            obj.localState = zeros(4,1);
+            this.localState = zeros(4,1);
             
             % //////////////// Check for user overrides ///////////////////            
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin); 
+            [this] = this.ApplyUserOverrides(varargin); 
             % /////////////////////////////////////////////////////////////
         end
         % Main
-        function obj = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % TIME     - The TIME simulations structure
             % varargin - Cell array of inputs
@@ -45,10 +45,10 @@ classdef agent_2D_test < agent_2D
                         
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             observationSet = varargin{1}; % The detected objects
-            [obj,obstacleSet,agentSet,waypointSet] = obj.GetAgentUpdate(ENV,observationSet);
+            [this,obstacleSet,agentSet,waypointSet] = this.GetAgentUpdate(ENV,observationSet);
 
             % GET WAYPOINT (TARGET) HEADING VECTOR \\\\\\\\\\\\\\\\\\\\\\\\
-            targetHeading = obj.GetTargetHeading();
+            targetHeading = this.GetTargetHeading();
                        
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             %                                                             %
@@ -61,16 +61,16 @@ classdef agent_2D_test < agent_2D
             desiredVelocity = targetHeading*targetSpeed;
             
             % PASS THE REQUEST TO THE CONTROLLER
-            [obj] = obj.controller(ENV.dt,desiredVelocity);
+            [this] = this.Controller(ENV.dt,desiredVelocity);
                    
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj.DATA.inputNames = {'dx (m/s)','dy (m/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = [obj.localState(3:4,1)];         % Record the control inputs 
+            this.DATA.inputNames = {'dx (m/s)','dy (m/s)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = [this.localState(3:4,1)];         % Record the control inputs 
         end
     end
     methods
         % UPDATE GLOBAL PROPERTIES
-        function [obj] = updateGlobalProperties_TEST(obj,dt,localState_update)
+        function [this] = UpdateGlobalProperties_TEST(this,dt,localState_update)
            % This function computes the new global parameters for the given
            % agent based on its new state.
            
@@ -78,11 +78,11 @@ classdef agent_2D_test < agent_2D
             velocityIndices = 3:4;
             
             % DEFINE UPDATE PARAMETERS
-            globalPosition_k = obj.VIRTUAL.globalPosition;                 % 3D although the 2D
-            globalVelocity_k = obj.VIRTUAL.globalVelocity;
-            quaternion_k     = obj.VIRTUAL.quaternion;
+            globalPosition_k = this.VIRTUAL.globalPosition;                 % 3D although the 2D
+            globalVelocity_k = this.VIRTUAL.globalVelocity;
+            quaternion_k     = this.VIRTUAL.quaternion;
             
-            localState_ENU_k = obj.localState; %<---- must be redefined
+            localState_ENU_k = this.localState; %<---- must be redefined
             localState_ENU_k_plus = localState_update; 
             
 %             localState_FLU_k = zeros(4,1);
@@ -120,11 +120,11 @@ classdef agent_2D_test < agent_2D
             globalPosition_k_plus = globalPosition_k + dt*globalVelocity_k;
             
             % ////////// REASSIGN K+1 PARAMETERS //////////////////////////
-            obj.VIRTUAL.globalVelocity = globalVelocity_k_plus;            % Reassign the global velocity
-            obj.VIRTUAL.globalPosition = globalPosition_k_plus;            % Reassign the global position
-            obj.VIRTUAL.quaternion = quaternion_k_plus;                    % Reassign the quaternion
-            obj.VIRTUAL.rotationMatrix = R_k_plus;
-            obj.localState = localState_update;  
+            this.VIRTUAL.globalVelocity = globalVelocity_k_plus;            % Reassign the global velocity
+            this.VIRTUAL.globalPosition = globalPosition_k_plus;            % Reassign the global position
+            this.VIRTUAL.quaternion = quaternion_k_plus;                    % Reassign the quaternion
+            this.VIRTUAL.rotationMatrix = R_k_plus;
+            this.localState = localState_update;  
         end
     end
 end

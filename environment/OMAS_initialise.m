@@ -189,19 +189,19 @@ for entity = 1:SIM.totalObjects
     % .velocity     - Global velocity in XYZ coordinates
     % .quaternion   - Quaternion describing the XYZ rotation
     
-    % THE SIMULATION OPERATES IN THE ENU FROM IDENTICAL TO THE MATLAB FRAME
+    % Extract the objects GLOBAL structure for tear-down
+    objectGLOBAL = objectIndex{entity}.GetGLOBAL();
+    % Confirm the objects global representation
+    assert(isColumn(objectGLOBAL.position,3)  ,'Global position must be given as a vector [3x1].');
+    assert(isColumn(objectGLOBAL.velocity,3)  ,'Global velocity must be given as a vector [3x1].');
+    assert(isColumn(objectGLOBAL.quaternion,4),'Global attitude must be give as a quaternion vector [4x1].');      
     
     % GLOBAL PARAMETERS ARE DECLARED IN THE MATLAB XYZ FRAME
-    globalXYZPosition   = objectIndex{entity}.VIRTUAL.globalPosition;      % Get XYZ global position
-    globalXYZVelocity   = objectIndex{entity}.VIRTUAL.globalVelocity;      % Get XYZ global velocity
+%     globalXYZPosition   = objectGLOBAL.position';       % Get XYZ global position
+%     globalXYZVelocity   = objectGLOBAL.velocity';       % Get XYZ global velocity
     % REDEFINE INITIAL QUATERNION AS STATIC BODY TO ROTATED EARTH QUATERNION
-    globalXYZquaternion = objectIndex{entity}.VIRTUAL.quaternion;
+%     globalXYZquaternion = objectGLOBAL.quaternion;    
     
-    % CONFIRM XYZ INPUTS
-    assert(numel(globalXYZPosition)   == 3,'Global position must be given as a vector [3x1].');
-    assert(numel(globalXYZVelocity)   == 3,'Global velocity must be given as a vector [3x1].');
-    assert(numel(globalXYZquaternion) == 4,'Global attitude must be give as a quaternion vector [4x1].');      
-
     %% ////////////////////// ROTATION CONVENTION /////////////////////////
     % INPUTS:
     % globalXYZPosition     - The global cartesian position
@@ -211,48 +211,50 @@ for entity = 1:SIM.totalObjects
     %                         axes.                      
     
     % USING MATLABS TOOLBOX COP-OUT
-    Rxyz              = quat2rotm(globalXYZquaternion');                   % from fixed to rotated world
-    localXYZrotations = quat2eul(globalXYZquaternion','XYZ');
+    Rxyz              = quat2rotm(objectGLOBAL.quaternion');                   % from fixed to rotated world
+    localXYZrotations = quat2eul(objectGLOBAL.quaternion','XYZ');
     localXYZrotations = localXYZrotations';
-    localXYZVelocity  = Rxyz*globalXYZVelocity;                            % Move from rotated vector to axis aligned vector
-       
-    %% ////////////// ASSIGN INITIAL .VIRTUAL PARAMETERS //////////////////
-    objectIndex{entity}.VIRTUAL.R = Rxyz;
-    if objectIndex{entity}.VIRTUAL.type == OMAS_objectType.agent
-       objectIndex{entity}.VIRTUAL.idleStatus = false;            % Initialise the agent as active
+    localXYZVelocity  = Rxyz*objectGLOBAL.velocity;                            % Move from rotated vector to axis aligned vector
+    objectGLOBAL.R    = Rxyz;
+    % Agents idle status is reset before running
+    if objectGLOBAL.type == OMAS_objectType.agent
+       objectGLOBAL.idleStatus = false;                                    % Initialise the agent as active
     end
-    
     % IF THERE IS NO DETECTION RANGE GIVEN (object/blind agent)
-    if ~isfield(objectIndex{entity}.VIRTUAL,'detectionRadius')
-        objectIndex{entity}.VIRTUAL.detectionRadius = 0;
+    if ~isfield(objectGLOBAL,'detectionRadius')
+        objectGLOBAL.detectionRadius = 0;
     end 
-    % INITIALISE THE OBJECTS LOCAL STATE VECTOR (INDEPENDANT OF THE GLOBAL)
+    % Re-assign the modified GLOBAL structure
+    objectIndex{entity}.SetGLOBAL(objectGLOBAL);
+    
+    %% Initialise the object (i.e. object.setup())
     try
         objectIndex{entity} = objectIndex{entity}.setup(localXYZVelocity,localXYZrotations);
     catch initialisationError
         warning('Unable to initialise the local state of object %s :%s',objectIndex{entity}.name);
         rethrow(initialisationError)
     end
+    
     % CHECK FOR FORBIDDEN CHARACTERS IN OBJECT NAME ASSIGNMENTS 
     % This prevents issues from occurring with filenames and figures.
     assertionString = sprintf('Forbidden character (:*?"<>|) in object identifier: "%s"',objectIndex{entity}.name);
     assert(~any(contains(objectIndex{entity}.name,{'\','/',':','*','?','"','<','>','|'},'IgnoreCase',true)),assertionString);
         
-    %% ////////// ASSEMBLE THE GLOBAL META OBJECT CONTAINER ///////////////
+    %% Assemble the global META object container
     % OBJECTS is a vector of structures containing the object META data 
-    SIM.OBJECTS(entity) = struct('objectID',objectIndex{entity}.objectID,...                  % ID reference number
-                                     'name',objectIndex{entity}.name,...                      % Name reference
-                                    'class',class(objectIndex{entity}),...                    % Class reference
-                                     'type',uint8(objectIndex{entity}.VIRTUAL.type),...       % Object type
-                                   'hitBox',uint8(objectIndex{entity}.VIRTUAL.hitBoxType),... % Record the hitbox type
-                                   'colour',objectIndex{entity}.VIRTUAL.colour,...            % Object virtual colour
-                                   'symbol',objectIndex{entity}.VIRTUAL.symbol,...            % Representative symbol (from type)
-                                   'radius',objectIndex{entity}.VIRTUAL.radius,...            % The objects critical radius
-                          'detectionRadius',objectIndex{entity}.VIRTUAL.detectionRadius,...   % The simulations detection horizon for the aircraft
-                               'idleStatus',logical(objectIndex{entity}.VIRTUAL.idleStatus),...        % Agent completed Task Flag
-                              'globalState',[globalXYZPosition;globalXYZVelocity;globalXYZquaternion],...
-                                        'R',Rxyz,...                                          % Current Global-Body rotation matrix
-                        'relativePositions',zeros(SIM.totalObjects,3),...                     % Relative distances between objects [dx;dy;dz]*objectCount
+    SIM.OBJECTS(entity) = struct('objectID',objectIndex{entity}.objectID,...    % ID reference number
+                                     'name',objectIndex{entity}.name,...        % Name reference
+                                    'class',class(objectIndex{entity}),...      % Class reference
+                                     'type',uint8(objectGLOBAL.type),...        % Object type
+                                   'hitBox',uint8(objectGLOBAL.hitBoxType),...  % Record the hitbox type
+                                   'colour',objectGLOBAL.colour,...             % Object virtual colour
+                                   'symbol',objectGLOBAL.symbol,...             % Representative symbol (from type)
+                                   'radius',objectGLOBAL.radius,...             % The objects critical radius
+                          'detectionRadius',objectGLOBAL.detectionRadius,...    % The simulations detection horizon for the aircraft
+                               'idleStatus',objectGLOBAL.idleStatus,...         % Agent completed Task Flag
+                              'globalState',[objectGLOBAL.position;objectGLOBAL.velocity;objectGLOBAL.quaternion],...
+                                        'R',objectGLOBAL.R,...                  % Current Global-Body rotation matrix
+                        'relativePositions',zeros(SIM.totalObjects,3),...       % Relative distances between objects [dx;dy;dz]*objectCount
                              'objectStatus',false(SIM.totalObjects,(numel(eventEnums)-1)/2));                   
     % ASSIGN NaN TO LOCATIONS OF SELF-REFERENCE            
     SIM.OBJECTS(entity).relativePositions(entity,:) = NaN;                 % Mark self reference in the META structure as a NaN.

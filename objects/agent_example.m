@@ -41,11 +41,11 @@ classdef agent_example < agent
             % which then takes on the new parameters specified.
                         
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);                                           % Create the super class 'agent'            
+            obj@agent(varargin);             % Create the super class 'agent'            
             
             % Set some of the parameters
-            obj = obj.SetRadius(0.5);
-            obj = obj.SetDetectionRadius(50);                              % Update the range attribute to the SIM VIRTUAL property            
+            obj.radius = 0.5;
+            obj.detectionRadius = 50;        % Update the range attribute to the SIM VIRTUAL property            
             
             % //////////////// Check for user overrides ///////////////////
             [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
@@ -70,14 +70,6 @@ classdef agent_example < agent
             % OUTPUTS:
             % obj      - The updated project
             
-            
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('OpenMAS environment structure is invalid.');
-            end
-
             % PARSE THE ENTITY PROPERTIES FROM THE ENVIRONMENT 
             [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE       
             
@@ -94,23 +86,24 @@ classdef agent_example < agent
             % How each agent updates its state can be defined locally, as
             % a dedicated function.
             % CALL THE SEPERATE UPDATE FUNCTION
-            [state_k_plus] = obj.updateLocalState(ENV,...
-                                       obj.localState,...
-                                          linearRates,...
-                                         angularRates);
+            [state_k_plus] = obj.UpdateLocalState(...
+                ENV,...
+                obj.localState,...
+                linearRates,...
+                angularRates);
                                      
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             %  USE THE UPDATED LOCAL STATE TO UPDATE THE GLOBAL PROPERTIES
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             % How the objects global state is updated is dependant on how
             % the 'state_k_plus' is defined.
-            obj = obj.updateGlobalProperties(dt,state_k_plus);
+            obj = obj.GlobalUpdate(ENV.dt,state_k_plus);
         end
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % ASSIGNED STATE UPDATE FUNCTION (USING ODE45)
-        function [X] = updateLocalState(obj,TIME,X0,velocity,omega)
+        function [X] = UpdateLocalState(obj,TIME,X0,velocity,omega)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
@@ -120,7 +113,7 @@ classdef agent_example < agent
             if TIME.currentTime == TIME.timeVector(end)
                 return
             else
-                [~,Xset] = ode45(@(t,X) obj.dynamics_simple(X,velocity,omega),...
+                [~,Xset] = ode45(@(t,X) obj.Dynamics_simple(X,velocity,omega),...
                     [0 TIME.dt],X0,...
                     odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
                 X = Xset(end,:)'; % Pass the state at the end of the sample period

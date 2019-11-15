@@ -3,16 +3,16 @@
 % definitions.
 
 classdef agent_tools < objectDefinition
-    
+    %% GENERIC PROPERTIES
     properties
         % OBSTACLE OBJECT MATRIX (record of sightings)
         MEMORY;           % Record of relative scene
         maxSamples = 1;   % The maximum number of states retained
     end
-    %% ////////////////////// SIMULATION INTERFACES ///////////////////////
+    %% SIMULATION INTERFACES
     methods
         % UPDATE OBJECTIVE
-        function [obj,waypointVector] = UpdateTargetWaypoint(obj,waypointSet)
+        function [this,waypointVector] = UpdateTargetWaypoint(this,waypointSet)
             % This function returns the heading for the waypoint with the
             % highest listed priority. The agent retains a matrix of
             % objectID's for the waypoints it has achieved. This is used to
@@ -20,9 +20,9 @@ classdef agent_tools < objectDefinition
             
             % INPUT HANDLING
             if isempty(waypointSet)
-                obj.targetWaypoint = [];                % No waypoints are available
-                waypointVector = [];                    % Default heading
-                obj = obj.SetIdleStatus(true);          % Set idle
+                this.targetWaypoint = [];           % No waypoints are available
+                waypointVector = [];                % Default heading
+                this.SetGLOBAL('idleStatus',true); 	% Set idle
                 return
             end
             
@@ -38,22 +38,22 @@ classdef agent_tools < objectDefinition
             % [ 3 5 9 ] - Waypoint priorities.
             
             % TARGET WAYPOINT IS EMPTY -> POPULATE WITH NEW WAYPOINTS
-            if isempty(obj.targetWaypoint)
+            if isempty(this.targetWaypoint)
                 % NO WAYPOINTS HAVE BEEN SELECTED
-                if isempty(obj.achievedWaypoints)
+                if isempty(this.achievedWaypoints)
                     [~,maxPriorityIndex] = max(waypointMatrix(3,:));       % Index of maximum priority value in waypoint matrix
                     waypointSetIndex = waypointMatrix(1,maxPriorityIndex); % Gets the associated waypoint set index of the highest priority
-                    obj.targetWaypoint = waypointSet(waypointSetIndex);    % Update with the highest priority waypoint
+                    this.targetWaypoint = waypointSet(waypointSetIndex);    % Update with the highest priority waypoint
                 else
                     % SELECT HIGHEST PRIORITY, BUT NOT ACHIEVED
-                    invalidWaypointIDs = obj.achievedWaypoints;            % Get the achieved waypoint IDs
+                    invalidWaypointIDs = this.achievedWaypoints;            % Get the achieved waypoint IDs
                     availableWaypointIDs = waypointMatrix(2,:);            % Get those visable IDs
                     validWaypoints = availableWaypointIDs ~= invalidWaypointIDs;   % Get those visible IDs that are valid
                     % IF NO FURTHER VALID IDs
                     if ~any(validWaypoints)
-                        obj.targetWaypoint = [];
+                        this.targetWaypoint = [];
                         waypointVector = [];
-                        obj = obj.SetIdleStatus(true);            % Set the idle status
+                        this.SetGLOBAL('IdleStatus',true);                  % Set the idle status
                         return
                     end
                     
@@ -62,58 +62,58 @@ classdef agent_tools < objectDefinition
                     % SELECT WAYPOINT OF NEXT HIGHEST PRIORITY
                     [~,maxValidIndex ] = max(validWaypoints(3,:));       % Get the index of max priority waypoint
                     waypointSetIndex = validWaypoints(1,maxValidIndex);  % Get the location of the target waypoint in the waypoint set
-                    obj.targetWaypoint = waypointSet(waypointSetIndex);  % Select waypoint object
+                    this.targetWaypoint = waypointSet(waypointSetIndex);  % Select waypoint object
                 end
             end
             
             % EVALUATE CURRENT TARGET WAYPOINT ////////////////////////////
             % CHECK THE TOLERANCES ON THE CURRENT TARGET WAYPOINT
-            waypointGetCondition = obj.GetTargetCondition();
+            waypointGetCondition = this.GetTargetCondition();
             
             % IF THE CRITERIA IS MET AND THE ID IS NOT LOGGED
-            if waypointGetCondition && ~any(ismember(obj.achievedWaypoints,obj.targetWaypoint.objectID))
-                obj.achievedWaypoints = horzcat(obj.achievedWaypoints,obj.targetWaypoint.objectID); % Add achieved objectID to set
+            if waypointGetCondition && ~any(ismember(this.achievedWaypoints,this.targetWaypoint.objectID))
+                this.achievedWaypoints = horzcat(this.achievedWaypoints,this.targetWaypoint.objectID); % Add achieved objectID to set
             end
             
             % CHECK IF CURRENT TARGET IS VALID ////////////////////////////
             % ASSESS THE ACHIEVED WAYPOINT SET AGAINST THE CURRENT TARGET
-            invalidTargetCondition = any(ismember(obj.achievedWaypoints,obj.targetWaypoint.objectID)); % Is the current target ID in the achieved set
+            invalidTargetCondition = any(ismember(this.achievedWaypoints,this.targetWaypoint.objectID)); % Is the current target ID in the achieved set
             if invalidTargetCondition
                 % TARGET WAYPOINT HAS BEEN ACHIEVED, REALLOCATE ONE
-                selectionVector = priorityVector < obj.targetWaypoint.priority;   % Only those with lower priority
+                selectionVector = priorityVector < this.targetWaypoint.priority;   % Only those with lower priority
                 if ~any(selectionVector)
-                    obj.targetWaypoint = [];
+                    this.targetWaypoint = [];
                     waypointVector = [];
                     return
                 else
                     reducedMatrix = waypointMatrix(:,selectionVector);            % Build vector of priorities less than
                     [~,reducedIndex] = max(reducedMatrix(3,:));                   % Finds the max priority index where less than current
                     waypointIndex = reducedMatrix(1,reducedIndex);                % Get the waypoint index from the reduced priority matrix
-                    obj.targetWaypoint = waypointSet(waypointIndex);              % Select the next highest priority waypoint
+                    this.targetWaypoint = waypointSet(waypointIndex);              % Select the next highest priority waypoint
                 end
             else
-                currentWaypointID = obj.targetWaypoint.objectID;                 % Get the ID of the current target waypoint
+                currentWaypointID = this.targetWaypoint.objectID;                 % Get the ID of the current target waypoint
                 selector = (waypointMatrix(2,:) == currentWaypointID);           % Find where the ID appears in the waypoint matrix
                 waypointIndex = waypointMatrix(1,selector);                      % Get the waypoint Set index from the waypoint matrix
-                obj.targetWaypoint = waypointSet(waypointIndex);                 % Update with the highest priority waypoint
+                this.targetWaypoint = waypointSet(waypointIndex);                 % Update with the highest priority waypoint
             end
             % THE CORRECT TARGET WAYPOINT IS NOW DEFINED, GENERATE HEADING
-            [waypointVector] = obj.GetTargetHeading();
+            [waypointVector] = this.GetTargetHeading();
         end
         % GET TARGET HEADING VECTOR OF VISIBLE OBJECT
-        function [headingVector] = GetTargetHeading(obj,targetObject)
+        function [headingVector] = GetTargetHeading(this,targetObject)
             % This function calculates the heading vector to the current
-            % obj.targetWaypoint, or to the provided object with a position
+            % this.targetWaypoint, or to the provided object with a position
             % field.
             
             % If a target is provided
             if nargin > 1
-                targetPosition = obj.GetLastMeasurementByID(targetObject.objectID,'position');
-            elseif ~isempty(obj.targetWaypoint)
-                targetPosition = obj.targetWaypoint.position(:,obj.targetWaypoint.sampleNum);
+                targetPosition = this.GetLastMeasurementByID(targetObject.objectID,'position');
+            elseif ~isempty(this.targetWaypoint)
+                targetPosition = this.targetWaypoint.position(:,this.targetWaypoint.sampleNum);
             else
                 % Default heading
-                if obj.Is3D
+                if this.Is3D
                     targetPosition = [1;0;0];
                 else
                     targetPosition = [1;0];
@@ -123,33 +123,199 @@ classdef agent_tools < objectDefinition
             headingVector = targetPosition/norm(targetPosition);
         end
         % GET TARGET-GET CONDITION
-        function [targetLogical] = GetTargetCondition(obj)
+        function [targetLogical] = GetTargetCondition(this)
             % Get the current measurements
-            waypointPosition = obj.targetWaypoint.position(:,obj.targetWaypoint.sampleNum);
-            waypointRadius   = obj.targetWaypoint.radius(obj.targetWaypoint.sampleNum);
-            radialConstraint = obj.GetVIRTUALparameter('radius');
+            waypointPosition = this.targetWaypoint.position(:,this.targetWaypoint.sampleNum);
+            waypointRadius   = this.targetWaypoint.radius(this.targetWaypoint.sampleNum);
+            radialConstraint = this.GetGLOBAL('radius');
             % Check the current achieve-tolerances on a given target
             targetLogical = 0 > (norm(waypointPosition) - (waypointRadius + radialConstraint));
         end
     end
-    %% /////////////////////// MEMORY MANIPULATION ////////////////////////
+    %% UPDATE METHODS
+    methods
+        % GLOBAL UPDATE - EULER 6DOF(3DOF) TO NED STATE VECTOR
+        function [this] = GlobalUpdate_NED(this,dt,eulerState)
+            
+            % NOTATION INDICIES
+            if numel(eulerState) == 6
+                positionIndices = 1:3;
+                eulerIndices = 4:6;
+            elseif numel(eulerState) == 3
+                positionIndices = 1:2;
+                eulerIndices = 3;
+            else
+                error('State notation not recognised');
+            end
+            
+            % Previous state 'k' 
+            position_k   = this.GetGLOBAL('position');
+            velocity_k   = this.GetGLOBAL('velocity');
+            quaternion_k = this.GetGLOBAL('quaternion');
+            state_k      = this.GetGLOBAL('priorState');
+            
+            % EQUIVALENT RATES
+            velocity_k_plus   = (eulerState(positionIndices) - state_k(positionIndices))/dt;
+            eulerRates_k_plus = (eulerState(eulerIndices) - state_k(eulerIndices))/dt;
+            
+            % NED ROTATION CONVENTION
+            % 3D - Rotation order (Z Y X)
+            % 2D - Rotation order (Z)
+            
+            % Formulate the conversion
+            globalAxisRates = eulerRates_k_plus;
+            if numel(globalAxisRates) ~= 3
+                globalAxisRates = zeros(3,1) + [-1;0;0]*eulerRates_k_plus;
+                velocity_k_plus = [velocity_k_plus;0];
+            else
+                % GET CONSTANT CONVERSION FROM GLOBAL NED TO GLOBAL ENU
+                R_NED_ENU = [1 0 0 ; 0 cos(pi) -sin(pi); 0 sin(pi) cos(pi)];
+                % Formulate the conversion
+                globalAxisRates = W*eulerRates_k_plus;
+            end
+            
+            % INTEGRATE THE GLOBAL QUATERNION
+            [quaternion_k_plus] = OMAS_geometry.integrateQuaternion(quaternion_k,globalAxisRates,dt);
+            % NEW ROTATION MATRIX (G>B)
+            R_k_plus = OMAS_geometry.quaternionToRotationMatrix(quaternion_k_plus);
+            
+            % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
+            globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
+            globalPosition_k_plus = position_k + dt*velocity_k;
+            % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
+            [this] = this.GlobalUpdate_direct(...
+                globalPosition_k_plus,... % Global position at k plius
+                globalVelocity_k_plus,... % Global velocity at k plus
+                quaternion_k_plus,...     % Quaternion at k plus
+                eulerState);              % The new state for reference
+        end
+        % GLOBAL UPDATE - EULER 6DOF(3DOF) TO NED STATE VECTOR ( LOCAL AXIS REMAINS STATIC )
+        function [this] = GlobalUpdate_NED_fixed(this,dt,eulerState)
+            
+            % NOTATION INDICIES
+            if numel(eulerState) == 6
+                positionIndices = 1:3;
+            elseif numel(eulerState) == 3
+                positionIndices = 1:2;
+            else
+                error('State notation not recognised');
+            end
+            
+            % Previous state 'k' 
+            position_k   = this.GetGLOBAL('position');
+            velocity_k   = this.GetGLOBAL('velocity');
+            quaternion_k = this.GetGLOBAL('quaternion');
+            state_k      = this.GetGLOBAL('priorState');
+            
+            % EQUIVALENT RATES
+%             velocity_k_plus   = (eulerState(positionIndices) - state_k(positionIndices))/dt;
+            
+            % NED ROTATION CONVENTION
+            % 3D - Rotation order (Z Y X)
+            % 2D - Rotation order (Z)
+            % ROTATION RATES ABOUT THE GLOBAL AXES
+            
+            % /////////////// DEFINE PREVIOUS PARAMETERS //////////////////
+            velocity_k_plus = eulerState(velocityIndices,1);    % The velocity in the local NED frame
+            
+            % Formulate the conversion
+            if numel(velocity_k_plus) ~= 3
+                velocity_k_plus = [velocity_k_plus;0];
+            end
+            
+            % GET LOCAL NED TO GLOBAL NED ROTATION MATRIX
+            R_k = OMAS_geometry.quaternionToRotationMatrix(quaternion_k);
+            % GET CONSTANT CONVERSION FROM GLOBAL NED TO GLOBAL ENU
+            R_NED_ENU = [1 0 0 ; 0 cos(pi) -sin(pi); 0 sin(pi) cos(pi)];
+            
+            % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
+            velocity_k_plus = R_NED_ENU*(R_k*velocity_k_plus);
+            position_k_plus = position_k + dt*velocity_k;
+            % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
+            [this] = this.GlobalUpdate_direct(...
+                position_k_plus,...     % Global position at k plius
+                velocity_k_plus,...     % Global velocity at k plus
+                quaternion_k_plus,...   % Quaternion at k plus
+                eulerState);            % The new state for reference
+        end
+        % GLOBAL UPDATE - DIRECT (AGENT OVERRIDE)
+        function [this] = GlobalUpdate_direct(this,p,v,q)
+            % Under this notation, the state vector already contains the
+            % global parameters of the object.
+            % INPUTS:
+            % globalPosition - 3D global cartesian position given in the ENU coordinate frame.
+            % globalVelocity - 3D global cartesian velocity given in the ENU coordinate frame.
+            % quaternion     - The new quaternion pose of body in the global frame.
+            % R              - The rotation of the body
+            % this.localState - The previous localState (independant of convention)
+            % eulerState     - The new state as reported by the agent
+            
+            % Input sanity check
+            assert(isColumn(p,3),'Global position must be a 3D column vector [3x1].');
+            assert(isColumn(v,3),'Global velocity must be a 3D column vector [3x1].');
+            assert(isColumn(q,4),'Global pose must be a 4D quaternion vector [4x1].');
+            assert(size(this.localState,2) == 1,'The length of the objects state update must match the its local state.');
+            
+            % Check if the object idle condition is made
+            if this.GetGLOBAL('type') == OMAS_objectType.agent
+                % Evaluate way-point
+                if isempty(this.targetWaypoint) && ~isempty(this.achievedWaypoints)
+                    this = this.SetGLOBAL('idleStatus',true);
+                end
+            end
+            
+            % ///////////////// REASSIGN K+1 PARAMETERS //////////////////////////
+            % Convert the quaternion to the equivalent rotation matrix
+            R = OMAS_geometry.quaternionToRotationMatrix(q);
+            % Assign the global parameters
+            this.SetGLOBAL('position',p);                 	% Reassign the global position
+            this.SetGLOBAL('velocity',v);                 	% Reassign the global velocity
+            this.SetGLOBAL('quaternion',q);                	% Reassign the quaternion
+            this.SetGLOBAL('R',R);                          % New rotation matrix
+            this.SetGLOBAL('priorState',this.localState);  	% Record the previous state
+        end
+    end
+    % Only the objectDefinition class has access
+    methods (Static)
+        % Create agent VIRTUAL structure (Override the objectDefinition)
+        function [GLOBAL]  = CreateGLOBAL()
+            % This is function that assembles the template desciption of an
+            % agent type object.
+            
+            % Define the VIRTUAL structure
+            GLOBAL = struct();
+            GLOBAL.type = OMAS_objectType.agent;
+            GLOBAL.hitBoxType = OMAS_hitBoxType.spherical;
+            GLOBAL.detectionRadius = inf;
+            GLOBAL.radius = 0.5;                % Diameter of 1m
+            GLOBAL.colour = rand(1,3,'single');	% Colour (for plotting)
+            GLOBAL.symbol = 'diamond';          % Representative symbol
+            GLOBAL.position = [0;0;0];          % Global Cartesian position
+            GLOBAL.velocity = [0;0;0];          % Global Cartesian velocity
+            GLOBAL.quaternion = [1;0;0;0];      % Global quaternion pose
+            GLOBAL.idleStatus = false;          % Object idle logical
+            GLOBAL.is3D = true;                 % Object operates in 3D logical
+            GLOBAL.priorState = [];
+        end
+    end
+    %% MEMORY MANIPULATION
     methods
         % MEMORY - Sort by defined field
-        function [obj]  = UpdateMemoryOrderByField(obj,field)
+        function [this] = UpdateMemoryOrderByField(this,field)
             % INPUTS:
             % type - Sort option; memory field label.
             
             % Input sanity check
             assert(ischar(field),'Memory sort method must be a string.');
-            assert(isfield(obj.MEMORY,field),'Field must belong to the memory structure.');
+            assert(isfield(this.MEMORY,field),'Field must belong to the memory structure.');
             
             % Reorder the memory structure based on fieldname
-            [~,ind] = sort([obj.MEMORY.(field)],2,'descend');         % Ordered indices of the object IDs
+            [~,ind] = sort([this.MEMORY.(field)],2,'descend');         % Ordered indices of the object IDs
             % Sort the memory structure
-            obj.MEMORY = obj.MEMORY(ind);
+            this.MEMORY = this.MEMORY(ind);
         end
         % MEMORY - Update memory from an observation structure
-        function [obj]  = UpdateMemoryFromObject(obj,t_sample,observedObject)
+        function [this] = UpdateMemoryFromObject(this,t_sample,observedObject)
             
             % This program is designed to parse the sensor data recieved into memory
             % for access in main agent code.
@@ -161,81 +327,80 @@ classdef agent_tools < objectDefinition
             
             % [TO-DO] REMOVE MEMORY ENTRIES NOT VISIBLE ///////////////////
             % Get the indices of objects still visible
-            % visibleIDs = ismember([obj.MEMORY.objectID],[observedObject.objectID]);
-            % Remove entries no longer visible
-            % obj.MEMORY = obj.MEMORY(visibleIDs);                              % Removes all entries not visible
+            % visibleIDs = ismember([this.MEMORY.objectID],[observedObject.objectID]);
+            % Remove entries no longer visible                      
             
             % ////////// UPDATE MEMORY WITH NEW ENTRIES AND EXISTING ENTRIES //////////
             % Get the logical indices of ID occurances
-            logicalIDIndex = [obj.MEMORY.objectID] == observedObject.objectID;  % Appearance of object ID in memory
+            logicalIDIndex = [this.MEMORY.objectID] == observedObject.objectID;  % Appearance of object ID in memory
             IDoccurances   = sum(logicalIDIndex);
             % Determine memory behaviour
             switch IDoccurances
                 case 0 % ///////// IS NOT IN MEMORY YET ///////////////////
                     % Override the template if its the first reading
-                    if numel(obj.MEMORY) == 1 && obj.MEMORY(1).objectID == 0
+                    if numel(this.MEMORY) == 1 && this.MEMORY(1).objectID == 0
                         logicalIDIndex = 1;                                     % The memory address to be overwritten
                     else
                         % Get new memory structure with associated fields
-                        newEntry = obj.GetMemoryStructure(obj.maxSamples);
-                        obj.MEMORY = [obj.MEMORY;newEntry];                     % Append the new structure
-                        logicalIDIndex = numel(obj.MEMORY);                     % Address is the end address
+                        newEntry = this.CreateMEMORY(this.maxSamples);
+                        this.MEMORY = [this.MEMORY;newEntry];                     % Append the new structure
+                        logicalIDIndex = numel(this.MEMORY);                     % Address is the end address
                     end
                     
                     % Record current time and append to sample
-                    obj.MEMORY(logicalIDIndex).time(1) = t_sample;
+                    this.MEMORY(logicalIDIndex).time(1) = t_sample;
                     
                     % UPDATE MEMORY FIELDS FROM OBSERVATIONS
-                    memFields = fieldnames(obj.MEMORY(logicalIDIndex));         % Update fields by dynamic association
+                    memFields = fieldnames(this.MEMORY(logicalIDIndex));         % Update fields by dynamic association
                     for entry = 1:numel(memFields)
                         if ~isfield(observedObject,memFields{entry})            % Check the memory field is observable
                             continue                                            % Field cannot be updated from observations
                         end
                         % Data is available
-                        if ~isa(obj.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
+                        if ~isa(this.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
                             % Direct value override
                             data = observedObject.(memFields{entry});
                         else
                             % Update circular-buffers
-                            data = obj.MEMORY(logicalIDIndex).(memFields{entry});
+                            data = this.MEMORY(logicalIDIndex).(memFields{entry});
                             % Attempt to merge data
                             try
-                                data(:,obj.MEMORY(logicalIDIndex).sampleNum) = observedObject.(memFields{entry});
+                                data(:,this.MEMORY(logicalIDIndex).sampleNum) = observedObject.(memFields{entry});
                             catch memoryUpdateError
                                 %warning('Error inserting new data entry, are they the same dimension?')
                                 rethrow(memoryUpdateError);
                             end
                         end
                         % Attempt to apply
-                        obj.MEMORY(logicalIDIndex).(memFields{entry}) = data;
+                        this.MEMORY(logicalIDIndex).(memFields{entry}) = data;
                     end
                 case 1 % ////////// IS IN MEMORY ALREADY AND SINGUAR //////////////
                     % Indicate new sample
-                    obj.MEMORY(logicalIDIndex).sampleNum = obj.MEMORY(logicalIDIndex).sampleNum + 1;
+                    this.MEMORY(logicalIDIndex).sampleNum = this.MEMORY(logicalIDIndex).sampleNum + 1;
                     % Get the new sample number
-                    n = obj.MEMORY(logicalIDIndex).sampleNum;
+                    n = this.MEMORY(logicalIDIndex).sampleNum;
                     
                     % Record current time and append to sample
-                    obj.MEMORY(logicalIDIndex).time(:,n) = t_sample;
+                    this.MEMORY(logicalIDIndex).time(:,n) = t_sample;
                     
                     % Update dynamic fields by association
-                    memFields = fieldnames(obj.MEMORY(logicalIDIndex));
+                    memFields = fieldnames(this.MEMORY(logicalIDIndex));
                     for entry = 1:numel(memFields)
                         if ~isfield(observedObject,memFields{entry})            % Check the memory field is observable
                             continue                                            % Field cannot be updated from observations
                         end
-%                         % Isolate circular-buffers
-%                         if isa(obj.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
-%                             data = obj.MEMORY(logicalIDIndex).(memFields{entry});
-%                             data(:,n) = observedObject.(memFields{entry});
-%                             obj.MEMORY(logicalIDIndex).(memFields{entry}) = data;
-%                         else
-%                             
-%                         end
+                        %                         % Isolate circular-buffers
+                        %                         if isa(this.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
+                        %                             data = this.MEMORY(logicalIDIndex).(memFields{entry});
+                        %                             data(:,n) = observedObject.(memFields{entry});
+                        %                             this.MEMORY(logicalIDIndex).(memFields{entry}) = data;
+                        %                         else
+                        %
+                        %                         end
                         % Data is circular buffer.
-                        if isa(obj.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
+                        if isa(this.MEMORY(logicalIDIndex).(memFields{entry}),'circularBuffer')
                             % Update circular-buffers
-                            data = obj.MEMORY(logicalIDIndex).(memFields{entry});
+                            data = this.MEMORY(logicalIDIndex).(memFields{entry});
                             % Attempt to merge data
                             data(:,n) = observedObject.(memFields{entry});
                         else
@@ -243,7 +408,7 @@ classdef agent_tools < objectDefinition
                             data = observedObject.(memFields{entry});
                         end
                         % Attempt to apply
-                        obj.MEMORY(logicalIDIndex).(memFields{entry}) = data;
+                        this.MEMORY(logicalIDIndex).(memFields{entry}) = data;
                     end
                 otherwise
                     error('[ERROR] Agent memory structure is distorted.');
@@ -251,35 +416,35 @@ classdef agent_tools < objectDefinition
             % /////////// DEDUCTIONS FROM THE MEASUREMENTS ////////////
             % Call external priority calculator (based on range, position
             % speed.. etc)
-            obj.MEMORY(logicalIDIndex).priority = obj.GetObjectPriority(observedObject.objectID);
+            this.MEMORY(logicalIDIndex).priority = this.GetObjectPriority(observedObject.objectID);
         end
         % MEMORY - LAST MEASUREMENT BY FIELD
-        function [data] = GetLastMeasurementByID(obj,objectID,field)
+        function [data] = GetLastMeasurementByID(this,objectID,field)
             % Input sanity check
             assert(isnumeric(objectID),'ObjectID must be a numeric ID.');
             
             % Check occurances
             data = [];
-            if ~obj.IsInMemory(objectID)
+            if ~this.IsInMemory(objectID)
                 return      % No data to return
             end
             
             % Check the field exists in memory
-            assert(isfield(obj.MEMORY,field),'Field must be a defined as a string label.');
+            assert(isfield(this.MEMORY,field),'Field must be a defined as a string label.');
             
             % Get the location of data in the memory structure
-            memoryLogicals = [obj.MEMORY(:).objectID] == objectID;
+            memoryLogicals = [this.MEMORY(:).objectID] == objectID;
             % Get the associated buffer data
-            data = obj.MEMORY(memoryLogicals).(field);
+            data = this.MEMORY(memoryLogicals).(field);
             % Get the latest samples data from buffer
             if isa(data,'circularBuffer')
-                data = data(:,obj.MEMORY(memoryLogicals).sampleNum);
+                data = data(:,this.MEMORY(memoryLogicals).sampleNum);
             else
                 data = data(:,1);
             end
         end
         % MEMORY - SET LAST MEASUREMENT BY FIELD
-        function [obj]  = SetLastMeasurementByID(obj,objectID,field,data)
+        function [this] = SetLastMeasurementByID(this,objectID,field,data)
             % This function sets the last value at the given memory field
             % to current value.
             
@@ -287,76 +452,76 @@ classdef agent_tools < objectDefinition
             assert(isnumeric(objectID),'ObjectID must be a numeric ID.');
             
             % Check occurances
-            if ~obj.IsInMemory(objectID)
+            if ~this.IsInMemory(objectID)
                 return      % No data to return
             end
             
             % Check the field exists in memory
-            assert(isfield(obj.MEMORY,field),'Field must be a defined as a string label.');
+            assert(isfield(this.MEMORY,field),'Field must be a defined as a string label.');
             
             % Get the location of data in the memory structure
-            memoryLogicals = [obj.MEMORY(:).objectID] == objectID;
+            memoryLogicals = [this.MEMORY(:).objectID] == objectID;
             
             % Get the associated buffer data
-            memData = obj.MEMORY(memoryLogicals).(field);
+            memData = this.MEMORY(memoryLogicals).(field);
             
             % Get the latest samples data from buffer
             if isa(memData,'circularBuffer')
-                memData(:,obj.MEMORY(memoryLogicals).sampleNum) = data;
+                memData(:,this.MEMORY(memoryLogicals).sampleNum) = data;
             else
                 memData(:,1) = data;
             end
             % Reapply the data to the memory field [TO-DO] Rewrite
-            obj.MEMORY(memoryLogicals).(field) = memData;
+            this.MEMORY(memoryLogicals).(field) = memData;
         end
         % MEMORY - Set the maximum sample number
-        function [obj]  = SetBufferSize(obj,horizon)
+        function [this] = SetBufferSize(this,horizon)
             assert(numel(horizon) == 1 && isnumeric(horizon),'Horizon must be a scalar number of steps.');
             % define the size of the buffer
-            obj.maxSamples = horizon;
+            this.maxSamples = horizon;
             % Initialise memory structure (with 3D varient)
-            obj.MEMORY = obj.GetMemoryStructure(obj.maxSamples);
+            this.MEMORY = this.CreateMEMORY(this.maxSamples);
         end
         % MEMORY - Get the object priority
-        function [p_j]  = GetObjectPriority(obj,objectID)
-            logicalIDIndex = [obj.MEMORY(:).objectID] == objectID;
-            p_j = 1/norm(obj.MEMORY(logicalIDIndex).position(:,obj.MEMORY(logicalIDIndex).sampleNum));
+        function [p_j]  = GetObjectPriority(this,objectID)
+            logicalIDIndex = [this.MEMORY(:).objectID] == objectID;
+            p_j = 1/norm(this.MEMORY(logicalIDIndex).position(:,this.MEMORY(logicalIDIndex).sampleNum));
         end
         % MEMORY - WHOLE STRUCTURE BY ID
-        function [data] = GetMemoryStructByID(obj,objectID)
+        function [data] = GetMemoryStructByID(this,objectID)
             % Check occurances
             data = [];
-            if ~obj.IsInMemory(obj,objectID)
+            if ~this.IsInMemory(this,objectID)
                 return
             end
             % Get the location of data in the memory structure
-            data = obj.MEMORY([obj.MEMORY(:).objectID] == objectID);                        % The memory structure
+            data = this.MEMORY([this.MEMORY(:).objectID] == objectID);                        % The memory structure
         end
         % MEMORY - TRAJECTORY BY FIELD
-        function [data] = GetTrajectoryByID(obj,objectID,field)
+        function [data] = GetTrajectoryByID(this,objectID,field)
             % Input sanity check
             assert(isnumeric(objectID),'ObjectID must be a numeric ID.');
             assert(ischar(field),'Field must be a defined as a string label.');
             % Check occurances
             data = [];
-            if ~obj.IsInMemory(objectID)
+            if ~this.IsInMemory(objectID)
                 return      % No data to return
             end
             % Get the location of data in the memory structure
-            memoryLogicals = [obj.MEMORY(:).objectID] == objectID;
+            memoryLogicals = [this.MEMORY(:).objectID] == objectID;
             % Get the associated buffer data
-            data = obj.MEMORY(memoryLogicals).(field);
+            data = this.MEMORY(memoryLogicals).(field);
             % Unpack the buffer along the [:,n] dimension
-            data = data.unpack(2,obj.MEMORY(memoryLogicals).sampleNum);
+            data = data.unpack(2,this.MEMORY(memoryLogicals).sampleNum);
         end
         % MEMORY - CHECK ID IS PRESENT
-        function [flag] = IsInMemory(obj,objectID)
+        function [flag] = IsInMemory(this,objectID)
             % Get the location of data in the memory structure
-            memoryLogicals = [obj.MEMORY(:).objectID] == objectID;
+            memoryLogicals = [this.MEMORY(:).objectID] == objectID;
             flag = any(memoryLogicals); % Check for occurances
         end
         % GET EMPTY MEMORY STRUCTURE (2D & 3D trajectories)
-        function [memStruct]  = GetMemoryStructure(obj,horizonSteps)
+        function [MEMORY] = CreateMEMORY(this,horizonSteps)
             % This function contains a basic agent-memory structure. This
             % is used to retain information on observed objects and maintain
             % a regular structure.
@@ -367,7 +532,7 @@ classdef agent_tools < objectDefinition
             end
             
             % Handle interval memory types (2D & 3D)
-            if obj.Is3D()
+            if this.Is3D()
                 dim = 3;
             else
                 dim = 2;
@@ -378,30 +543,31 @@ classdef agent_tools < objectDefinition
             
             % ///// Create empty memory structure /////
             % House-keeping
-            memStruct = struct();
-            memStruct.name = ''; 
-            memStruct.objectID = uint8(0);
-            memStruct.type = OMAS_objectType.misc;
-            memStruct.sampleNum = uint8(1);
+            MEMORY = struct();
+            MEMORY.name = '';
+            MEMORY.objectID = uint8(0);
+            MEMORY.type = OMAS_objectType.misc;
+            MEMORY.sampleNum = uint8(1);
             % Cartesian measurements
-            memStruct.time     = circularBuffer(NaN(1,horizonSteps));
-            memStruct.position = circularBuffer(NaN(dim,horizonSteps));
-            memStruct.velocity = circularBuffer(NaN(dim,horizonSteps));
-            memStruct.radius   = circularBuffer(NaN(1,horizonSteps));
+            MEMORY.time         = circularBuffer(NaN(1,horizonSteps));
+            MEMORY.position     = circularBuffer(NaN(dim,horizonSteps));
+            MEMORY.velocity     = circularBuffer(NaN(dim,horizonSteps));
+            MEMORY.radius       = circularBuffer(NaN(1,horizonSteps));
             % Spherical measurements
-            memStruct.range = circularBuffer(NaN(1,horizonSteps));
-            memStruct.heading = circularBuffer(NaN(1,horizonSteps));
-            memStruct.elevation = circularBuffer(NaN(1,horizonSteps));
-            memStruct.width = circularBuffer(NaN(1,horizonSteps));
+            MEMORY.range        = circularBuffer(NaN(1,horizonSteps));
+            MEMORY.heading      = circularBuffer(NaN(1,horizonSteps));
+            MEMORY.elevation	= circularBuffer(NaN(1,horizonSteps));
+            MEMORY.width    	= circularBuffer(NaN(1,horizonSteps));
             % Additionals
-            memStruct.geometry = struct('vertices',[],'faces',[],'normals',[],'centroid',[]);
-            memStruct.priority = [];
+            MEMORY.geometry = struct('vertices',[],'faces',[],'normals',[],'centroid',[]);
+            MEMORY.priority = [];
         end
     end
     methods (Static)
         % FROM MEMORY - LAST MEASUREMENT FROM STRUCTURE
         function [latestData] = GetLastMeasurementFromStruct(memStruct,field)
             % Input sanity check
+            assert(isstruct(memStruct),'Expecting a valid memory structure.');
             assert(ischar(field),'Field must be a defined as a string label.');
             
             % Get the associated buffer data
@@ -413,5 +579,6 @@ classdef agent_tools < objectDefinition
                 latestData = latestData(:,1);
             end
         end
+        
     end
 end

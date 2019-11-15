@@ -6,37 +6,31 @@
 
 classdef fixedWing < agent
     properties
-        % globalPosition - The position of the object in the global axes
-        % globalVelocity - The velocity of the object in the global axes
-        % quaternion     - The quaternion representing the earth to rotated body
-        
-        % DYNAMICS - All the models parameters are held in the DYNAMICS
-        %            container field.
+
     end
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods
         % Constructor
-        function obj = fixedWing(varargin)
+        function [this] = fixedWing(varargin)
             % Call the super class
-            obj@agent(varargin);                                           % Create the super class 'agent'
-                        
+            this@agent(varargin);                                           % Create the super class 'agent'        
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Setup - 3D DUBLINS CAR STATE [x;y;z;v;psi;theta]
-        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
+        function [this] = setup(this,localXYZVelocity,localXYZrotations)
             % Infer the initial conditions from the scenario.
             p     = zeros(3,1);            % The position in the local frame
             speed = norm(localXYZVelocity);% The speed of the aircraft
             theta = localXYZrotations(2);  % The elevation of the aircraft
             psi   = 0;                     % The yaw of the aircraft
             % Define the initial state from the scenario
-            obj.localState = [p(1);p(2);p(3);speed;theta;psi]; 
-            obj = obj.SetVIRTUALparameter('priorState',obj.localState); 
+            this.localState = [p(1);p(2);p(3);speed;theta;psi]; 
+            this = this.SetGLOBAL('priorState',this.localState); 
         end
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
@@ -44,60 +38,27 @@ classdef fixedWing < agent
             % OUTPUTS:
             % obj      - The updated project
             
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
-            
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
             %[obj,obstacleSet,agentSet,waypointSet] = obj.getAgentUpdate(varargin{1});                   % IDEAL INFORMATION UPDATE 
             
-            u = [0.1;0.1;0.1]; % Acceleration, pitch rate, yaw rate
+            u_k = [0.1;0.1;0.1]; % Acceleration, pitch rate, yaw rate
+            x_k = this.localState;
             
             % UPDATE LOCAL STATE
-            newState = obj.updateLocalState(ENV,obj.localState,u);
+            newState = this.UpdateLocalState(ENV,x_k,u_k);
             
             % UPDATE THE GLOBAL PROPERTIES OF THE AGENT
-            [obj] = obj.updateGlobalProperties(dt,newState);
+            [this] = this.GlobalUpdate(ENV.dt,newState);
             
             % /////////////// RECORD THE AGENT-SIDE DATA //////////////////
-            obj.DATA.inputNames = {'$v (m/s)$','$\dot{\theta} (rad/s)$','$\dot{\psi} (rad/s)$'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = newState(4:6);         % Record the control inputs
+            this.DATA.inputNames = {'$v (m/s)$','$\dot{\theta} (rad/s)$','$\dot{\psi} (rad/s)$'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = newState(4:6);         % Record the control inputs
         end
     end
-    methods        
-        % DEFINE THE GLOBAL UPDATE PROCEDURE FOR A 3D DUBLINS CAR MODEL
-        function [obj] = updateGlobalProperties(obj,dt,DCMState)
-            % USE THE 'RATE' STATES DIRECTLY
-            velocity_k_plus = [DCMState(4);0;0];                           % Assumed forward in the local axes
-            eulers_k_plus   = [0;DCMState(5);DCMState(6)];                 % Neglect roll only
-            localAxisRates  = (eulers_k_plus - [0;obj.VIRTUAL.priorState(5:6)])/dt;
-            % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
-            % PREVIOUS QUATERNION                                          % [ IF THE QUATERNION DEFINES GB ]
-            quaternion_k = obj.VIRTUAL.quaternion;   
-            % PREVIOUS ROTATION-MATRIX
-            %R_k = quat2rotm(quaternion_k');
-            R_k = OMAS_geometry.quaternionToRotationMatrix(quaternion_k);
-            % THE GLOBAL AXIS RATES       
-            omega = R_k'*localAxisRates;
-            % UPDATE THE QUATERNION POSE
-            quaternion_k_plus = OMAS_geometry.integrateQuaternion(quaternion_k,omega,dt);
-            % REDEFINE THE ROTATION MATRIX
-            R_k_plus = quat2rotm(quaternion_k_plus');        
-            % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
-            globalVelocity_k_plus = R_k_plus'*velocity_k_plus;
-            globalPosition_k_plus = obj.VIRTUAL.globalPosition + dt*obj.VIRTUAL.globalVelocity;
-            % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
-            [obj] = obj.updateGlobalProperties_direct(globalPosition_k_plus,... % Global position at k plius
-                                                      globalVelocity_k_plus,... % Global velocity at k plus
-                                                      quaternion_k_plus,...     % Quaternion at k plus
-                                                      DCMState);                % The new state for reference
-        end
+    methods  
         % GET THE STATE UPDATE (USING ODE45)
-        function [X]   = updateLocalState(obj,TIME,X0,u)
+        function [X] = UpdateLocalState(this,TIME,X0,u)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
@@ -108,11 +69,45 @@ classdef fixedWing < agent
             if TIME.currentTime == TIME.timeVector(end)
                 return
             else
-                [~,Xset] = ode45(@(t,X) obj.dynamics_nonholonomicDublinsCar(X,u),...
+                [~,Xset] = ode45(@(t,X) this.dynamics_nonholonomicDublinsCar(X,u),...
                     [0 TIME.dt],X0,...
                     odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
                 X = Xset(end,:)'; % Pass the state at the end of the sample period
             end
+        end
+        % DEFINE THE GLOBAL UPDATE PROCEDURE FOR A 3D DUBLINS CAR MODEL
+        function [this] = GlobalUpdate(this,dt,eulerState)
+            
+            % Retrieve current properties
+            p_k	= this.GetGLOBAL('position');
+            v_k	= this.GetGLOBAL('velocity');
+            q_k	= this.GetGLOBAL('quaternion'); 
+            x_k	= this.GetGLOBAL('priorState');
+            
+            % USE THE 'RATE' STATES DIRECTLY
+            v_k_plus = [eulerState(4);0;0];                         % Assumed forward in the local axes
+            omega_k_plus   = [0;eulerState(5);eulerState(6)];             % Neglect roll only
+            localAxisRates = (omega_k_plus - [0;x_k(5:6)])/dt;
+            % MAP THE LOCAL RATES TO GLOBAL RATES AND INTEGRATE QUATERNION
+            % Previous properties
+  
+            % PREVIOUS ROTATION-MATRIX
+            %R_k = quat2rotm(quaternion_k');
+            R_k = OMAS_geometry.quaternionToRotationMatrix(q_k);
+            % THE GLOBAL AXIS RATES       
+            omega = R_k'*localAxisRates;
+            % UPDATE THE QUATERNION POSE
+            q_k_plus = OMAS_geometry.integrateQuaternion(q_k,omega,dt);
+            % REDEFINE THE ROTATION MATRIX
+            R_k_plus = quat2rotm(q_k_plus');        
+            % MAP THE LOCAL VELOCITY TO THE GLOBAL AXES
+            v_k_plus = R_k_plus'*v_k_plus;
+            p_k_plus = p_k + dt*v_k;
+            % ///////////////// REASSIGN K+1 PARAMETERS ///////////////////
+            [this] = this.GlobalUpdate_direct(...
+                p_k_plus,...    % Global position at k plius
+                v_k_plus,...    % Global velocity at k plus
+                q_k_plus);      % Quaternion at k plus
         end
     end
     % STATIC FUNCTIONS

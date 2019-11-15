@@ -46,11 +46,10 @@ agentConfig = SBinstance.regularSphere(...
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning agent global parameters...\n'); 
 for index = 1:agentNumber
-    % APPLY GLOBAL STATE VARIABLES
-%     agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index) + scenarioConfig.noiseFactor*randn(3,1);     % 3D PERTURBATION
-    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.position(:,index) + scenarioConfig.noiseFactor*[randn(2,1);0]; % 2D PERTURBATION
-    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocity(:,index);
-    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternion(:,index);
+    % Update the GLOBAL properties
+    agentIndex{index}.SetGLOBAL('position',agentConfig.positions(:,index) + scenarioConfig.noiseFactor*[randn(2,1);0]); % 2D PERTURBATION
+    agentIndex{index}.SetGLOBAL('velocity',agentConfig.velocities(:,index));
+    agentIndex{index}.SetGLOBAL('quaternion',agentConfig.quaternions(:,index));
 end
 
 %% DEFINE WAYPOINTS AND ASSIGN GLOBAL PARAMETERS
@@ -61,18 +60,20 @@ waypointConfig = SBinstance.helix(...
 
 % MOVE THROUGH THE WAYPOINTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning waypoint definitions:\n');
-
+% Extract the leading agent
 leadAgent = agentIndex{1};
 
 for index = 1:scenarioConfig.waypoints
     priority = scenarioConfig.waypoints - index;
     nameString = sprintf('WP%d-%s',index,leadAgent.name);
+    % Construct the way-point
     waypointIndex{index} = waypoint('radius',scenarioConfig.waypointRadius,'name',nameString);
-    % APPLY GLOBAL STATE VARIABLES
-    waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.position(:,index) + scenarioConfig.noiseFactor*randn(3,1);
-    waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocity(:,index);
-    waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternion(:,index);
-    waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(leadAgent,priority);  % Create waypoint with association to agent
+    % Update the GLOBAL properties
+    waypointIndex{index}.SetGLOBAL('position',waypointConfig.positions(:,index) + scenarioConfig.noiseFactor*[randn(2,1);0]);
+    waypointIndex{index}.SetGLOBAL('velocity',waypointConfig.velocities(:,index));
+    waypointIndex{index}.SetGLOBAL('quaternion',waypointConfig.quaternions(:,index));
+    % Create the way-point association
+    waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
 end
 % BUILD THE COLLECTIVE OBJECT INDEX
 objectIndex = horzcat(agentIndex,waypointIndex);
@@ -80,6 +81,5 @@ objectIndex = horzcat(agentIndex,waypointIndex);
 if scenarioConfig.plot
     objectScenario.plotObjectIndex(objectIndex);
 end
-% CLEAR THE REMAINING VARIABLES
-clearvars -except objectIndex
+clearvars -except objectIndex % Clean-up
 end

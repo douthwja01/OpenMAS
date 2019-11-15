@@ -11,36 +11,38 @@ classdef ARdrone_LQR < ARdrone
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function obj = ARdrone_LQR(varargin)
+        function this = ARdrone_LQR(varargin)
             
             % Call the super class
-            obj@ARdrone(varargin);                                         % Create the super class 'agent'                  
+            this@ARdrone(varargin);                                         % Create the super class 'agent'                  
              
             % DYNAMIC CONSTRAINTS
-            obj.nominalSpeed = 2.0; 
-            obj.maxSpeed = 3;
+            this.v_nominal = 2.0; 
+            this.v_max = 3;
             
             % Append control parameter
             %obj.DYNAMICS.Q = diag([1 1 1 1 1 1 2 1 1 1 1 1])*1.5E1;
-            obj.DYNAMICS.Q = diag([1 1 1 1 1 1 1 1 1 1 1 1])*1.5E1;
-            obj.DYNAMICS.R = diag(ones(4,1))*1E-4;     
-            obj.DYNAMICS.N = zeros(size(obj.DYNAMICS.SS.B));        % Terminal input penalisation     
+            this.DYNAMICS.Q = diag([1 1 1 1 1 1 1 1 1 1 1 1])*1.5E1;
+            this.DYNAMICS.R = diag(ones(4,1))*1E-4;     
+            this.DYNAMICS.N = zeros(size(this.DYNAMICS.SS.B));        % Terminal input penalisation     
                         
             % Calculate the linear feedback from the LQR
-            obj.DYNAMICS.K_lqr = obj.CreateController_LQR(...
-                obj.DYNAMICS.SS,...
-                obj.DYNAMICS.Q,...
-                obj.DYNAMICS.R,...
-                obj.DYNAMICS.N);
+            this.DYNAMICS.K_lqr = this.CreateController_LQR(...
+                this.DYNAMICS.SS,...
+                this.DYNAMICS.Q,...
+                this.DYNAMICS.R,...
+                this.DYNAMICS.N);
       
             % //////////////// Check for user overrides ///////////////////            
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides 
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides 
             % /////////////////////////////////////////////////////////////
         end
+        % Setup
+        % - The same as any 2D/3D object
         % Main 
-        function [obj] = main(obj,ENV,varargin)
+        function this = main(this,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
@@ -50,12 +52,12 @@ classdef ARdrone_LQR < ARdrone
 
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            obj = obj.GetAgentUpdate(ENV,varargin{1});
+            this = this.GetAgentUpdate(ENV,varargin{1});
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Get desired heading
-            desiredHeadingVector = obj.GetTargetHeading();
-            desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
+            desiredHeadingVector = this.GetTargetHeading();
+            desiredVelocity = desiredHeadingVector*this.v_nominal;
             
             % Express velocity vector in NED coordinates
             if ENV.currentTime <= 1
@@ -66,12 +68,12 @@ classdef ARdrone_LQR < ARdrone
             desiredVelocity = enu2ned(desiredVelocity);
             
             % LQR controller update
-            obj = obj.controller(ENV,desiredVelocity);
+            this = this.Controller(ENV,desiredVelocity);
             
             % \\\\\\\\\\\\\\\ RECORD THE AGENT-SIDE DATA \\\\\\\\\\\\\\\\\\
-            obj.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{z}$ (m/s)',...
+            this.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{z}$ (m/s)',...
                                    '$\dot{\phi}$ (rad/s)','$\dot{\theta}$ (rad/s)','$\dot{\psi}$ (rad/s)'};
-            obj.DATA.inputs(1:numel(obj.DATA.inputNames),ENV.currentStep) = obj.localState(7:end);          % Record the control inputs 
+            this.DATA.inputs(1:numel(this.DATA.inputNames),ENV.currentStep) = this.localState(7:end);          % Record the control inputs 
         end
     end
     
@@ -79,26 +81,26 @@ classdef ARdrone_LQR < ARdrone
     % CONTROLLER METHODS
     methods
         % ARdrone controller function
-        function [obj] = controller(obj,ENV,NEDVelocity)
+        function [this] = Controller(this,ENV,NEDVelocity)
             
             % CALCULATE THE NEW STATE REFERENCE
-            if ~obj.IsIdle()
-                X_desired = [zeros(5,1);obj.localState(6);NEDVelocity;zeros(3,1)];  
+            if ~this.IsIdle()
+                X_desired = [zeros(5,1);this.localState(6);NEDVelocity;zeros(3,1)];  
             else
                 % Idle reference
-                X_desired = [zeros(5,1);obj.localState(6);zeros(6,1)];
+                X_desired = [zeros(5,1);this.localState(6);zeros(6,1)];
             end
             
             % /////////////////// AIRCRAFT DYNAMICS ///////////////////////
             useLinearModel = false;
             if ~useLinearModel
-                [obj.localState] = obj.updateNonLinearPlant(ENV,obj.localState,X_desired);
+                [this.localState] = this.UpdateNonLinearPlant(ENV,this.localState,X_desired);
             else
-                [obj.localState] = obj.updateLinearPlant(ENV,obj.localState,X_desired);         
+                [this.localState] = this.UpdateLinearPlant(ENV,this.localState,X_desired);         
             end
             
             % \\\\\\\\\\\\\\\\\\\\\ GLOBAL UPDATE \\\\\\\\\\\\\\\\\\\\\\\\\
-            obj = obj.updateGlobalProperties_ARdrone(ENV.dt,obj.localState);
+            this = this.GlobalUpdate_ARdrone(ENV.dt,this.localState);
         end
     end
     methods (Static)
@@ -125,7 +127,7 @@ classdef ARdrone_LQR < ARdrone
     % //////////////////////// MODELLING/DYNAMICS /////////////////////////
     methods
         % ODE45 - UPDATE NONLINEAR CLOSED LOOP DYNAMICS
-        function [X] = updateNonLinearPlant(obj,TIME,X0,X_desired)
+        function [X] = UpdateNonLinearPlant(this,TIME,X0,X_desired)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
@@ -137,13 +139,13 @@ classdef ARdrone_LQR < ARdrone
             % DETERMINE THE INTEGRATION PERIOD
             if TIME.currentTime ~= TIME.timeVector(end)
                 % INTEGRATE THE DYNAMICS OVER THE TIME STEP 
-                [~,Xset] = ode45(@(t,X) obj.ARdrone_nonLinear_closedLoop(X,X_desired),...
+                [~,Xset] = ode45(@(t,X) this.ARdrone_nonLinear_closedLoop(X,X_desired),...
                     [0 TIME.dt],X0,odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
                 X = Xset(end,:)';
             end
         end
         % ODE45 - UPDATE LINEAR CLOSED LOOP DYNAMICS
-        function [X] = updateLinearPlant(obj,TIME,X0,X_desired)
+        function [X] = updateLinearPlant(this,TIME,X0,X_desired)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
@@ -155,7 +157,7 @@ classdef ARdrone_LQR < ARdrone
             % Check for the last time-step
             if TIME.currentTime ~= TIME.timeVector(end) 
                 % INTEGRATE THE DYNAMICS OVER THE TIME STEP
-                [~,Xset] = ode45(@(t,X) obj.ARdrone_linear_closedLoop(X,X_desired),...
+                [~,Xset] = ode45(@(t,X) this.ARdrone_linear_closedLoop(X,X_desired),...
                     [0 TIME.dt],X0,odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
                 X = Xset(end,:)';
             end
@@ -163,24 +165,24 @@ classdef ARdrone_LQR < ARdrone
     end
     methods
         % CLOSED-LOOP NONLINEAR DYNAMICS
-        function [dX] = ARdrone_nonLinear_closedLoop(obj,X,X_desired)
+        function [dX] = ARdrone_nonLinear_closedLoop(this,X,X_desired)
             % THE STATE ERROR
             Xerror = X - X_desired;
             % THE NOMINAL INPUT
-            [Uss] = obj.ARdrone_nominalInput(X);
+            [Uss] = this.ARdrone_nominalInput(X);
             % GET THE NOMINAL INPUT + LQR FEEDBACK
-            U = Uss - obj.DYNAMICS.K_lqr*Xerror;
+            U = Uss - this.DYNAMICS.K_lqr*Xerror;
             % CALL THE OPENLOOP DYNAMICS
-            [dX] = obj.ARdrone_nonLinear_openLoop(X,U);
+            [dX] = this.ARdrone_nonLinear_openLoop(X,U);
         end
         % CLOSED-LOOP LINEAR DYNAMICS
-        function [dX] = ARdrone_linear_closedLoop(obj,X,X_desired)
+        function [dX] = ARdrone_linear_closedLoop(this,X,X_desired)
             % THE STATE ERROR
             Xerror = X - X_desired;
             % GET THE NOMINAL INPUT + LQR FEEDBACK
-            dU = - obj.DYNAMICS.K_lqr*Xerror;
+            dU = - this.DYNAMICS.K_lqr*Xerror;
             % CALL THE OPENLOOP DYNAMICS
-            [dX] = obj.ARdrone_linear_openLoop(X,dU);
+            [dX] = this.ARdrone_linear_openLoop(X,dU);
         end
     end
 end

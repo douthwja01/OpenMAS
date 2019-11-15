@@ -12,85 +12,83 @@ classdef ARdrone_MPC < ARdrone_LQR
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function [obj] = ARdrone_MPC(varargin)
-            
+        function [this] = ARdrone_MPC(varargin)
             % Call the super class
-            obj@ARdrone_LQR(varargin);                                     % Create the super class 'agent'                  
-            
+            this = this@ARdrone_LQR(varargin);                                     % Create the super class 'agent'                  
             % Build the MPC controller on top of the LQR
-            MPC = obj.CreateController_MPC();
+            MPC = this.CreateController_MPC();
             fn  = fieldnames(MPC);
             for i = 1:length(fn)
-                obj.DYNAMICS.(fn{i}) = MPC.(fn{i});
+                this.DYNAMICS.(fn{i}) = MPC.(fn{i});
             end
             
             % //////////////// Check for user overrides ///////////////////            
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Main 
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % varargin - Cell array of inputs
             % >dt      - The timestep
             % >objects - The detectable objects cell array of structures
             % OUTPUTS:
-            % obj      - The updated project        
+            % this      - The updated project        
             
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            obj = obj.GetAgentUpdate(ENV,varargin{1});
+            this = this.GetAgentUpdate(ENV,varargin{1});
             
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Get desired heading
-            desiredHeadingVector = obj.GetTargetHeading();
+            desiredHeadingVector = this.GetTargetHeading();
             
             % Express velocity vector in NED coordinates
-            NEDVelocity = enu2ned(desiredHeadingVector)*obj.nominalSpeed;
+            NEDVelocity = enu2ned(desiredHeadingVector)*this.v_nominal;
             
             % Ask the controller to achieve set point
-            obj = obj.controller(ENV,NEDVelocity);
+            this = this.controller(ENV,NEDVelocity);
             
             % \\\\\\\\\\\\\\\ RECORD THE AGENT-SIDE DATA \\\\\\\\\\\\\\\\\\
-            obj.DATA.inputNames = {'$\dot{x}$','$\dot{y}$','$\dot{z}$',...
+            this.DATA.inputNames = {'$\dot{x}$','$\dot{y}$','$\dot{z}$',...
                                    '$\dot{\phi}$','$\dot{\theta}$','$\dot{\psi}$'};
-            obj.DATA.inputs(1:numel(obj.DATA.inputNames),ENV.currentStep) = obj.localState(7:end);          % Record the control inputs 
+            this.DATA.inputs(1:numel(this.DATA.inputNames),ENV.currentStep) = this.localState(7:end);          % Record the control inputs 
         end
     end
     
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % ARdrone controller function
-        function [obj] = controller(obj,ENV,NEDVelocity)
+        function [this] = controller(this,ENV,NEDVelocity)
             
             % CALCULATE THE NEW STATE REFERENCE
-            X_desired = [zeros(3,1);zeros(2,1);obj.localState(6);NEDVelocity;zeros(3,1)];  
+            X_desired = [zeros(3,1);zeros(2,1);this.localState(6);NEDVelocity;zeros(3,1)];  
             
             % /////////////////// AIRCRAFT DYNAMICS ///////////////////////
             useLinearModel = 1;
             if ~useLinearModel
-                [obj.localState] = obj.updateNonLinearPlant(ENV,obj.localState,X_desired);
+                [this.localState] = this.UpdateNonLinearPlant(ENV,this.localState,X_desired);
             else
-                [obj.localState] = obj.updateLinearPlant(ENV,obj.localState,X_desired);         
+                [this.localState] = this.UpdateLinearPlant(ENV,this.localState,X_desired);         
             end
             
             % \\\\\\\\\\\\\\\\\\\\\ GLOBAL UPDATE \\\\\\\\\\\\\\\\\\\\\\\\\
-            obj = obj.updateGlobalProperties_ARdrone(ENV,obj.localState);
+            this = this.GlobalUpdate_ARdrone(ENV,this.localState);
         end
         % GET LINEAR-QUADRATIC-REGULATOR(LQR) CONTROLLER
-        function [MPC] = CreateController_MPC(obj)
+        function [MPC] = CreateController_MPC(this)
             % This function calculates MPC controller constants and makes
             % them available for the controller updates.
             
             % Constants
             Ts = 0.1;                   % Descrete sampling period
-            SS = obj.DYNAMICS.SS;       % For clarity
-            Hp = obj.horizon;           % The prediction hsorizon
-            Q  = obj.DYNAMICS.Q;        % The state feedback matrix
-            R  = obj.DYNAMICS.R;        % The input feedback matrix
-            Nq = zeros(size(obj.DYNAMICS.SS.A));        % The terminal feedback matrix
+            SS = this.DYNAMICS.SS;       % For clarity
+            Hp = this.horizon;           % The prediction hsorizon
+            Q  = this.DYNAMICS.Q;        % The state feedback matrix
+            R  = this.DYNAMICS.R;        % The input feedback matrix
+            Nq = zeros(size(this.DYNAMICS.SS.A));        % The terminal feedback matrix
             
             % Convert to continous
             SS = c2d(SS,Ts,'zoh');      % Convert the SS model to descrete
@@ -151,7 +149,7 @@ classdef ARdrone_MPC < ARdrone_LQR
     %% /////////////////////// MODELLING/DYNAMICS /////////////////////////
     methods
         % ODE45 - UPDATE NONLINEAR CLOSED LOOP DYNAMICS
-        function [X] = updateNonLinearPlant(obj,ENV,X0,X_desired)
+        function [X] = UpdateNonLinearPlant(this,ENV,X0,X_desired)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
@@ -160,13 +158,13 @@ classdef ARdrone_MPC < ARdrone_LQR
             % Check for the last time-step
             if ENV.currentTime ~= ENV.timeVector(end)               
                 % INTEGRATE THE DYNAMICS OVER THE TIME STEP
-                [~,Xset] = ode45(@(t,X) obj.ARdrone_nonLinear_closedLoop(X,X_desired),...
+                [~,Xset] = ode45(@(t,X) this.ARdrone_nonLinear_closedLoop(X,X_desired),...
                     [0 ENV.dt],X0,odeset('RelTol',1e-2,'AbsTol',ENV.dt*1E-2));
                 X = Xset(end,:)';
             end
         end
         % ODE45 - UPDATE LINEAR CLOSED LOOP DYNAMICS
-        function [X] = updateLinearPlant(obj,ENV,X0,X_desired)
+        function [X] = UpdateLinearPlant(this,ENV,X0,X_desired)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
@@ -175,7 +173,7 @@ classdef ARdrone_MPC < ARdrone_LQR
             % Check for the last time-step
             if ENV.currentTime ~= ENV.timeVector(end)  
                 % INTEGRATE THE DYNAMICS OVER THE TIME STEP
-                [~,Xset] = ode45(@(t,X) obj.ARdrone_linear_closedLoop(X,X_desired),...
+                [~,Xset] = ode45(@(t,X) this.ARdrone_linear_closedLoop(X,X_desired),...
                     [0 ENV.dt],X0,odeset('RelTol',1e-2,'AbsTol',ENV.dt*1E-2));
                 X = Xset(end,:)';
             end
@@ -184,24 +182,24 @@ classdef ARdrone_MPC < ARdrone_LQR
     %% //////////////////// (MPC) CLOSED-LOOP SYSTEMS /////////////////////
     methods
         % CLOSED-LOOP NONLINEAR DYNAMICS
-        function [dX] = ARdrone_nonLinear_closedLoop(obj,X,X_desired)
+        function [dX] = ARdrone_nonLinear_closedLoop(this,X,X_desired)
             % THE STATE ERROR
             Xerror = X - X_desired;
             % THE NOMINAL INPUT
-            [Uss] = obj.ARdrone_nominalInput(X);
+            [Uss] = this.ARdrone_nominalInput(X);
             % GET THE NOMINAL INPUT + LQR FEEDBACK
-            U = Uss - obj.DYNAMICS.K_lqr*Xerror;
+            U = Uss - this.DYNAMICS.K_lqr*Xerror;
             % CALL THE OPENLOOP DYNAMICS
-            [dX] = obj.ARdrone_nonLinear_openLoop(X,U);
+            [dX] = this.ARdrone_nonLinear_openLoop(X,U);
         end
         % CLOSED-LOOP LINEAR DYNAMICS
-        function [dX] = ARdrone_linear_closedLoop(obj,X,X_desired)
+        function [dX] = ARdrone_linear_closedLoop(this,X,X_desired)
             % THE STATE ERROR
             Xerror = X - X_desired;
             % GET THE NOMINAL INPUT + LQR FEEDBACK
-            dU = - obj.DYNAMICS.K_lqr*Xerror;
+            dU = - this.DYNAMICS.K_lqr*Xerror;
             % CALL THE OPENLOOP DYNAMICS
-            [dX] = obj.ARdrone_linear_openLoop(obj.DYNAMICS.SS,X,dU);
+            [dX] = this.ARdrone_linear_openLoop(X,dU);
         end
     end
 end

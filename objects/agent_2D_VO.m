@@ -7,51 +7,46 @@ classdef agent_2D_VO < agent_2D & agent_VO
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
         % Constructor
-        function [obj] = agent_2D_VO(varargin)
+        function [this] = agent_2D_VO(varargin)
             % Construct the agent object and initialise with the following
             % specific parameters.
 
             % Call the super class
-            obj@agent_2D(varargin); 
+            this@agent_2D(varargin); 
             
             % Assign defaults 
-            obj.feasabliltyMatrix = [];  % Omit parent field
-            obj.neighbourDist = 10;
+            this.feasabliltyMatrix = [];  % Omit parent field
+            this.neighbourDist = 10;
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
 %             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
-            [obj.SENSORS] = obj.GetCustomSensorParameters();       % Experimental sensing
+            [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
 
             % //////////////// Check for user overrides ///////////////////            
             % - It is assumed that overrides to the properties are provided
             %   via the varargin structure.
-            [obj] = obj.ApplyUserOverrides(varargin);               % Recursive overrides
-            % Re-affirm associated properties   
-            [obj] = obj.SetRadius(obj.radius);                      % Reaffirm radius against .VIRTUAL
+            [this] = this.ApplyUserOverrides(varargin);               % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Setup - x = [x y psi dx dy dpsi]
-        function [obj] = setup(obj,localXYZVelocity,localXYZrotations)
-            [obj] = obj.initialise_2DVelocities(localXYZVelocity,localXYZrotations);
+        function [this] = setup(this,localXYZVelocity,localXYZrotations)
+            [this] = this.setup_2DVelocities(localXYZVelocity,localXYZrotations);
         end
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % obj      - The agent object
             % TIME     - The current time structure
             % varargin - Cell array of inputs
             % OUTPUTS:
             % obj      - The updated object
-            
-            % GET THE TIMESTEP
-            dt = ENV.dt;
-            
+                        
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100 + obj.objectID);
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                overHandle = figure(100 + this.objectID);
                 hold on; grid on;
                 axis equal;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
@@ -59,11 +54,11 @@ classdef agent_2D_VO < agent_2D & agent_VO
 
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet,] = obj.GetAgentUpdate(ENV,varargin{1}); 
+            [this,obstacleSet,agentSet,~] = this.GetAgentUpdate(ENV,varargin{1}); 
 
             % /////////////////// WAYPOINT TRACKING ///////////////////////
-            desiredHeadingVector = obj.GetTargetHeading();                    % Design the current desired trajectory from the waypoint.  
-            desiredVelocity = desiredHeadingVector*obj.nominalSpeed;
+            desiredHeadingVector = this.GetTargetHeading();                    % Design the current desired trajectory from the waypoint.  
+            desiredVelocity      = desiredHeadingVector*this.v_nominal;
             
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
@@ -72,18 +67,18 @@ classdef agent_2D_VO < agent_2D & agent_VO
             if ~isempty(avoidanceSet)
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(dt,desiredVelocity,visualiseProblem);
+                [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(ENV.dt,desiredVelocity,visualiseProblem);
                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
                    
             % ///////////////////// CONTROLLER ////////////////////////////
-            [obj] = obj.controller(dt,desiredVelocity);
+            [this] = this.Controller(ENV.dt,desiredVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);         % Record the control inputs
+            this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
+            this.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(4:6);         % Record the control inputs
         end
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
@@ -91,7 +86,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
     % //////////////////// VELOCITY OBSTACLE METHODS //////////////////////
     methods 
         % CALCULATE THE NECESSARY 2D AVOIDANCE VELOCITY
-        function [headingVector,speed] = GetAvoidanceCorrection(obj,dt,desiredVelocity,figureLogical)
+        function [headingVector,speed] = GetAvoidanceCorrection(this,dt,desiredVelocity,figureLogical)
             % This function calculates the 2D avoidance velocity command
             % and returns it to be achieved by the controller.
             
@@ -99,22 +94,22 @@ classdef agent_2D_VO < agent_2D & agent_VO
             assert(numel(desiredVelocity) == 2,'Desired velocity must be 2D');
             
             % AGENT KNOWLEDGE (2D)
-            [p_i,v_i,r_i] = obj.GetAgentMeasurements();
+            [p_i,v_i,r_i] = this.GetAgentMeasurements();
             
             % Define the obstacle list
-            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
+            obstacleIDs = [this.MEMORY([this.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
             
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             VO = [];
             for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
-                p_j = obj.GetLastMeasurementByID(obstacleIDs(item),'position');
-                v_j = obj.GetLastMeasurementByID(obstacleIDs(item),'velocity');
-                r_j = obj.GetLastMeasurementByID(obstacleIDs(item),'radius');
+                p_j = this.GetLastMeasurementByID(obstacleIDs(item),'position');
+                v_j = this.GetLastMeasurementByID(obstacleIDs(item),'velocity');
+                r_j = this.GetLastMeasurementByID(obstacleIDs(item),'radius');
                 
                 % NEIGHBOUR CONDITIONS
-                neighbourConditionA = item < obj.maxNeighbours;            % Maximum number of neighbours
-                neighbourConditionB = norm(p_j) < obj.neighbourDist;       % [CONFIRMED] 
+                neighbourConditionA = item < this.maxNeighbours;            % Maximum number of neighbours
+                neighbourConditionB = norm(p_j) < this.neighbourDist;       % [CONFIRMED] 
                 neighbourConditionC = ~any(isnan(v_j));                    % Wait for a valid velocity reading
                 if ~ neighbourConditionA || ~neighbourConditionB || ~neighbourConditionC
                     continue
@@ -126,13 +121,13 @@ classdef agent_2D_VO < agent_2D & agent_VO
                 tau_j = 0;
                 
                 % DEFINE THE VELOCITY OBSTACLE PROPERTIES
-                VO_i = obj.define2DVelocityObstacle(p_i,v_i,r_i,p_j,v_j,r_j,tau_j,figureLogical);
+                VO_i = this.define2DVelocityObstacle(p_i,v_i,r_i,p_j,v_j,r_j,tau_j,figureLogical);
                 VO_i.objectID = obstacleIDs(item);                        % Add a unique identifier
                 VO = [VO,VO_i];
             end
 
             % THE CLEAR PATH STRATEGY
-            [avoidanceVelocity] = obj.strategy_clearPath(v_i,desiredVelocity,VO,figureLogical);              
+            [avoidanceVelocity] = this.strategy_clearPath(v_i,desiredVelocity,VO,figureLogical);              
             
             % SPECIAL CASE- VELOCITY MAGNITUDE IS ZERO
             speed = norm(avoidanceVelocity);
@@ -142,7 +137,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             end
 
             % PLOT THE VECTOR CONSTRUCT
-            if figureLogical && obj.objectID == figureLogical
+            if figureLogical && this.objectID == figureLogical
                 % PLOT THE LEADING TANGENT VECTOR
                 OMAS_axisTools.drawTriad([p_i;0],eye(3));
                 
@@ -158,7 +153,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             end
         end          
         % ASSEMBLE THE 2D VELOCITY OBSTACLE (VO)
-        function [VO] = define2DVelocityObstacle(obj,p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn)
+        function [VO] = define2DVelocityObstacle(this,p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn)
             % This function assembles the standard velocity obstacle
             % in 2D. 
             
@@ -166,7 +161,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             p_a = [p_a;0]; v_a = [v_a;0];
             p_b = [p_b;0]; v_b = [v_b;0];
             % CALL THE 3D VO GENERATION FUNCTION
-            VO = obj.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn);
+            VO = this.define3DVelocityObstacle(p_a,v_a,r_a,p_b,v_b,r_b,tau,plotOn);
             % ALTER THE VO PARAMETERS 
             VO.apex = VO.apex(1:2,1);
             VO.axisUnit = VO.axisUnit(1:2,1);
@@ -175,7 +170,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             VO.truncationCircleCenter = VO.truncationCircleCenter(1:2,1);
         end 
         % CLEAR PATH STRATEGY
-        function [optimalVelocity] = strategy_clearPath(obj,v_a,desiredVelocity,VOset,plotOn)
+        function [optimalVelocity] = strategy_clearPath(this,v_a,desiredVelocity,VOset,plotOn)
             % This function computes the optimal avoidance velocity using
             % the 'clear path' method of calculating the closest point to
             % the desired velocity on the surface of the VO set.
@@ -186,7 +181,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
                return
             end
             
-            p_a = obj.localState(1:2,1);    % For plotting
+            p_a = this.localState(1:2,1);    % For plotting
             
             % ////////////// BUILD THE PROJECTION SET /////////////////////
             % We build a list of projection points, of closest proximity to
@@ -197,9 +192,9 @@ classdef agent_2D_VO < agent_2D & agent_VO
             a = 0;  
             for VOnumA = 1:numel(VOset)
                 % THE FIRST VERTEX EDGE
-                [projections(:,1),isOnRay(1)] = obj.pointProjectionToRay(desiredVelocity,VOset(VOnumA).apex,VOset(VOnumA).leadingEdgeUnit);
+                [projections(:,1),isOnRay(1)] = this.pointProjectionToRay(desiredVelocity,VOset(VOnumA).apex,VOset(VOnumA).leadingEdgeUnit);
                 % THE SECOND VERTEX EDGE
-                [projections(:,2),isOnRay(2)] = obj.pointProjectionToRay(desiredVelocity,VOset(VOnumA).apex,VOset(VOnumA).trailingEdgeUnit);
+                [projections(:,2),isOnRay(2)] = this.pointProjectionToRay(desiredVelocity,VOset(VOnumA).apex,VOset(VOnumA).trailingEdgeUnit);
 
                 % COLLECT THE PROJECTIONS POINTS
                 % The projections of 'v_a' on both the leadingEdgeUnit, trailingEdgeUnit
@@ -222,25 +217,25 @@ classdef agent_2D_VO < agent_2D & agent_VO
                     end
                     pIntersect = zeros(2,4);
                     % LEADING - LEADING
-                    [pIntersect(:,1),validIntersect(1)] = obj.twoRayIntersection2D(...
+                    [pIntersect(:,1),validIntersect(1)] = this.twoRayIntersection2D(...
                         VOset(VOnum_i).apex,...
                         VOset(VOnum_i).leadingEdgeUnit,...
                         VOset(VOnum_j).apex,...
                         VOset(VOnum_j).leadingEdgeUnit);
                     % LEADING - TRAILING
-                    [pIntersect(:,2),validIntersect(2)] = obj.twoRayIntersection2D(...
+                    [pIntersect(:,2),validIntersect(2)] = this.twoRayIntersection2D(...
                         VOset(VOnum_i).apex,...
                         VOset(VOnum_i).leadingEdgeUnit,...
                         VOset(VOnum_j).apex,...
                         VOset(VOnum_j).trailingEdgeUnit);                    
                     % TRAILING - LEADING
-                    [pIntersect(:,3),validIntersect(3)] = obj.twoRayIntersection2D(...
+                    [pIntersect(:,3),validIntersect(3)] = this.twoRayIntersection2D(...
                         VOset(VOnum_i).apex,...
                         VOset(VOnum_i).trailingEdgeUnit,...
                         VOset(VOnum_j).apex,...
                         VOset(VOnum_j).leadingEdgeUnit);
                     % TRAILING - TRAILING
-                    [pIntersect(:,4),validIntersect(4)] = obj.twoRayIntersection2D(...
+                    [pIntersect(:,4),validIntersect(4)] = this.twoRayIntersection2D(...
                         VOset(VOnum_i).apex,...
                         VOset(VOnum_i).trailingEdgeUnit,...
                         VOset(VOnum_j).apex,...
@@ -274,7 +269,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             for candidate = 1:size(collectivePoints,2)
                 for VOnum_i = 1:numel(VOset)
                     % DETERMINE WHETHER THE POINT BELONGS TO ANY VO
-                    if VOflagVector(candidate) || obj.isInsideVO(collectivePoints(:,candidate),VOset(VOnum_i))
+                    if VOflagVector(candidate) || this.isInsideVO(collectivePoints(:,candidate),VOset(VOnum_i))
                     	VOflagVector(candidate) = 1;
                     end
                 end
@@ -306,7 +301,7 @@ classdef agent_2D_VO < agent_2D & agent_VO
             end
             
             % //////////////////  PLOT THE SCENE //////////////////////////
-            if obj.objectID == 1 && plotOn
+            if this.objectID == 1 && plotOn
                 hold on; grid on;
                 for proj_i = 1:size(projectionPoints,2)
                     plotProj = p_a + projectionPoints(:,proj_i);

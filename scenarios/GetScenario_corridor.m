@@ -43,9 +43,9 @@ offsetPosition = Yscale + corridorWidth/2;
 
 obstacleIndex = cell(2,1);
 obstacleIndex{1} = obstacle_cuboid('name','Wall_A','Xscale',10,'Zscale',10,'Yscale',Yscale);
-obstacleIndex{1}.VIRTUAL.globalPosition = [20; offsetPosition;0];
+obstacleIndex{1}.SetGLOBAL('position',[20; offsetPosition;0]);
 obstacleIndex{2} = obstacle_cuboid('name','Wall_B','Xscale',10,'Zscale',10,'Yscale',Yscale);
-obstacleIndex{2}.VIRTUAL.globalPosition = [20;-offsetPosition;0];
+obstacleIndex{2}.SetGLOBAL('position',[20;-offsetPosition;0]);
 
 
 % ///////////////////// DESIGN THE AGENT CONFIGURATION ////////////////////
@@ -64,9 +64,9 @@ for index = 1:agentNumber
         agentIndex{index}.adjacencyMatrix = inputConfig.adjacencyMatrix;
     end
     % ASSIGN GLOBAL PROPERTIES
-    agentIndex{index}.VIRTUAL.globalPosition = diskConfig.positions(:,index);
-    agentIndex{index}.VIRTUAL.globalVelocity = diskConfig.velocities(:,index);
-    agentIndex{index}.VIRTUAL.quaternion = diskConfig.quaternions(:,index);
+    agentIndex{index}.SetGLOBAL('position',diskConfig.positions(:,index));
+    agentIndex{index}.SetGLOBAL('velocity',diskConfig.velocities(:,index));
+    agentIndex{index}.SetGLOBAL('quaternion',diskConfig.quaternions(:,index));
 end
 
 % ////////// DESIGN THE REPRESENTATIVE WAYPOINT CONFIGURATION /////////////
@@ -76,8 +76,8 @@ for index = 1:agentNumber
     nameString = sprintf('WP-%s',agentIndex{index}.name);
     waypointIndex{index,1} = waypoint('radius',inputConfig.waypointRadius,'name',nameString);
     % APPLY GLOBAL STATE VARIABLES
-    waypointIndex{index,1}.VIRTUAL.globalPosition = [40;0;0];
-    waypointIndex{index,1}.VIRTUAL.globalVelocity = zeros(3,1);
+    waypointIndex{index,1}.SetGLOBAL('position',[40;0;0]);
+    waypointIndex{index,1}.SetGLOBAL('velocity',zeros(3,1));
     waypointIndex{index,1} = waypointIndex{index}.CreateAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
 end
 
@@ -88,6 +88,5 @@ objectIndex = [agentIndex;obstacleIndex;waypointIndex];
 if inputConfig.plot
     scenarioBuilder.plotObjectIndex(objectIndex);                          % Plot the object index
 end
-% CLEAR THE REMAINING VARIABLES
-clearvars -except objectIndex
+clearvars -except objectIndex % Clean-up
 end

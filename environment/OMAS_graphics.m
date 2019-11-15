@@ -233,8 +233,8 @@ classdef OMAS_graphics
         function [geometry,minExtents,maxExtents] = defineCuboidFromRadius(center,radius)
             % This function creates a set of vertices for a cube
             % encapsuated in a sphere of a given radius.
-            assert(numel(center) == 3,'The cuboid center must be a cartesian vector');
-            assert(numel(radius) == 1,'The radius of the sphere must be a scalar');
+            assert(numel(center) == 3,'The cuboid center must be a cartesian vector.');
+            assert(numel(radius) == 1,'The radius of the sphere must be a scalar and non-zero.');
             % RATE OF DEMENSIONAL EXPANSION
             h = radius/1.7321;
             % DEFINE THE CUBOID EXTENTS

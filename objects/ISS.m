@@ -16,29 +16,31 @@ classdef ISS < agent
 
     methods 
         % Constructor
-        function obj = ISS(varargin)
+        function [this] = ISS(varargin)
             % This function is called to create the 'agent_example' class,
             % which then takes on the new parameters specified.
             
             % Call the super class
-            obj@agent(varargin);                                           
+            this@agent(varargin);                                           
             
             % Assign defaults
-            obj.DYNAMICS = obj.CreateDYNAMICS();
-            obj.GEOMETRY = OMAS_graphics.scale(obj.GEOMETRY,[obj.length/2,obj.width/2,obj.height/2]); % To match real world dimensions
-            obj = obj.SetRadius(sqrt((obj.length/2)^2 + (obj.width/2)^2 + (obj.height/2)^2));
+            this.DYNAMICS = this.CreateDYNAMICS();
+            this.GEOMETRY = OMAS_graphics.scale(this.GEOMETRY,[this.length/2,this.width/2,this.height/2]); % To match real world dimensions
+            this.radius   = (sqrt((this.length/2)^2 + (this.width/2)^2 + (this.height/2)^2));
             
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end 
         % Setup
-        function [obj] = setup(obj,v,eta)
-            obj.localState = zeros(6,1);
-            obj.localState(4:6,1) = eta;
+        function [this] = setup(this,v,eta)
+            this.localState = zeros(6,1);
+            this.localState(4:6,1) = eta;
+            % Define the prior state
+            this.SetGLOBAL('priorState',this.localState);
         end
         % Main 
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % This function is designed to contain everything your agent does
             % in a given simulation timestep. As an 'agent', a list of
             % detected obstacles is given if detected.
@@ -50,24 +52,8 @@ classdef ISS < agent
             % OUTPUTS:
             % obj      - The updated project
             
-            
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('Object TIME packet is invalid.');
-            end
             % CHECK FOR NEW INFORMATION UPDATE
-            observationSet = varargin{1}; % The detected objects                                
-            if isempty(observationSet)
-                % NO INFORMATION AVAILABLE
-                passiveStateUpdate = obj.stateDynamics_accelerations(dt,[0;0;0],[0;0;0]); % Update the state vector
-                obj = obj.updateGlobalProperties(dt,passiveStateUpdate);    % Update the objects global porperties
-                return
-            else
-                % UPDATE THE AGENT WITH THE NEW INFORMATION
-                [obj,~,~] = obj.GetAgentUpdate(ENV,observationSet);
-            end
+            [this,~,~] = this.GetAgentUpdate(ENV,varargin{1});
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
             % INSERT ALGORITHM/DECISION MAKING PROCESS HERE
@@ -76,21 +62,21 @@ classdef ISS < agent
             orbitalOmega = orbitalTangentialVelocity/orbitalAltitude;
             
             % AS STATE UPDATES
+            dt = ENV.dt;
             velocity_k_plus = [0;orbitalTangentialVelocity;0];             % Moving sideways (assume facing the earth)
-            omega_k_plus = [0;0;orbitalOmega];
+            omega_k_plus    = [0;0;orbitalOmega];
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             
             % USE OUTPUT TO DEFINE NEW AGENT STATE
-            [dXdt] = obj.dynamics_simple(obj.localState,velocity_k_plus,omega_k_plus);
+            [dXdt] = this.Dynamics_simple(this.localState,velocity_k_plus,omega_k_plus);
             % SIMPLE INTEGRATION
-            eulerState = obj.localState + dt*dXdt;
+            eulerState = this.localState + dt*dXdt;
             
             % UPDATE THE 'agent_example' PROPERTIES WITH ITS NEW STATE
-            [obj] = obj.updateGlobalProperties(dt,eulerState);
+            [this] = this.GlobalUpdate(dt,eulerState);
         end
     end
-    
     methods (Static)
         % GET THE REPRESENTATIVE DYNAMICS PROPERTIES OF THE ISS
         function [DYNAMICS] = GetDynamicsProperties() 

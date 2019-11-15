@@ -25,11 +25,12 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             [this.SENSORS] = this.GetCustomSensorParameters();                % Experimental sensing
             % /////////////////////////////////////////////////////////////
             
-            this.nominalSpeed = 2;
-            this.maxSpeed = 4;
+            % Kinematic limitations
+            this.v_max = 4;
+            this.v_nominal = 2;
             
             % //////////////// Check for user overrides ///////////////////
-            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
+            this = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end           
         % Main
@@ -63,7 +64,7 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             % /////////////////// WAYPOINT TRACKING ///////////////////////
             % Design the current desired trajectory from the waypoint.
             headingVector   = this.GetTargetHeading();
-            nominalVelocity = headingVector*this.nominalSpeed;
+            nominalVelocity = headingVector*this.v_nominal;
             % /////////////////////////////////////////////////////////////
             
             avoidanceVelocity = nominalVelocity;
@@ -83,7 +84,7 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             enactedVelocity = mid(avoidanceVelocity);
 
             % ///////////// AGENT VELOCITY VECTOR CONTROLLER //////////////
-            this = this.controller(ENV.dt,enactedVelocity);
+            this = this.Controller(ENV.dt,enactedVelocity);
             
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
             this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt);         % Record the computation time
@@ -91,8 +92,6 @@ classdef agent_IA < agent_vectorSharing & agent_interval
                 '$v_x$ (m/s)','$v_y$ (m/s)','$v_z$ (m/s)',...
                 '$\dot{\phi}$ (rad/s)','$\dot{\theta}$ (rad/s)','$\dot{\psi}$ (rad/s)'};
             this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(7:12); % Record the control inputs
-        
-            %fprintf('////////// LOOP END (%s) //////////\n',this.name);
         end
     end
     
@@ -246,9 +245,6 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             
             % Assume the worst
             tau = inf(tau);
-%             r_vsi(1) = sup(r_vsi(1));
-%             r_vsi(2) = sup(r_vsi(2));
-%             r_vsi(3) = mid(r_vsi(3));
 
             % Switching logic based on position of object
             if mid(r_vsi(1)) > 0

@@ -8,35 +8,35 @@ function [ objectIndex ] = GetScenario_concentricRing(varargin)
 % The agents are positioned in a ring, with the waypoints at the apposing
 % side.
 
-fprintf('[SCENARIO]\tGetting typical Cocentric test scenario.\n');
+fprintf('[SCENARIO]\tGetting typical concentric agent scenario.\n');
 
 % DEFAULT CONFIGURATION
-defaultConfig = struct('file','scenario.mat',...
-                       'agents',[],...
-                       'agentOrbit',10,...
-                       'agentVelocity',0,...
-                       'offsetAngle',0,...
-                       'waypointOrbit',[],...
-                       'waypointOffsetAngle',[],...
-                       'waypointRadius',0.1,...
-                       'noiseFactor',0,...
-                       'plot',0);  
+defaultConfig = struct(...
+    'file','scenario.mat',...
+    'agents',[],...
+    'agentOrbit',10,...
+    'agentVelocity',0,...
+    'offsetAngle',0,...
+    'waypointOrbit',[],...
+    'waypointOffsetAngle',[],...
+    'waypointRadius',0.1,...
+    'noiseFactor',0,...
+    'plot',false);  
 
-% GET THE SCENARIO BUILDING TOOLS
+% Instanciate the scenario builder
 SBinstance = scenarioBuilder();               
-% PARSE THE USER OVERRIDES USING THE SCENARIO BUILDER
+% Parse user inputs
 [inputConfig] = SBinstance.configurationParser(defaultConfig,varargin);
-
+% Check
 if isempty(inputConfig.waypointOrbit)
     inputConfig.waypointOrbit = inputConfig.agentOrbit;
 end    
 inputConfig.waypointOffsetAngle = pi + inputConfig.offsetAngle;        % Waypoints oppose agents
 agentIndex = inputConfig.agents;
-
-% DECLARE THE NUMBER OF AGENTS
+% Declare the agent
 agentNumber = numel(inputConfig.agents);
 
-% DEFINE THE AGENT CONFIGURATIONS
+% Define the agent configuration
 agentConfig = SBinstance.planarRing(...
     'objects',agentNumber,...
     'radius',inputConfig.agentOrbit,...
@@ -47,10 +47,10 @@ agentConfig = SBinstance.planarRing(...
 % MOVE THROUGH THE AGENTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning agent global parameters...\n'); 
 for index = 1:agentNumber
-    % APPLY GLOBAL STATE VARIABLES
-    agentIndex{index}.VIRTUAL.globalPosition = agentConfig.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]; % 2D PERTURBATION
-    agentIndex{index}.VIRTUAL.globalVelocity = agentConfig.velocities(:,index);
-    agentIndex{index}.VIRTUAL.quaternion = agentConfig.quaternions(:,index);
+    % Update the GLOBAL properties
+    agentIndex{index}.SetGLOBAL('position',agentConfig.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]); % 2D PERTURBATION
+    agentIndex{index}.SetGLOBAL('velocity',agentConfig.velocities(:,index));
+    agentIndex{index}.SetGLOBAL('quaternion',agentConfig.quaternions(:,index));
 end
 
 %% DEFINE WAYPOINTS AND ASSIGN GLOBAL PARAMETERS
@@ -64,20 +64,21 @@ waypointConfig = SBinstance.planarRing(...
 % MOVE THROUGH THE WAYPOINTS AND INITIALISE WITH GLOBAL PROPERTIES
 fprintf('[SCENARIO]\tAssigning waypoint definitions:\n'); 
 for index = 1:agentNumber
-    nameString = sprintf('WP-%s',agentIndex{index}.name);
-    waypointIndex{index} = waypoint('radius',inputConfig.waypointRadius,'name',nameString);
-    % APPLY GLOBAL STATE VARIABLES
-    waypointIndex{index}.VIRTUAL.globalPosition = waypointConfig.positions(:,index) + inputConfig.noiseFactor*randn(3,1);
-    waypointIndex{index}.VIRTUAL.globalVelocity = waypointConfig.velocities(:,index);
-    waypointIndex{index}.VIRTUAL.quaternion = waypointConfig.quaternions(:,index);
-    waypointIndex{index} = waypointIndex{index}.CreateAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
+    % Create a way-point
+    waypointIndex{index} = waypoint('radius',inputConfig.waypointRadius,'name',sprintf('WP-%s',agentIndex{index}.name));
+    % Update the GLOBAL properties
+    waypointIndex{index}.SetGLOBAL('position',waypointConfig.positions(:,index) + inputConfig.noiseFactor*[randn(2,1);0]);
+    waypointIndex{index}.SetGLOBAL('velocity',waypointConfig.velocities(:,index));
+    waypointIndex{index}.SetGLOBAL('quaternion',waypointConfig.quaternions(:,index));
+    % Create the way-point association
+    waypointIndex{index}.CreateAgentAssociation(agentIndex{index},5);  % Create waypoint with association to agent
 end
-% BUILD THE COLLECTIVE OBJECT INDEX
+% Extend the object-index
 objectIndex = horzcat(agentIndex,waypointIndex);
-% PLOT THE SCENE
+% Plot the scene
 if inputConfig.plot
     SBinstance.plotObjectIndex(objectIndex);
 end
-% CLEAR THE REMAINING VARIABLES
+% Clean-up
 clearvars -except objectIndex
 end
