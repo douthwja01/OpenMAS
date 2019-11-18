@@ -33,7 +33,8 @@ classdef obstacle_cuboid < obstacle
             [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end    
-
+    end
+    methods
         % COMPUTE CLOSEST FACE TO POINT
         function [d,faceID] = faceClosestToPoint(obj,patchObj,p) 
             

@@ -3,10 +3,8 @@ function [v] = enu2ned(v)
 % Input sanity check
 assert(isColumn(v,3),'Expecting 3D column vector.');
 
+% Get a euler rotation by pi around the x-axis
+[R_pi] = R_x(pi);     
 % Rotate the vector through pi
-R_pi = [ 1       0        0;
-         0 cos(pi) -sin(pi);
-         0 sin(pi)  cos(pi)];
-
 v = R_pi*v;
 end

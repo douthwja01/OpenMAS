@@ -79,28 +79,28 @@ classdef OMAS_geometry
             % "This matrix gives the conversion from body to navigation
             % frame"
             % Get the mex rotations
-            R = GetRotationMatrix_euler_mex(eulers);
+            R = R_eta(eulers);
         end
         % EULER ROTATION MATRIX (Roll about the X-axis)
         function [R_phi]   = eulerToRotationMatrix_roll(phi)
             % This rotation matrix maps a vector through the rotation angle
             % 'phi' about a reference 'x' axis.
             % ROLL AXIS ROTATIONS
-            R_phi = GetRotationMatrix_x(phi);
+            R_phi = R_x(phi);
         end
         % EULER ROTATION MATRIX (Pitch about the Y-axis)
         function [R_theta] = eulerToRotationMatrix_pitch(theta)
             % This rotation matrix maps a vector through the rotation angle
             % 'theta' about a reference 'y' axis.
             % PITCH AXIS ROTATIONS
-            R_theta = GetRotationMatrix_y(theta);
+            R_theta = R_y(theta);
         end
         % EULER ROTATION MATRIX (Yaw about the Z-axis)
         function [R_psi]   = eulerToRotationMatrix_yaw(psi)
             % This rotation matrix maps a vector through the rotation angle
             % 'psi' about a reference 'z' axis.
             % YAW AXIS ROTATIONS
-            R_psi = GetRotationMatrix_z(psi);
+            R_psi = R_z(psi);
         end
         % GET THE ROTATION ANGLES BETWEEN TWO VECTORS
         function [angles,R]  = getVectorRotations(referenceVector,inputVector)

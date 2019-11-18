@@ -15,9 +15,9 @@ classdef agent < objectDefinition & agent_tools
     % aerial or ground based.
     properties
         % DEFAULT BEHAVIOUR
-        v_nominal = 2;	% Default nominal linear speed (m/s)
-        v_max  = 4;     % Default maximal linear speed (m/s)
-        w_max  = 0.5;   % Default maximal angular speed (rad/s)
+        v_nominal = 2;                  % Default nominal linear speed (m/s)
+        v_max  = 4;                     % Default maximal linear speed (m/s)
+        w_max  = 0.5;                   % Default maximal angular speed (rad/s)
         detectionRadius = inf;
         % WAYPOINTS
         targetWaypoint;                 % The current waypoint target

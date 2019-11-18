@@ -23,7 +23,7 @@ fprintf('[SETUP]\tInitialising example script.\n');
 sim_outputPath = strcat(userdir,'\desktop\OpenMAS_data');
 sim_vebosity   = 1;
 sim_warningDistance = 2;
-sim_maxDuration = 8; 
+sim_maxDuration = 5; 
 sim_timeStep    = 0.25;                        % Nominal (0.25s)
 sim_idleTimeOut = 20*sim_timeStep; 
 
@@ -57,14 +57,17 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_example('radius',sim_agentRadius);
 
-% DYNAMICS
-    agentIndex{index} = quadcopter_legacy();
+% QUADCOPTER DYNAMICS
+%     agentIndex{index} = quadcopter_legacy();
 %     agentIndex{index} = quadcopter();
-%     agentIndex{index} = ARdrone();
-%     agentIndex{index} = ARdrone_LQR();
-%     agentIndex{index} = ARdrone_MPC();
 %     agentIndex{index} = quadcopter_formation('adjacencyMatrix',sim_adjacencyMatrix);
     
+% ARdrone DYNAMICS
+%     agentIndex{index} = ARdrone_prev();
+    agentIndex{index} = ARdrone('radius',sim_agentRadius);
+%     agentIndex{index} = ARdrone_LQR();
+%     agentIndex{index} = ARdrone_MPC();
+
 
 %     agentIndex{index} = fixedWing();
 %     agentIndex{index} = globalHawk();

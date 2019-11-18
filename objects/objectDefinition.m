@@ -130,8 +130,15 @@ classdef objectDefinition < handle
     methods
         % Set the radius
         function set.radius(this,radius)
-            this.radius = radius;
-            this.SetGLOBAL('radius',radius);
+            this.radius = radius;               % Set the radius
+            this.SetGLOBAL('radius',radius);    % Set the simulation radius
+            % If agent has GEOMETRY
+            if ~isempty(this.GEOMETRY.vertices) 
+                % Normalise the geometry
+                this.GEOMETRY = OMAS_graphics.normalise(this.GEOMETRY);
+                % Scale the geometry to the radius
+                this.GEOMETRY = OMAS_graphics.scale(this.GEOMETRY,this.radius);
+            end
         end
         % Get the GLOBAL structure
         function [param] = GetGLOBAL(this,label)
