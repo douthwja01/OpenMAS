@@ -20,9 +20,9 @@ For queries regarding the project, please email me at: douthwaiteja@gmail.com
 OpenMAS is an open-source multi-agent simulator for Matlab. This software package provides a number of tools necessary for the simulation of multi-agent systems with complex agent definitions. The software packages environment is based upon Matlab's object orientated functionality; allowing users to build and define their own agent definitions and simulate their interactions in defined scenarios.
 
 <p align="center">
-<img src="resources/boids-example.gif" width="256" height="256" title="Boids example">
-<img src="resources/orca-example.gif" width="256" height="256" title="ORCA collision avoidance example">
-<img src="resources/quadcopter-example.gif" width="256" height="256" title="Quadcopter dynamics example">
+<img src="resources/boids-example.gif" height="300" title="Boids example">
+<img src="resources/orca-example.gif" height="300" title="ORCA collision avoidance example">
+<img src="resources/quadcopter-example.gif" height="300" title="Quadcopter dynamics example">
 </p>
 
 %%% TO RUN %%%
