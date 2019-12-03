@@ -1,4 +1,3 @@
-% ////////////////////////////////////////////////////////////////////////// %
 <p align="center">
 <img src="environment/assets/logo.jpg" width="500" title="The OpenMAS repository">
 </p>
@@ -12,8 +11,6 @@ Department of Automatic Control & Systems Engineering,
 United Kingdom
 
 For queries regarding the project, please email me at: douthwaiteja@gmail.com
-
-% ////////////////////////////////////////////////////////////////////////// %
  
 %%% GENERAL README %%%
 
