@@ -51,7 +51,7 @@ classdef quadcopter < agent
             % /////////////////////////////////////////////////////////////
             
             % The state reference
-            desiredPosition = [5;5;0];
+            desiredPosition = [0;0;0];
             
             % Call the controller loop
             this = this.Controller(ENV,desiredPosition);
@@ -64,24 +64,18 @@ classdef quadcopter < agent
     end
     %% //////////////////////// AUXILLARY METHODS //////////////////////////
     methods
-        % The quadcopter velocity controller
-        function [this] = Controller(this,ENV,p_k)
+        % The quadcopter controller
+        function [this] = Controller(this,ENV,y_k)
             
             % Input sanity checks
-            assert(isColumn(p_k,3),"Expecting a numeric velocity vector.");
+            assert(isColumn(y_k,3),"Expecting a numeric velocity vector.");
             assert(1 == size(this.localState,2),"The length of the objects state update must match the its local state.");
-            
-            % Output reference
-            y_k = [1;1;0];
             
             % ///////////// UPDATE THE LOCAL STATE VECTOR /////////////////
             x_k_plus = this.UpdateLocalState(ENV,this.localState,y_k);
             % Update the global properties
             this = this.GlobalUpdate(x_k_plus);
         end
-    end
-    % Dynamic functions
-    methods
         % Get the state update (using ode45)
         function [x_k_plus] = UpdateLocalState(this,ENV,x_k,y_desired)
             % This function computes the state update for the current agent
@@ -90,12 +84,34 @@ classdef quadcopter < agent
             % Integrate across the time delta "dt"
             opts = odeset('RelTol',1e-2,'AbsTol',ENV.dt*1E-1);
             
-            %[~,Xset] = ode45(@(t,X) this.ClosedLoopDynamics_position(X,y_desired),[0 ENV.dt],x_k,opts);
-            [~,Xset] = ode45(@(t,X) this.ClosedLoopDynamics_velocity(X,y_desired),[0 ENV.dt],x_k,opts);
+            [~,Xset] = ode45(@(t,X) this.ClosedLoopDynamics_position(X,y_desired),[0 ENV.dt],x_k,opts);
+%             [~,Xset] = ode45(@(t,X) this.ClosedLoopDynamics_velocity(X,y_desired),[0 ENV.dt],x_k,opts);
             
             % Assign the integral state
             x_k_plus = Xset(end,:)';
         end
+        % Global update from the new state
+        function [this] = GlobalUpdate(this,x_k_plus)
+            % This function updates the global structure from the new state
+            % definition: [p_k;v_k;vecR_k;omega_k]
+            
+            % Extract the rotation matrix components
+            R_k_plus = reshape(x_k_plus(7:15),3,3);
+            % Define the new quaternion from R
+            q_k_plus = OMAS_geometry.rotationMatrixToQuaternion(R_k_plus');
+            
+            % //////////////// UPDATE GLOBAL PROPERTIES ///////////////////
+            [this] = this.GlobalUpdate_direct(...
+                x_k_plus(1:3),...   % The global position is within the state
+                x_k_plus(4:6),...   % The global velocity is within the state
+                q_k_plus);          % Append the global quaternion
+            
+            % Ensure the local state is re-assigned
+            this.localState = x_k_plus;
+        end
+    end
+    % Dynamic functions
+    methods
         % Quadcopter Dynamics (Closed-loop)
         function [dxdt] = ClosedLoopDynamics_velocity(this,x_k,v_desired)
             
@@ -210,25 +226,6 @@ classdef quadcopter < agent
             
             % THE STATE DIFFERENCE
             dxdt = [p_dot;v_dot;vecR_dot;w_dot];
-        end
-        % Global update from the new state
-        function [this] = GlobalUpdate(this,x_k_plus)
-            % This function updates the global structure from the new state
-            % definition: [p_k;v_k;vecR_k;omega_k]
-            
-            % Extract the rotation matrix components
-            R_k_plus = reshape(x_k_plus(7:15),3,3);
-            % Define the new quaternion from R
-            q_k_plus = OMAS_geometry.rotationMatrixToQuaternion(R_k_plus');
-            
-            % //////////////// UPDATE GLOBAL PROPERTIES ///////////////////
-            [this] = this.GlobalUpdate_direct(...
-                x_k_plus(1:3),...   % The global position is within the state
-                x_k_plus(4:6),...   % The global velocity is within the state
-                q_k_plus);          % Append the global quaternion
-            
-            % Ensure the local state is re-assigned
-            this.localState = x_k_plus;
         end
     end
     % Dynamics container

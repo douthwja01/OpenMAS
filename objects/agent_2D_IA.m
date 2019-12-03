@@ -245,7 +245,7 @@ classdef agent_2D_IA < agent_2D_vectorSharing & agent_interval
             
             
             tau = inf(tau);           % Assume the collision occurs early
-            r_vsi(2) = sup(r_vsi(2)); % Assume the maximal correction is needed
+            r_vsi(2) = inf(r_vsi(2)); % Assume the maximal correction is needed
 
             
             % CALCULATE THE CORRECTION UNIT VECTORS

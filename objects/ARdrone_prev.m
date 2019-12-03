@@ -5,7 +5,7 @@
 
 % Author: James A. Douthwaite
 
-classdef ARdrone < quadcopter
+classdef ARdrone_prev < quadcopter
 %%% ARdrone CHILD CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % This class defines the ARdrone specific properties for importing a
     % small quadrotor into the environment.
@@ -22,7 +22,7 @@ classdef ARdrone < quadcopter
     %% ////////////////////// MAIN CLASS METHODS //////////////////////////
     methods 
         % Constructor
-        function [this] = ARdrone(varargin)
+        function [this] = ARdrone_prev(varargin)
             % This function is to construct the ARdrone object using the
             % object defintions held in the 'agent' class.
             % INPUTS:

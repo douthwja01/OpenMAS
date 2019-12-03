@@ -43,7 +43,7 @@ classdef ARdrone < quadcopter
             
             p0 = this.GetGLOBAL('position');   % True global position
             v0 = this.GetGLOBAL('velocity');   % True global velocity
-            eta0 = localXYZrotations;
+            eta0   = localXYZrotations;
             omega0 = zeros(3,1);
             x0 = [p0;eta0;v0;omega0];
             

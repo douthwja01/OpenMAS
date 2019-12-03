@@ -2,7 +2,7 @@
 
 % Author: James A. Douthwaite
 
-classdef ARdrone_LQR < ARdrone
+classdef ARdrone_LQR < ARdrone_prev
 %% INITIALISE THE AGENT SPECIFIC PARAMETERS
     % LQR SPECIFIC PARAMETERS
     properties
@@ -14,7 +14,7 @@ classdef ARdrone_LQR < ARdrone
         function this = ARdrone_LQR(varargin)
             
             % Call the super class
-            this@ARdrone(varargin);                                         % Create the super class 'agent'                  
+            this@ARdrone_prev(varargin);                                         % Create the super class 'agent'                  
              
             % DYNAMIC CONSTRAINTS
             this.v_nominal = 2.0; 
@@ -64,11 +64,16 @@ classdef ARdrone_LQR < ARdrone
                 desiredVelocity = zeros(3,1);
             end
             
+            p_wp = this.targetWaypoint.position(:,this.targetWaypoint.sampleNum);
+            
             % Convert from 'xyz' to 'ned'
-            desiredVelocity = enu2ned(desiredVelocity);
+%             desiredVelocity = enu2ned(desiredVelocity);
+%             desiredNEDstate = [p_wp;zeros(3,1);zeros(6,1)];
             
             % LQR controller update
-            this = this.Controller(ENV,desiredVelocity);
+            this = this.Controller_position(ENV,enu2ned(p_wp));
+            
+%             this = this.Controller_velocity(ENV,enu2ned(desiredVelocity));
             
             % \\\\\\\\\\\\\\\ RECORD THE AGENT-SIDE DATA \\\\\\\\\\\\\\\\\\
             this.DATA.inputNames = {'$\dot{x}$ (m/s)','$\dot{y}$ (m/s)','$\dot{z}$ (m/s)',...
@@ -80,8 +85,30 @@ classdef ARdrone_LQR < ARdrone
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     % CONTROLLER METHODS
     methods
-        % ARdrone controller function
-        function [this] = Controller(this,ENV,NEDVelocity)
+        % ARdrone controller (local position)
+        function [this] = Controller_position(this,ENV,NEDposition)
+            
+            % CALCULATE THE NEW STATE REFERENCE
+            if ~this.IsIdle()
+                X_desired = [NEDposition;zeros(2,1);this.localState(6);zeros(6,1)];  
+            else
+                % Idle reference
+                X_desired = [zeros(5,1);this.localState(6);zeros(6,1)];
+            end
+            
+            % /////////////////// AIRCRAFT DYNAMICS ///////////////////////
+            useLinearModel = false;
+            if ~useLinearModel
+                [this.localState] = this.UpdateNonLinearPlant(ENV,this.localState,X_desired);
+            else
+                [this.localState] = this.UpdateLinearPlant(ENV,this.localState,X_desired);         
+            end
+            
+            % \\\\\\\\\\\\\\\\\\\\\ GLOBAL UPDATE \\\\\\\\\\\\\\\\\\\\\\\\\
+            this = this.GlobalUpdate_ARdrone(ENV.dt,this.localState);
+        end
+        % ARdrone controller (local velocity)
+        function [this] = Controller_velocity(this,ENV,NEDVelocity)
             
             % CALCULATE THE NEW STATE REFERENCE
             if ~this.IsIdle()

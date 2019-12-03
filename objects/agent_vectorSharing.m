@@ -90,15 +90,14 @@ classdef agent_vectorSharing < agent
     % AGENT SPECIFIC METHODS
     methods
         % GET THE AVOIDANCE CORRECTION
-        function [headingVector,speed] = GetAvoidanceCorrection(this,desiredVelocity,visualiseProblem)
+        function [heading,speed] = GetAvoidanceCorrection(this,desiredVelocity,visualiseProblem)
             % This function calculates the collision avoidance velocity in
             % light of the current obstacles
             
             % Check we aren't stopping
-            if iszero(desiredVelocity)
-               headingVector = [1;0;0];
-               speed = 0;
-               return
+            [heading,speed] = this.nullVelocityCheck(desiredVelocity);
+            if speed == 0
+                return 
             end
             
             % AGENT KNOWLEDGE
@@ -112,7 +111,6 @@ classdef agent_vectorSharing < agent
             for item = 1:numel(obstacleIDs)
                 % Get object data from memory structure
                 p_j = this.GetLastMeasurementByID(obstacleIDs(item),'position');
-                
                 % Neighbour condition
                 neighbourConditionA = item < this.maxNeighbours;            % Maximum number of neighbours
                 neighbourConditionB = norm(p_j) < this.neighbourDist;        
@@ -148,11 +146,11 @@ classdef agent_vectorSharing < agent
             
             % CHECK VELOCITY IS PERMISSIBLE
             if any(isnan(avoidanceVelocity))
-                headingVector = [1;0;0];   % Retain forward direction
+                heading = [1;0;0];   % Retain forward direction
                 speed = 0;
             else
                 speed = norm(avoidanceVelocity);
-                headingVector = avoidanceVelocity/speed;
+                heading = avoidanceVelocity/speed;
             end
         end
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
@@ -202,10 +200,10 @@ classdef agent_vectorSharing < agent
             if tau < 0
                 return
             end
-            sf = 0.0;
+
             % VECTOR SHARING PROBLEM
-            r_safe = r_a + r_b + sf;        % Define the safe separation distance
-            r_res = r_safe - norm(r_m);  	% Define the resolution zone
+            r_safe = r_a + r_b;         % Define the safe separation distance
+            r_res = r_safe - norm(r_m); % Define the resolution zone
             
             % DEFINE THE VECTOR SHARING TERMS
             r_vsa = (norm(v_b)/(norm(v_a) + norm(v_b)))*(r_res/norm(r_m))*(-r_m);

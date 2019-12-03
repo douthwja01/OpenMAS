@@ -14,8 +14,8 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             this@agent_2D(varargin);    
 
             % //////////////////// SENSOR PARAMETERS //////////////////////
-%             [this.SENSORS] = this.GetDefaultSensorParameters();     % Default sensing
-            [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
+            [this.SENSORS] = this.GetDefaultSensorParameters();     % Default sensing
+%             [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
 
             % //////////////// Check for user overrides ///////////////////
@@ -71,10 +71,12 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             if ~isempty(avoidanceSet) 
                 algorithm_indicator = 1;
                 % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
-                desiredVelocity = desiredHeadingVector*desiredSpeed;
+                 [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(desiredVelocity,visualiseProblem);
+                 desiredVelocity = desiredHeadingVector*desiredSpeed;
             end
             algorithm_dt = toc(algorithm_start);                           % Stop timing the algorithm
+            
+            desiredVelocity
             
             % ///////////////////// CONTROLLER ////////////////////////////
             this = this.Controller(dt,desiredVelocity);
@@ -94,46 +96,48 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods (Access = public)
         % GET THE AVOIDANCE CORRECTION
-        function [headingVector,speed] = GetAvoidanceCorrection(obj,desiredVelocity,visualiseProblem)
+        function [heading,speed] = GetAvoidanceCorrection(this,desiredVelocity,visualiseProblem)
             % This function calculates the collision avoidance velocity in
             % light of the current obstacles
             
             % Check we aren't stopping
-            if iszero(desiredVelocity)
-               headingVector = [1;0];
-               speed = 0;
-               return
+            [heading,speed] = this.nullVelocityCheck(desiredVelocity);
+            if speed == 0
+                return 
             end
             
             % AGENT KNOWLEDGE
-            [p_i,v_i,r_i] = obj.GetAgentMeasurements(); % Its own position, velocity and radius
+            [p_i,v_i,r_i] = this.GetAgentMeasurements(); % Its own position, velocity and radius
             
             % Define the obstacle list
-            obstacleIDs = [obj.MEMORY([obj.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
+            obstacleIDs = [this.MEMORY([this.MEMORY.type] ~= OMAS_objectType.waypoint).objectID];
                         
             % MOVE THROUGH THE PRIORITISED OBSTACLE SET
             optimalSet = [];
             for j = 1:numel(obstacleIDs)
                 % Fetch the obstacle trajectories
-                p_j = obj.GetLastMeasurementByID(obstacleIDs(j),'position');
-                
+                p_j = this.GetLastMeasurementByID(obstacleIDs(j),'position');
                 % Neighbour conditions
-                neighbourConditionA = j < obj.maxNeighbours;            % Maximum number of neighbours
-                neighbourConditionB = norm(p_j) < obj.neighbourDist;       % [CONFIRMED]
+                neighbourConditionA = j < this.maxNeighbours;            % Maximum number of neighbours
+                neighbourConditionB = norm(p_j) < this.neighbourDist;       % [CONFIRMED]
                 if ~neighbourConditionA || ~neighbourConditionB
                     continue
                 end
                 
                 % Get further obstacle information
-                v_j = obj.GetLastMeasurementByID(obstacleIDs(j),'velocity');
-                r_j = obj.GetLastMeasurementByID(obstacleIDs(j),'radius');
+                v_j = this.GetLastMeasurementByID(obstacleIDs(j),'velocity');
+                r_j = this.GetLastMeasurementByID(obstacleIDs(j),'radius');
                 
                 % OBSTACLE KNOWLEDGE
                 p_j = p_j + p_i;
                 v_j = v_j + v_i;                                           % Convert relative parameters to absolute
 
                 % COMPUTE THE VECTOR SHARING PROBLEM
-                [Voptimal] = obj.Define2DVectorSharingVelocity(desiredVelocity,p_i,v_i,r_i,p_j,v_j,r_j,visualiseProblem);
+                [Voptimal] = this.Define2DVectorSharingVelocity(...
+                    desiredVelocity,...
+                    p_i,v_i,r_i,...
+                    p_j,v_j,r_j,...
+                    visualiseProblem);
                 optimalSet = horzcat(optimalSet,[Voptimal;abs(norm(desiredVelocity - Voptimal))]);
             end
             
@@ -152,11 +156,12 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             
             % CHECK VELOCITY IS PERMISSIBLE
             if any(isnan(avoidanceVelocity))
-                headingVector = [1;0];   % Retain forward direction
-                speed = 0;
+%                 heading = [1;0];   
+%                 speed = 0;
+                speed   = norm(desiredVelocity);
+                heading = desiredVelocity/speed;    % Retain forward direction
             else
-                speed = norm(avoidanceVelocity);
-                headingVector = avoidanceVelocity/speed;
+                [heading,speed] = this.nullVelocityCheck(avoidanceVelocity);
             end
         end
         % DEFINE THE VECTOR SHARING AVOIDANCE PROBLEM
@@ -180,9 +185,11 @@ classdef agent_2D_vectorSharing < agent_2D & agent_vectorSharing
             p_a = [p_a;0]; v_a = [v_a;0];
             p_b = [p_b;0]; v_b = [v_b;0];
             % Pass to the 3D function
-            [U_a] = obj.Define3DVectorSharingVelocity(desiredVelocity,...
-                                                      p_a,v_a,r_a,p_b,v_b,r_b,...
-                                                      visualiseProblem);
+            [U_a] = obj.Define3DVectorSharingVelocity(...
+                desiredVelocity,...
+                p_a,v_a,r_a,...
+                p_b,v_b,r_b,...
+                visualiseProblem);
             % Reform the inputs for 2D application
             U_a = U_a(1:2,1);
         end
