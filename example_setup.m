@@ -15,7 +15,7 @@ addpath('toolboxes');
 fprintf('[SETUP]\tInitialising example script.\n');
 
 %% INITIALISE ANY TOOLBOXES
-IntLab();   % Load Intlab
+% IntLab();   % Load Intlab
 % OMAS_objectDiagnostics()
 
 %% SIMULATION PARAMETERS
@@ -25,16 +25,16 @@ sim_vebosity   = 1;
 sim_warningDistance = 2;
 sim_maxDuration = 8; 
 sim_timeStep    = 0.1;                        % Nominal (0.25s)
-sim_idleTimeOut = 20*sim_timeStep; 
+sim_idleTimeOut = 5*sim_timeStep; 
 
 sim_publishFigures = false;
 % sim_publishFigures = true;
 % sim_figureSet = {'all'};
-% sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
-sim_figureSet = {'plan','inputs','isometric','gif'}; 
+sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
+% sim_figureSet = {'plan','inputs','isometric','gif'}; 
 
 %% SCENARIO PARAMETERS 
-sim_agentNumber     = 5;                   
+sim_agentNumber     = 6;                   
 sim_agentRadius     = 0.5;
 sim_agentOrbit      = 5; 
 sim_agentVelocity   = 0;
@@ -54,7 +54,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent('radius',sim_agentRadius);
 %     agentIndex{index} = agent_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D();  
-%     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
+    agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_example('radius',sim_agentRadius);
 
 % QUADCOPTER DYNAMICS
@@ -97,7 +97,7 @@ for index = 1:sim_agentNumber
 % INTERVAL AVOIDANCE
 %     agentIndex{index} = agent_interval();
 %     agentIndex{index} = agent_IA('radius',sim_agentRadius);
-    agentIndex{index} = agent_2D_IA('radius',sim_agentRadius);
+%     agentIndex{index} = agent_2D_IA('radius',sim_agentRadius);
 
 % VELOCITY OBSTACLE METHODS
 %     agentIndex{index} = agent_VO('radius',sim_agentRadius);
