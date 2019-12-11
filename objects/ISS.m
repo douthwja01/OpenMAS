@@ -67,11 +67,15 @@ classdef ISS < agent
             omega_k_plus    = [0;0;orbitalOmega];
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-            
+            X = this.localState(1:6);
+            U = [velocity_k_plus;omega_k_plus];
             % USE OUTPUT TO DEFINE NEW AGENT STATE
-            [dXdt] = this.Dynamics_simple(this.localState,velocity_k_plus,omega_k_plus);
+            [dXdt] = this.SingleIntegratorDynamics(X,U);
             % SIMPLE INTEGRATION
             eulerState = this.localState + dt*dXdt;
+            this.localState = eulerState;
+            %this.localState(1:6)  = this.localState(1:6) + dt*dXdt;
+            %this.localState(7:12) = dXdt;
             
             % UPDATE THE 'agent_example' PROPERTIES WITH ITS NEW STATE
             [this] = this.GlobalUpdate(dt,eulerState);

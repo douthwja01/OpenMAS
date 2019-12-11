@@ -125,7 +125,7 @@ classdef agent_2D < agent
             end
             
             % //////////////////// SIMPLE DYNAMICS ////////////////////////
-            [dX] = this.Dynamics_simple(this.localState(1:3),[speed_actual;0],omega_actual);
+            [dX] = this.SingleIntegratorDynamics(this.localState(1:3),[speed_actual;0;omega_actual]);
             this.localState(1:3) = this.localState(1:3) + dt*dX;
             this.localState(4:6) = dX; 
                         

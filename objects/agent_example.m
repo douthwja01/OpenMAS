@@ -103,20 +103,21 @@ classdef agent_example < agent
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % ASSIGNED STATE UPDATE FUNCTION (USING ODE45)
-        function [X] = UpdateLocalState(obj,TIME,X0,velocity,omega)
+        function [dXdt] = UpdateLocalState(obj,TIME,X0,velocity,omega)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
-            X = X0; % The default returned state
+            U = [velocity;omega];
+            dXdt = X0; % The default returned state
             
             % DETERMINE THE INTEGRATION PERIOD
             if TIME.currentTime == TIME.timeVector(end)
                 return
             else
-                [~,Xset] = ode45(@(t,X) obj.Dynamics_simple(X,velocity,omega),...
+                [~,Xset] = ode45(@(t,X) obj.SingleIntegratorDynamics(X,U),...
                     [0 TIME.dt],X0,...
                     odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
-                X = Xset(end,:)'; % Pass the state at the end of the sample period
+                dXdt = Xset(end,:)'; % Pass the state at the end of the sample period
             end
         end
     end

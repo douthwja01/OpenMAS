@@ -16,13 +16,13 @@ classdef quadcopter_formation < quadcopter & agent_formation
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function this = quadcopter_formation(varargin)
+        function [this] = quadcopter_formation(varargin)
             
             % Call the super class
             this@quadcopter(varargin);                                      % Create the super class 'agent'
 
             % IMPORT THE AGENT DYNAMICS & CONTROL PARAMETERS
-            [this.DYNAMICS] = this.importModelProperties();
+            this.DYNAMICS = this.CreateDYNAMICS();
             
             % //////////////// Check for user overrides ///////////////////
             [this] = this.ApplyUserOverrides(varargin); % Recursive overrides

@@ -43,8 +43,11 @@ classdef planetoid < obstacle_spheroid
         function [this] = main(this,TIME,varargin)
             % SIMPLE UPDATE OF LOCAL STATE
             dt = TIME.dt;
+            X = this.localState(1:6,1);
+            U = this.localState(7:12,1);
+            
             % SIMPLY INTEGRATE THE RATES
-            [dXdt] = this.Dynamics_simple(this.localState(1:6,1),this.localState(7:9,1),this.localState(10:12,1));
+            [dXdt] = this.SingleIntegratorDynamics(X,U);
             eulerState = this.localState;
             eulerState(1:6,1) = this.localState(1:6,1) + dt*dXdt;
             

@@ -25,7 +25,7 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 
 %%% TO RUN %%%
 
-- To test run the simulator with an example agent, run 'setup_example.m'.
+- To test run the simulator with an example agent, run 'example_setup.m'.
 - Alter the "setup" file to define different scenarios and unique agent combinations.
 
 %%% DIRECTORY OVERVIEW %%%

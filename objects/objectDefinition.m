@@ -107,7 +107,7 @@ classdef objectDefinition < handle
             % MAINTAIN LOCAL INPUT CONDITIONS
             % Default behaviour of a system is to move with constant input
             % conditions.
-            [dXdt]   = this.Dynamics_singleIntegrator(this.localState,x_dot);
+            [dXdt]   = this.SingleIntegratorDynamics(this.localState,x_dot);
             newState = this.localState + dt*dXdt;
             
             % UPDATE THE CLASS GLOBAL PROPERTIES
@@ -257,7 +257,7 @@ classdef objectDefinition < handle
     %% STATE UPDATE METHODS
     methods (Static)
         % STATE UPDATE - TWO WHEELED DIFFERENTIAL ROBOT
-        function [dXdt] = Dynamics_differencialDrive(X,d,a_left,a_right)
+        function [dXdt] = DifferencialDriveDynamics(X,d,a_left,a_right)
             % Becker, M. (2006). Obstacle avoidance procedure for mobile robots. ABCM Symposium Series
             % [x;y;theta;v;omega]
 
@@ -270,7 +270,7 @@ classdef objectDefinition < handle
             dXdt(5) = (a_right - a_left)/d;       % Angular acceleration
         end
         % STATE UPDATE - UNI-CYCLE ROBOT
-        function [dXdt] = Dynamics_unicycle(X,speed,headingRate)
+        function [dXdt] = UnicycleDynamics(X,speed,headingRate)
             % This function provides the dynamics of a uni-cycle model
             % moving in on a 2D plane.
                         
@@ -281,7 +281,7 @@ classdef objectDefinition < handle
             dXdt(3) = headingRate;
         end
         % STATE UPDATE - DOUBLE INTEGRATOR
-        function [dXdt] = Dynamics_doubleIntegrator(X,U)
+        function [dXdt] = DoubleIntegratorDynamics(X,U)
             % The relationship between the input and state vector is by
             % definition of a double integrator: dX(dX/dt)/dt = U
             
@@ -294,12 +294,14 @@ classdef objectDefinition < handle
                     U];                     % Acceleration states
         end
         % STATE UPDATE - SINGLE INTEGRATOR
-        function [dXdt] = Dynamics_singleIntegrator(X,U)
+        function [dXdt] = SingleIntegratorDynamics(X,U)
             % The relationship between the input and state vector is by
             % definition of a single integrator: dX/dt = U
             
             % Sanity check
             assert(length(X) == length(U),"Expecting the number of inputs to correspond to the state vector.");
+            
+            
             
             % X(t) here is assumed to be of the form X(t) = [q]
             
@@ -307,7 +309,7 @@ classdef objectDefinition < handle
             dXdt = U;            
         end
         % STATE UPDATE - SIMPLE EULER VELOCITIES
-        function [dXdt] = Dynamics_simple(X,velocity_k_plus,omega_k_plus)
+        function [dXdt] = SimpleDynamics(X,velocity_k_plus,omega_k_plus)
             % This function assumes that the velocity changes are
             % implemented this timestep directly, integration then occurs
             % including the updates from this timestep:
