@@ -23,6 +23,16 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 <img src="resources/orca-example.gif" height="320" title="ORCA collision avoidance example">
 </p>
 
+<table style="width:100%">
+<tr>
+	<th><img src="resources/quadcopter-example.gif" height="320" title="Quadcopter dynamics example"></th>
+	<th><img src="resources/boids-example.gif" height="320" title="Boids example"></th>
+</tr>
+<tr>
+	<th><img src="resources/2D-IA-example.gif" height="320" title="Interval avoidance example"></th>
+	<th><img src="resources/orca-example.gif" height="320" title="ORCA collision avoidance example"></th>
+</tr>
+	
 %%% TO RUN %%%
 
 - To test run the simulator with an example agent, run 'example_setup.m'.
