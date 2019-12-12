@@ -36,7 +36,7 @@ switch upper(char(figureLabel))
     
     case 'EVENTS'
         fprintf('[%s]\tGenerating the event overview figure.\n',SIM.phase);
-        [figureNumber,~] = GetFigure_eventOverview(SIM,DATA,figureNumber);  
+        [figureNumber,~] = GetFigure_events(SIM,DATA,figureNumber);  
         
     case 'COLLISIONS'
         fprintf('[%s]\tGenerating collision overview.\n',SIM.phase);
@@ -96,7 +96,7 @@ switch upper(char(figureLabel))
         
     case 'ISOMETRIC' 
         fprintf('[%s]\tGenerating isometric trajectory figure.\n',SIM.phase);
-        [figureNumber,~] = GetFigure_isometricFigure(SIM,objectIndex,DATA,figureNumber);
+        [figureNumber,~] = GetFigure_isometric(SIM,objectIndex,DATA,figureNumber);
 
     case 'GIF'
         fprintf('[%s]\tGenerating trajectory gif file.\n',SIM.phase);

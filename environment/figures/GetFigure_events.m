@@ -1,5 +1,5 @@
 % GET EVENTS STATISTICS OVERVIEW PANEL
-function [currentFigure,figureHandle] = GetFigure_eventOverview(SIM,DATA,currentFigure)
+function [currentFigure,figureHandle] = GetFigure_events(SIM,DATA,currentFigure)
 % This function generates a complete event summary plot
 % INPUTS:
 % SIM               - The simulation meta structure

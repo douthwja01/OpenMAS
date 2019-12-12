@@ -29,8 +29,8 @@ sim_idleTimeOut = 5*sim_timeStep;
 
 sim_publishFigures = false;
 % sim_publishFigures = true;
-% sim_figureSet = {'all'};
-sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
+sim_figureSet = {'all'};
+% sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
 % sim_figureSet = {'plan','inputs','isometric','gif'}; 
 
 %% SCENARIO PARAMETERS 
@@ -55,7 +55,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D();  
 %     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
-%     agentIndex{index} = agent_example('radius',sim_agentRadius);
+    agentIndex{index} = agent_example('radius',sim_agentRadius);
 
 % QUADCOPTER DYNAMICS
 %     agentIndex{index} = quadcopter_legacy();
@@ -77,7 +77,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = planetoid();
 %     agentIndex{index} = earth();
 %     agentIndex{index} = moon();
-    agentIndex{index} = ISS();
+%     agentIndex{index} = ISS();
 
 % FORMATION CONTROL 
 %     agentIndex{index} = agent_formation('adjacencyMatrix',sim_adjacencyMatrix);

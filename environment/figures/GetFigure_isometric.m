@@ -1,5 +1,5 @@
 % GET THE STANDARD 3D TRAJECTORY DATA.figureProperties [ UPDATED ]
-function [currentFigure,figureHandle] = GetFigure_isometricFigure(SIM,objectIndex,DATA,currentFigure)
+function [currentFigure,figureHandle] = GetFigure_isometric(SIM,objectIndex,DATA,currentFigure)
 
 % CONFIGURE THE PLOT ATTRIBUTES
 figurePath = strcat(SIM.outputPath,'isometric_figure');
