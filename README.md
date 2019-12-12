@@ -15,28 +15,10 @@ For queries regarding the project, please email me at: douthwaiteja@gmail.com
 %%% GENERAL README %%%
 
 OpenMAS is an open-source multi-agent simulator for Matlab. This software package provides a number of tools necessary for the simulation of multi-agent systems with complex agent definitions. The software packages environment is based upon Matlab's object orientated functionality; allowing users to build and define their own agent definitions and simulate their interactions in defined scenarios.
-
-<table style="width:100%">
-<tr>
-	<th>
-		<img src="resources/quadcopter-example.gif" height="320" title="Quadcopter dynamics example">
-		Quadcopter dynamics
-	</th>
-	<th>
-		<img src="resources/boids-example.gif" height="320" title="Boids example">
-		Boids flocking
-	</th>
-</tr>
-<tr>
-	<th>
-		<img src="resources/2D-IA-example.gif" height="320" title="Interval avoidance example">
-		Interval Analysis based collision avoidance
-	</th>
-	<th>
-		<img src="resources/orca-example.gif" height="320" title="ORCA collision avoidance example">
-		ORCA based collision avoidance
-	</th>
-</tr>
+	
+| <img src="resources/quadcopter-example.gif" height="320" title="Quadcopter dynamics example"> Quadcopter dynamics| <img src="resources/boids-example.gif" height="320" title="Boids example"> Boids flocking|
+| --- | --- |
+| <img src="resources/2D-IA-example.gif" height="320" title="Interval avoidance example"> Interval Analysis (IA) collision avoidance| <img src="resources/orca-example.gif" height="320" title="ORCA collision avoidance example"> Optimal Reciprocal Collision Avoidance (ORCA)|
 	
 %%% TO RUN %%%
 
