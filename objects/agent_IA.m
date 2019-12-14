@@ -175,7 +175,23 @@ classdef agent_IA < agent_vectorSharing & agent_interval
                     U_star = temp;
                 end
             end
-                        
+            
+%             if mid(U_star(1)) > 0
+%                 U_star(1) = inf(U_star(1));
+%             else
+%                 U_star(1) = sup(U_star(1));
+%             end
+            if mid(U_star(2)) > 0
+                U_star(2) = inf(U_star(2));
+            else
+                U_star(2) = sup(U_star(2));
+            end
+            if mid(U_star(3)) > 0
+                U_star(3) = inf(U_star(3));
+            else
+                U_star(3) = sup(U_star(3));
+            end
+            
             % Obtain control inputs from optimal region
             headingVector = this.iunit(U_star);
             speed = this.inorm(U_star);
@@ -220,13 +236,13 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             
             % COLLISION CHECK #1 - Improper value
             if isnan(tau)
-                warning("'tau' contains NaNs.");
+%                 warning("'tau' contains NaNs.");
                 return
             end
             
             % COLLISION CHECK #2 - The maximal value indicates no chance of collision
             if sup(tau) < 0
-                fprintf("'tau' determined no chance of collision.\n");
+%                 fprintf("'tau' determined no chance of collision.\n");
                 return
             end
             
@@ -247,21 +263,21 @@ classdef agent_IA < agent_vectorSharing & agent_interval
             tau = inf(tau);
 
             % Switching logic based on position of object
-            if mid(r_vsi(1)) > 0
-                r_vsi(1) = inf(r_vsi(1));
-            else
-                r_vsi(1) = sup(r_vsi(1));
-            end
-            if mid(r_vsi(2)) > 0
-                r_vsi(2) = inf(r_vsi(2));
-            else
-                r_vsi(2) = sup(r_vsi(2));
-            end
-            if mid(r_vsi(3)) > 0
-                r_vsi(3) = inf(r_vsi(3));
-            else
-                r_vsi(3) = sup(r_vsi(3));
-            end
+%             if mid(r_vsi(1)) > 0
+%                 r_vsi(1) = inf(r_vsi(1));
+%             else
+%                 r_vsi(1) = sup(r_vsi(1));
+%             end
+%             if mid(r_vsi(2)) > 0
+%                 r_vsi(2) = inf(r_vsi(2));
+%             else
+%                 r_vsi(2) = sup(r_vsi(2));
+%             end
+%             if mid(r_vsi(3)) > 0
+%                 r_vsi(3) = inf(r_vsi(3));
+%             else
+%                 r_vsi(3) = sup(r_vsi(3));
+%             end
             
             % CALCULATE THE CORRECTION UNIT VECTORS
             U_i = (v_i*tau + r_vsi);                                       % The ideal velocity to resolve collision

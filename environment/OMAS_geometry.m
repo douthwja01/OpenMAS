@@ -18,7 +18,7 @@ classdef OMAS_geometry
         end
         % RODRIGUES ROTATION
         function [v_rotated] = rodriguesRotation(u,k,theta)
-            [v_rotated] = GetRodriguesRotation_mex(u,k,theta);
+            v_rotated = rodriguesRotation(u,k,theta);
         end
         % GET VECTOR PLANAR PROJECTION
         function [v_proj] = vectorPlanarProjection(n,v)
@@ -174,25 +174,25 @@ classdef OMAS_geometry
             % differential to be called seperately to in the integration
             % function. This allows the quaternion 'q0' to be integrated
             % externally.
-            q_dot = qDifferential_mex(q0,omega);
+            q_dot = qDifferential(q0,omega);
         end
         % ROTATE A VECTOR THROUGH A QUATERNION
         function [v1] = quaternionVectorRotation(q,v0)
             % This function rotates a cartesian vector through a quaternion
             % rotation. Associated block:
             % "Quaternion Rotation"
-            v1 = qVectorRotation_mex(q,v0);
+            v1 = qVectorRotation(q,v0);
         end
         % GET THE QUATERNION BETWEEN TWO VECTORS
         function [q] = vectorsToQuaternion(u,v)
-            q = qArgument_mex(u,v);
+            q = qArgument(u,v);
         end
         % CONVERT ROTATION ANGLES INTO A QUATERNION
         function [q] = eulersToQuaternion(eulerAngles)
             % THis function converts euler angle rotations into a
             % quaternion via its components. Associated block:
             % "Rotation Angles to Quaternions".
-            q = GetQuaternionFromEulers_mex(eulerAngles);
+            q = GetQuaternionFromEulers(eulerAngles);
         end
         % CONVERT QUATERNION INTO ROTATION ANGLES
         function [eta] = quaternionToEulers(q)  % NOTATION B
@@ -201,7 +201,7 @@ classdef OMAS_geometry
             % "Quaternions to Rotation Angles"
             assert(size(q,1) == 4,'A quaternion column vector is expected 4x1');
             % Call the associated mex file
-            eta = qRotations_mex(q);
+            eta = qRotations(q);
         end
         % CONVERT ROTATION MATRIX TO QUATERNION
         function [q] = rotationMatrixToQuaternion(R)
@@ -217,7 +217,7 @@ classdef OMAS_geometry
             % provided quaternion. (Associated block "Quaternion to DCM")
             % INPUT:
             % q    - The quaternion rotation
-            R = GetRotationMatrix_q_mex(q);  
+            R = R_q(q);
 %             R = quat2rotm(q');  % Call the robotics toolbox
         end
         % THE QUATERNION DIFFERENCE

@@ -1,5 +1,5 @@
 % ROTATE A VECTOR ABOUT AN AXIS VECTOR (RODRIGUES)
-function [v_rotated] = GetRodriguesRotation(u,k,theta)
+function [v_rotated] = rodriguesRotation(u,k,theta)
 % v - Vector to be rotated
 % k - Is the rotation axis
 % Theta - The angle the vector is to be rotated through

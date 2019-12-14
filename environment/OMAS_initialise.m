@@ -196,12 +196,6 @@ for entity = 1:SIM.totalObjects
     assert(isColumn(objectGLOBAL.velocity,3)  ,'Global velocity must be given as a vector [3x1].');
     assert(isColumn(objectGLOBAL.quaternion,4),'Global attitude must be give as a quaternion vector [4x1].');      
     
-    % GLOBAL PARAMETERS ARE DECLARED IN THE MATLAB XYZ FRAME
-%     globalXYZPosition   = objectGLOBAL.position';       % Get XYZ global position
-%     globalXYZVelocity   = objectGLOBAL.velocity';       % Get XYZ global velocity
-    % REDEFINE INITIAL QUATERNION AS STATIC BODY TO ROTATED EARTH QUATERNION
-%     globalXYZquaternion = objectGLOBAL.quaternion;    
-    
     %% ////////////////////// ROTATION CONVENTION /////////////////////////
     % INPUTS:
     % globalXYZPosition     - The global cartesian position
@@ -262,8 +256,8 @@ for entity = 1:SIM.totalObjects
     % The user specifies an agent control frequency, which must be lower
     % than the minimum simulation sample frequency (1/dt)
     if isprop(objectIndex{entity},'SENSORS') && isfield(objectIndex{entity}.SENSORS,'sampleFrequency')
-        assert(objectIndex{entity}.SENSORS.sampleFrequency  > (1/SIM.TIME.dt),...
-               'Agent %s sample frequency (%sHz) cannot be greater than the simulation frequency (%sHz).');
+%         assert(objectIndex{entity}.SENSORS.sampleFrequency  > (1/SIM.TIME.dt),...
+%                'Agent %s sample frequency (%sHz) cannot be greater than the simulation frequency (%sHz).');
         % SPECIAL CASE - UNLIMITED SENSING RATE
         if isinf(objectIndex{entity}.SENSORS.sampleFrequency)
         	objectIndex{entity}.SENSORS.sampleFrequency = (1/SIM.TIME.dt);

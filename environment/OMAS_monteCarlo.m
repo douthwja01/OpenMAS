@@ -876,13 +876,13 @@ classdef OMAS_monteCarlo
             for objectNum = 1:numel(objectIndex)
                 try
                     % PERTURB THE GLOBAL POSITIONS
-                    objectIndex{objectNum}.VIRTUAL.globalPosition = ...
-                        + objectIndex{objectNum}.VIRTUAL.globalPosition ...
-                        + [SETTINGS.positionSigma*randn(2,1);0];                % 2D perturbation;
+                    objectIndex{objectNum}.SetGLOBAL('position',...
+                        + objectIndex{objectNum}.GetGLOBAL('position')...
+                        + [SETTINGS.positionSigma*randn(2,1);0]);          	% 2D perturbation;
                     % PERTURB THE GLOBAL VELOCITIES
-                    objectIndex{objectNum}.VIRTUAL.globalVelocity = ...
-                        + objectIndex{objectNum}.VIRTUAL.globalVelocity ...
-                        + [SETTINGS.velocitySigma*randn(2,1);0];                % 2D perturbation;
+                    objectIndex{objectNum}.SetGLOBAL('velocity',...
+                        + objectIndex{objectNum}.GetGLOBAL('velocity')...
+                        + [SETTINGS.velocitySigma*randn(2,1);0]);          	% 2D perturbation;
                 catch perturbationError
                     warning('Unable to perturb global position of object %s',num2str(objectNum));
                     rethrow(perturbationError);
@@ -914,6 +914,7 @@ classdef OMAS_monteCarlo
                 % FAILURE MESSAGE
                 warning('\n...cycle error.\n');
                 cycleMessage = cycleError.message;
+                disp(getReport(cycleError, 'extended', 'hyperlinks', 'on' ));
                 isSuccessful = false;
             end
             clearvars -except isSuccessful cycleMessage;
@@ -1062,7 +1063,7 @@ classdef OMAS_monteCarlo
             defaultConfig.startTime = 0;
             defaultConfig.endTime = 10;
             defaultConfig.duration = defaultConfig.endTime - defaultConfig.startTime;
-            defaultConfig.dt = 0.1;
+            defaultConfig.dt = 0.25;
             defaultConfig.idleTimeOut = 0;
             % Perturbations
             defaultConfig.positionSigma = 0;

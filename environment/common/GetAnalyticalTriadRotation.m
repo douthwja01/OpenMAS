@@ -19,7 +19,7 @@ zAxis_ref = referenceTriad(:,3); % Get the reference unit ENU triad (trying to g
 % GET THE QUATERNION ROTATION TO ALLIGN THE Z-AXES
 [q_zAlign] = qArgument(zAxis,zAxis_ref);                                   % Quaternion aligning global and body z vectors
 % [R_zAlign] = OMAS_geometry.quaternionToRotationMatrix(q_zAlign);         % Equivalent rotation matrix
-[R_zAlign] = GetRotationMatrix_q(q_zAlign);                                % Equivalent rotation matrix
+[R_zAlign] = R_q(q_zAlign);                                % Equivalent rotation matrix
 % ALIGN THE X AXIS IN THE Z-PLANE
 xAxis_intermediate = R_zAlign*xAxis;
 % TAKE ITS PROJECTIONS IN THE XY PLANE & RENORMALISE
@@ -29,7 +29,7 @@ xAxis_intermediate = unit(xAxis_intermediate);
 % GET THE QUATERNION ROTATION TO ALLIGN THE X-AXES
 [q_xAlign] = qArgument(xAxis_intermediate,xAxis_ref);
 % [R_xAlign] = OMAS_geometry.quaternionToRotationMatrix(q_xAlign);
-[R_xAlign] = GetRotationMatrix_q(q_xAlign);
+[R_xAlign] = R_q(q_xAlign);
 
 % COMPUTE THE COMPOSITE ROTATION MATRIX
 comp_rotation = R_xAlign * R_zAlign;

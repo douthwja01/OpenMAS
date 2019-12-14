@@ -27,39 +27,41 @@ fprintf('[SETUP]\tInitialising the comparative example script.\n');
 SCENARIO = struct();
 SCENARIO.agentOrbit    = 10;       
 SCENARIO.agentVelocity = 0;      
-SCENARIO.waypointOrbit = 15;                                               % Parameters used to define the scenario
+SCENARIO.waypointOrbit = 15;               % Parameters used to define the scenario
 SCENARIO.offsetAngle = pi/2;
 SCENARIO.noiseSigma = 0.1;
 SCENARIO.plot = false;
 
 % ///////////////////////// AGENT CONFIGURATION ///////////////////////////
-SCENARIO.case = 1;                                                       % The scenario number (1-3)
-SCENARIO.agentNumber = [2,4,6,8,10];                                                  % Total agent number
-SCENARIO.algorithms  = {'agent_2D_VO',...
-                        'agent_2D_RVO',...
-                        'agent_2D_HRVO',...
-                        'agent_2D_RVO2',...
-                        'agent_2D_vectorSharing',...
-                        'agent_2D_vectorSharing_interval'};                                % The selected agents within the '/objects' folder
-% SCENARIO.algorithms  = {'agent_2D_vectorSharing_interval'};                                                            
+SCENARIO.case = 1;                         % The scenario number (1-3)
+SCENARIO.agentNumber = 2:10;               % Total agent number
+% SCENARIO.algorithms  = {...
+%     'agent_2D_VO',...
+%     'agent_2D_RVO',...
+%     'agent_2D_HRVO',...
+%     'agent_2D_RVO2',...
+%     'agent_2D_vectorSharing',...
+%     'agent_2D_IA'};                      % The selected agents within the '/objects' folder
+SCENARIO.algorithms = {...
+    'agent_2D_IA',...
+    'agent_IA'};                                                            
 
 % //////////////////////// OMAS CONFIGURATION /////////////////////////////
 OMAS = struct();
 OMAS.maxDuration = 60;    
 OMAS.timeStep = 0.25;      
-OMAS.verbosity = 0;                                                         % Parameters defining the OMAS configuration within a give cycle. 
+OMAS.verbosity = 0;                        % Parameters defining the OMAS configuration within a give cycle. 
 
 % SIMULATION PARAMETERS
 % sim_figureSet ={'all'};
 OMAS.figureSet = {'none'};
 % sim_figureSet = {'plan','closest','inputs','plan'}; 
-%{'fig','gif','inputs','separations'};
 
 % ///////////////////// MONTE-CARLO CONFIGURATION /////////////////////////
 [~, userdir]  = system('echo %USERPROFILE%');                              % Get desktop path
 MC = struct();
 MC.outputPath = strcat(userdir,'\desktop\OpenMAS_data'); 
-MC.cycles     = 100;
+MC.cycles     = 1000;
 MC.threadPool = false;%true;%false;
 
 % ////////////////////// PROGRESSIVE SIMULATIONS //////////////////////////
@@ -77,7 +79,7 @@ for i = 1:numel(SCENARIO.agentNumber)
         end
         
         % //////// GET THE SCENARIO CONFIGURATION /////////
-        objectIndex = defineScenario(SCENARIO,agentIndex);
+        objectIndex = DefineScenario(SCENARIO,agentIndex);
         % /////////////////////////////////////////////////
 
         % Assemble array
@@ -100,7 +102,7 @@ MCinstance = OMAS_monteCarlo(...
 MCinstance = MCinstance.EvaluateAllCycles();
 
 % /////////////////// SCENARIO CONFIGURATION //////////////////////////
-function [objectIndex] = defineScenario(SCENARIO,agentIndex)
+function [objectIndex] = DefineScenario(SCENARIO,agentIndex)
 switch SCENARIO.case
     case 1
         objectIndex = GetScenario_concentricRing(...                   % Initialise the objects in the UKACC scenario

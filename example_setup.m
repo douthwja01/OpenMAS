@@ -29,9 +29,9 @@ sim_idleTimeOut = 5*sim_timeStep;
 
 sim_publishFigures = false;
 % sim_publishFigures = true;
-sim_figureSet = {'all'};
+% sim_figureSet = {'all'};
 % sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
-% sim_figureSet = {'plan','inputs','isometric','gif'}; 
+sim_figureSet = {'plan','inputs','isometric','gif'}; 
 
 %% SCENARIO PARAMETERS 
 sim_agentNumber     = 4;                   
@@ -55,7 +55,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D();  
 %     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
-    agentIndex{index} = agent_example('radius',sim_agentRadius);
+%     agentIndex{index} = agent_example('radius',sim_agentRadius);
 
 % QUADCOPTER DYNAMICS
 %     agentIndex{index} = quadcopter_legacy();
@@ -96,7 +96,7 @@ for index = 1:sim_agentNumber
 
 % INTERVAL AVOIDANCE
 %     agentIndex{index} = agent_interval();
-%     agentIndex{index} = agent_IA('radius',sim_agentRadius);
+    agentIndex{index} = agent_IA('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_IA('radius',sim_agentRadius);
 
 % VELOCITY OBSTACLE METHODS
