@@ -14,7 +14,7 @@ classdef OMAS_geometry
         function [planarAngle,isRightLogical] = signedPlanarAngle(n,u,v)
             % This function computes the signed angle between two vectors
             % with respect to a provided normal.
-            [planarAngle,isRightLogical] = GetSignedPlanarAngle_mex(n,u,v);
+            [planarAngle,isRightLogical] = GetSignedPlanarAngle(n,u,v);
         end
         % RODRIGUES ROTATION
         function [v_rotated] = rodriguesRotation(u,k,theta)
@@ -22,7 +22,7 @@ classdef OMAS_geometry
         end
         % GET VECTOR PLANAR PROJECTION
         function [v_proj] = vectorPlanarProjection(n,v)
-            v_proj = GetPlanarProjection_mex(n,v);
+            v_proj = GetPlanarProjection(n,v);
         end
         % NORMALISE ANGLE BETWEEN PI & -PI
         function [angle] = normaliseAngle(angle)
@@ -51,7 +51,7 @@ classdef OMAS_geometry
             assert(numel(bodyAxisRates) == 3,'Incorrect number of body axis rates');
             assert(numel(eulerPosition) == 3,'Incorrect number of Euler rotations');
             % Call the assoicated mex file
-            [eulerRates] = GetEularRatesFromOmega_mex(eulerPosition,bodyAxisRates);
+            [eulerRates] = GetEularRatesFromOmega(eulerPosition,bodyAxisRates);
         end
         % CONVERT EULER RATES TO BODY AXIS RATES
         function [bodyAxisRates] = eularRatesToBodyAxisRates(eulerPosition,eulerRates)
@@ -61,12 +61,12 @@ classdef OMAS_geometry
             assert(numel(eulerRates) == 3,'Incorrect number of Euler rates');
             assert(numel(eulerPosition) == 3,'Incorrect number of Euler rotations');
             % Call associated mex file
-            bodyAxisRates = GetOmegaFromEulerRates_mex(eulerPosition,eulerRates);
+            bodyAxisRates = GetOmegaFromEulerRates(eulerPosition,eulerRates);
         end
         % EULER ROTATION MATRIX TO EULER ANGLES
         function [eulers] = rotationMatrixToEulers(R)
             % Rotation of the fixed to the global pose
-            eulers = GetEulersFromRotationMatrix_mex(R);
+            eulers = GetEulersFromRotationMatrix(R);
         end
         % EULER ROTATION MATICES (STANDARD AEROSPACE 'ZYX' ROTATION ORDER)
         function [R] = eulersToRotationMatrix(eulers)
@@ -147,7 +147,8 @@ classdef OMAS_geometry
         function [q] = getAnalyticalTriadRotation(referenceTriad,targetTriad)
             % This function defines the quaternion describing the rotations
             % between a reference triad and a second triad.
-            q = GetAnalyticalTriadRotation_mex(referenceTriad,targetTriad);
+%             q = GetAnalyticalTriadRotation(referenceTriad,targetTriad);
+            q = GetAnalyticalTriadRotation(referenceTriad,targetTriad);
         end
         % UPDATE A GIVEN QUATERNION
         function [q_new] = integrateQuaternion(q0,omega,dt)
@@ -162,7 +163,7 @@ classdef OMAS_geometry
             % q_dot     - The quaternion difference
             % R_q       - The rotation matrix R_G to R_B
             % GET THE QUATERNION DIFFERENTIAL
-            [q_dot] = qDifferential_mex(q0,omega);    
+            [q_dot] = qDifferential(q0,omega);    
             % Integrate the quaternion difference
             q_new = q_dot*dt + q0;
             % Re-normalise
@@ -224,7 +225,7 @@ classdef OMAS_geometry
         function [dq] = qDifference(q,v)
             % This function gets the quaternion that will rotate from the
             % q1 orientation to the q2 orientation [q1->q2].
-            dq = qDifference_mex(q,v);                                     % Call the associated mex file
+            dq = qDifference(q,v);                                     % Call the associated mex file
         end       
         % QUATERNION DIVISION
         function [qDiv] = qDivide(q,v)
@@ -232,7 +233,7 @@ classdef OMAS_geometry
             % quaterion v.
             % Associated block:
             % "Quaternion Division"
-            qDiv = qDivide_mex(q,v);                                       % Call the associated mex file
+            qDiv = qDivide(q,v);                                       % Call the associated mex file
         end
         % QUATERNION MULTIPLICATION
         function [qv] = qMultiply(q,v)
@@ -240,12 +241,12 @@ classdef OMAS_geometry
             % Associated block:
             % "Quaternion Multiplication"
             % Multiply the quaternion elements
-            qv = qMultiply_mex(q,v);                                       % Call the associated mex file
+            qv = qMultiply(q,v);                                       % Call the associated mex file
         end
         % QUATERNION INVERSE
         function [qInv] = qInverse(q)
             % The quaternion norm
-            qInv = qInverse_mex(q);                                        % Call the associated mex file
+            qInv = qInverse(q);                                        % Call the associated mex file
         end
         % QUATERNION CONJUGATE
         function [qCon] = qConjugate(q)
@@ -265,11 +266,11 @@ classdef OMAS_geometry
             % problem is being resolved in the axes of A (i.e) 'R' is the
             % rotation matrix taking the cube from its own frame to the
             % axes of A.
-            intersectFlag = CheckOBBSphereIntersection_mex(centerA,radiusA,centerB,cuboidVerticesB);
+            intersectFlag = CheckOBBSphereIntersection(centerA,radiusA,centerB,cuboidVerticesB);
         end
         % INTERSECT - TWO ROTATED CUBOIDS (OBB)
         function [intersectFlag] = intersect_OBB_cuboids(centerA,cuboidVerticesA,centerB,cuboidVerticesB)
-            intersectFlag = CheckOBBOBBIntersection_mex(centerA,cuboidVerticesA,centerB,cuboidVerticesB);
+            intersectFlag = CheckOBBOBBIntersection(centerA,cuboidVerticesA,centerB,cuboidVerticesB);
         end
         % INTERSECT - SPHERE AND AXIS ALIGNED CUBOID (AABB)
         function [intersectFlag] = intersect_AABB_sphereCuboid(center,radius,cubeMins,cubeMaxs)
@@ -277,24 +278,24 @@ classdef OMAS_geometry
             %             x = max(cubeMins(1), min(sphere.x, cubeMaxs(1)));
             %             y = max(cubeMins(2), min(sphere.y, cubeMaxs(2)));
             %             z = max(cubeMins(3), min(sphere.z, cubeMaxs(3)));
-            intersectFlag = CheckAABBSphereIntersection_mex(center,radius,cubeMins,cubeMaxs);
+            intersectFlag = CheckAABBSphereIntersection(center,radius,cubeMins,cubeMaxs);
         end
         % INTERSECT - AXIS ALIGNED CUBOIDS (AABB)
         function [intersectFlag] = intersect_AABB_cuboids(minA,maxA,minB,maxB)
             % This function determines if two 3D cuboids currently intersect
-            intersectFlag = CheckAABBAABBIntersection_mex(minA,maxA,minB,maxB);
+            intersectFlag = CheckAABBAABBIntersection(minA,maxA,minB,maxB);
         end
         % INTERSECT - SPHERES
         function [intersectFlag] = intersect_spheres(positionA,radiusA,positionB,radiusB)
             % This uses a simple one dimensional comparison to determine
             % the overlap of two spherical volumes.
-            intersectFlag = CheckSphereSphereIntersection_mex(positionA,radiusA,positionB,radiusB);
+            intersectFlag = CheckSphereSphereIntersection(positionA,radiusA,positionB,radiusB);
         end
         % INTERSECT - RANGE
         function [intersectFlag] = rangeIntersect(minA,maxA,minB,maxB)
             % This function determines the intersection between two 1D
             % ranges, and the distance between them.
-            intersectFlag = CheckRangeIntersection_mex(minA,maxA,minB,maxB);
+            intersectFlag = CheckRangeIntersection(minA,maxA,minB,maxB);
         end
 
         % THE EXPRESSOIN FOR A PLANE DEFINED BY POINTS
@@ -365,18 +366,18 @@ classdef OMAS_geometry
            % radius   - The radius of the defined sphere.
            
            % Call external mex function
-           p_int = GetRaySphereIntersection_mex(ray,centroid,radius);
+           p_int = GetRaySphereIntersection(ray,centroid,radius);
         end
         % PROJECTION OF A RAY ON A PLANE DEFINED BY A NORMAL
         function [v_prj] = rayProjectionOnPlane(ray,planeNormal)
             % This function computes the projection of a vector on a plane
             % defined by its normal vector.
-            v_prj = GetRayProjectionOnPlane_mex(ray,planeNormal);
+            v_prj = GetRayProjectionOnPlane(ray,planeNormal);
         end
         % PROJECTION OF A POINT ON A VECTOR
         function [v_mag] = pointProjectionOnRay(ray,point)
             % Calcuate the projection magnitude(distance)
-            v_mag = GetPointProjectionOnRay_mex(ray,point);
+            v_mag = GetPointProjectionOnRay(ray,point);
         end
         % DEFINE RAY
         function [rayObj] = defineRay(origin,direction,magnitude)
@@ -385,7 +386,7 @@ classdef OMAS_geometry
            if nargin < 3
                magnitude = 1;
            end
-           rayObj = ray_mex(origin,direction,magnitude);
+           rayObj = ray(origin,direction,magnitude);
         end
         % PLOT RAY
         function plotRay(ray)
