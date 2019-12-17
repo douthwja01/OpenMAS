@@ -126,7 +126,7 @@ fprintf('[%s]\tMax Steps: %d\t Max Duration: %.2fs\t dt: %.3fs\t\n',META.phase,.
 %% //////// BEGIN RUNNING THROUGH THE SIMULATION TIME CYCLE ///////////////
 fprintf('[%s]\tMoving to simulation...\n',META.phase);
 OMAS_start = tic();
-[DATA,META,EVENTS,objectIndex] = OMAS_mainCycle(META,objectIndex);
+[DATA,META,EVENTS,objectIndex] = OMAS_process(META,objectIndex);
 OMAS_finish = toc(OMAS_start); 
 fprintf('[%s]\tOperation lasted %.2fs.\n',META.phase,OMAS_finish);
 
@@ -206,7 +206,8 @@ for entity = 1:SIM.totalObjects
     
     % USING MATLABS TOOLBOX COP-OUT
     Rxyz              = quat2rotm(objectGLOBAL.quaternion');                   % from fixed to rotated world
-    localXYZrotations = quat2eul(objectGLOBAL.quaternion','XYZ');
+%     localXYZrotations = quat2eul(objectGLOBAL.quaternion','XYZ');
+    localXYZrotations = quat2eul(objectGLOBAL.quaternion','ZYX');
     localXYZrotations = localXYZrotations';
     localXYZVelocity  = Rxyz*objectGLOBAL.velocity;                            % Move from rotated vector to axis aligned vector
     objectGLOBAL.R    = Rxyz;

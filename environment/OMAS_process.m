@@ -1,11 +1,11 @@
-%% THE OPENMAS TIMECYCLE (OMAS_mainCycle.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% THE OPENMAS CYCLE PROCESSOR (OMAS_process.m) %%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This function computes the progressive cycles of the simulation, for the
 % environment, obstacles, agents and objects withing the simulation space.
 
 % Author: James A. Douthwaite 06/10/2016
 
 % //////////////////////// MAIN WRAPPER SCRIPT ////////////////////////////
-function [DATA,SIM,EVENTS,objectIndex]  = OMAS_mainCycle(META,objectIndex)
+function [DATA,SIM,EVENTS,objectIndex]  = OMAS_process(META,objectIndex)
 % INPUTS:
 % objectIndex - The cell array of object classes
 % OUTPUTS:
@@ -22,7 +22,7 @@ EVENTS = [];         % Reset the EVENT log container
 %%%%%%%%%%%%%%%%%%%%%% BEGIN TIME-STEP INTERATIONS %%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('[%s]\n[%s]\tLAUNCHING SIMULATION...\n[%s]\n',META.phase,META.phase,META.phase);
 % EXECUTE OMAS MAIN CYCLE
-[META,objectIndex,DATA,EVENTS] = processGlobalTimeSeries(META,objectIndex,DATA,EVENTS);
+[META,objectIndex,DATA,EVENTS] = ProcessGlobalTimeSeries(META,objectIndex,DATA,EVENTS);
 % DATA.computationTime = toc; % Get total elapsed simulation time
 % fprintf('\n[%s]\tSIMULATION COMPLETE (time elapsed: %ss)\n',META.phase,num2str(DATA.computationTime));
 fprintf('[%s]\n[%s]\t...SIMULATION COMPLETE\n[%s]\n',META.phase,META.phase,META.phase);
@@ -38,7 +38,7 @@ end
 
 % //////////////////////// MAIN CYCLE FUNCTIONS ///////////////////////////
 % PROCESS TIME VECTOR
-function [META,objectIndex,DATA,EVENTS] = processGlobalTimeSeries(META,objectIndex,DATA,EVENTS)
+function [META,objectIndex,DATA,EVENTS] = ProcessGlobalTimeSeries(META,objectIndex,DATA,EVENTS)
 % This function computes the simulation loop cycle across the given
 % descrete META.timevector:
 % INPUTS:
@@ -280,11 +280,18 @@ for entityA = 1:SIM.totalObjects
             % GET THE MEMBER IDs OF THE FACE
             faceMembers  = geometryB.faces(face,:);
             faceVertices = geometryB.vertices(faceMembers,:);
+            
+            % CHECK THE GEOMETRY AGAINST THE SPHERICAL CONSTRAINT (with mex)
+%             isDetected = CheckSphereTriangleIntersection_mex(...
+%                 SIM.OBJECTS(entityA).globalState(1:3),...
+%                 SIM.OBJECTS(entityA).detectionRadius,...
+%                 faceVertices(1,:)',faceVertices(2,:)',faceVertices(3,:)');
             % CHECK THE GEOMETRY AGAINST THE SPHERICAL CONSTRAINT
-            isDetected = CheckSphereTriangleIntersection_mex(...
+            isDetected = CheckSphereTriangleIntersection(...
                 SIM.OBJECTS(entityA).globalState(1:3),...
                 SIM.OBJECTS(entityA).detectionRadius,...
                 faceVertices(1,:)',faceVertices(2,:)',faceVertices(3,:)');
+            
             % IF THE FACE IS DETECTED
             if isDetected
                 detectionLogicals(entityA,entityB) = 1;
