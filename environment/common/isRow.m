@@ -1,8 +1,5 @@
 
-function [flag] = isRow(v,n)
-% Sanity check #1
-assert(isnumeric(v),'Expecting a numeric vector.');
-
+function [flag] = IsRow(v,n)
 % Default setting
 flag = false;
 
@@ -10,21 +7,14 @@ flag = false;
 [a,b] = size(v);
 
 % Check it is a column
-if a ~= 1
-    return
-end
-
-% Sanity check #2
-if nargin > 1
-    assert(isnumeric(n),'Expecting a numeric column length.');
-else
+if a == 1 && nargin == 1
     flag = true;
-    return
-end
-% Check its length against n
-if b ~= n
-    return       % Is not same length
-else
-    flag = true; % Is same length
+    return;
+end  
+
+% Otherwise check its length against n
+if b == n           % Is not same length
+    flag = true;
+    return       
 end
 end

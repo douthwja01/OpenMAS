@@ -116,6 +116,8 @@ classdef agent_2D < agent
             
             % Apply kinematic constraints to state changess
             [omega_actual,speed_actual] = this.ApplyKinematicContraints(dt,omega,speed);
+%             omega_actual = omega;
+%             speed_actual = speed;
             
             % OMIT TRAJECTORY CHANGES IF IDLE
             if this.IsIdle()

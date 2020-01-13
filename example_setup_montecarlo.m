@@ -58,11 +58,11 @@ OMAS.figureSet = {'none'};
 % sim_figureSet = {'plan','closest','inputs','plan'}; 
 
 % ///////////////////// MONTE-CARLO CONFIGURATION /////////////////////////
-[~, userdir]  = system('echo %USERPROFILE%');                              % Get desktop path
+[~, userdir]  = system('echo %USERPROFILE%'); % Get desktop path
 MC = struct();
 MC.outputPath = strcat(userdir,'\desktop\OpenMAS_data'); 
-MC.cycles     = 1000;
-MC.threadPool = false;%true;%false;
+MC.cycles     = 10;
+MC.threadPool = false;
 
 % ////////////////////// PROGRESSIVE SIMULATIONS //////////////////////////
 MC.index = {};

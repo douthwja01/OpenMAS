@@ -251,9 +251,9 @@ classdef agent_tools < objectDefinition
             % eulerState     - The new state as reported by the agent
             
             % Input sanity check
-            assert(isColumn(p,3),'Global position must be a 3D column vector [3x1].');
-            assert(isColumn(v,3),'Global velocity must be a 3D column vector [3x1].');
-            assert(isColumn(q,4),'Global pose must be a 4D quaternion vector [4x1].');
+            assert(IsColumn(p,3),'Global position must be a 3D column vector [3x1].');
+            assert(IsColumn(v,3),'Global velocity must be a 3D column vector [3x1].');
+            assert(IsColumn(q,4),'Global pose must be a 4D quaternion vector [4x1].');
             assert(size(this.localState,2) == 1,'The length of the objects state update must match the its local state.');
             
             % Check if the object idle condition is made

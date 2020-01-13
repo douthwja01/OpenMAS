@@ -186,7 +186,7 @@ classdef ARdrone < quadcopter
             % definition: [p_k;eta_k;v_k;omega_k]
             
             % Sanity Check
-            assert(isColumn(x_k_plus,12),"Expecting a 12DOF state vector.");
+            assert(IsColumn(x_k_plus,12),"Expecting a 12DOF state vector.");
             
             % Define the rotation matrix from the euler angles
             R_k_plus = OMAS_geometry.eulersToRotationMatrix(x_k_plus(4:6,1));

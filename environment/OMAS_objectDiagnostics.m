@@ -9,7 +9,7 @@ assert(numel(varargin) <= 2,'Please provide an object to test, or nothing to tes
 
 % Generate the path to the model directory
 phaseStr = 'DIAGNOSTICS';
-outputFileName = 'object_diagnostics';
+outputFileName = 'object-diagnostics.xlsx';
 
 repoPath = mfilename('fullpath');           % Get the system paths
 ind = strfind(repoPath,'env');
@@ -37,7 +37,7 @@ fprintf('[%s]\t%d object behaviours found, evaluating...\n',phaseStr,numel(targe
 % Handle file I/O
 fclose('all');                                                 % Release any file handle
 if exist(outputFile,'file')
-    delete([outputFile,'.xlsx']);                              % Delete output file
+    delete(outputFile);                              % Delete output file
 end
 
 % Prepare the diagnostic header
@@ -49,7 +49,7 @@ headerArray = {'model #','file name','class',...
 % Check if file is active
 try
     % Try to write the header to the file
-    xlswrite([outputFile,'.xlsx'],headerArray);
+    xlswrite(outputFile,headerArray);
 catch writeError
     warning('Unable to write to diagnostic file, is it open?');
     rethrow(writeError);
@@ -76,7 +76,7 @@ end
 issueCount = sum(statusArray);                                 % Simply confirm if there are any issues
 
 % Write data to the output .xlsx file
-xlswrite([outputFile,'.xlsx'],[headerArray;summaryArray]);
+xlswrite(outputFile,[headerArray;summaryArray]);
 fclose('all');                                                 % Release any file handle
 
 % Delete temporary directory

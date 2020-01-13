@@ -9,16 +9,24 @@ classdef agent_2D_formation_VO < agent_2D_VO & agent_formation
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function obj = agent_2D_formation_VO(varargin)
+        function [this] = agent_2D_formation_VO(varargin)
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj = obj@agent_2D_VO(varargin);
+            this = this@agent_2D_VO(varargin);
+            
+            this.maxSamples = 1;
+            
+            % //////////////////// SENSOR PARAMETERS //////////////////////
+%             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
+            [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
+            % /////////////////////////////////////////////////////////////
+
             
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Main
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % INPUTS:
             % obj      - The agent object
             % TIME     - The current time structure
@@ -29,22 +37,15 @@ classdef agent_2D_formation_VO < agent_2D_VO & agent_formation
             % PLOT AGENT FIGURE
             visualiseProblem = 0;
             visualiseAgent = 1;
-            if obj.objectID == visualiseAgent && visualiseProblem == 1
-                overHandle = figure(100 + obj.objectID);
+            if this.objectID == visualiseAgent && visualiseProblem == 1
+                overHandle = figure(100 + this.objectID);
                 hold on; grid on;
                 xlabel('x_{m}'); ylabel('y_{m}'); zlabel('z_{m}');
             end 
             
-            % DEFAULT BEHAVIOUR 
-            dt = ENV.dt;
-            
-            desiredSpeed = obj.v_nominal;
-            desiredHeadingVector = [1;0;0];
-            desiredVelocity = desiredHeadingVector*desiredSpeed;
-            
             % //////////// CHECK FOR NEW INFORMATION UPDATE ///////////////
             % UPDATE THE AGENT WITH THE NEW ENVIRONMENTAL INFORMATION
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE
+            [this,obstacleSet,agentSet,~] = this.GetAgentUpdate(ENV,varargin{1}); 
 
             % ////////////////// FORMATION CONTROLLER /////////////////////
             % We wish to conduct formation control with the other agents
@@ -52,31 +53,34 @@ classdef agent_2D_formation_VO < agent_2D_VO & agent_formation
             L = 0;
             if ~isempty(agentSet) 
                 % PASS AGENT SET TO FORMATION CONTROLLER
-                [vi,L] = obj.formationControl_distance(agentSet);          % Get the force vector
-                % DEFINE VELOCITY REQUEST
-                desiredVelocity = vi;
+                [heading,speed,L] = this.formationControl_distance(agentSet);          % Get the force vector
+            
+                desiredVelocity = heading*speed;
             end
-                         
+           
             % ////////////////// OBSTACLE AVOIDANCE ///////////////////////
             % Modify the desired velocity with the augmented avoidance velocity.
-            avoidanceSet = [obstacleSet;agentSet];
-            algorithm_start = tic; algorithm_indicator = 0;  avoidanceEnabled = 1;  
-            if ~isempty(avoidanceSet) && avoidanceEnabled
-                algorithm_indicator = 1;
-                % GET THE UPDATED DESIRED VELOCITY
-                [desiredHeadingVector,desiredSpeed] = obj.GetAvoidanceCorrection(dt,desiredVelocity,avoidanceSet,visualiseProblem);
-                desiredVelocity = desiredHeadingVector*desiredSpeed;
-            end
+%             avoidanceSet = [obstacleSet;agentSet];
+            algorithm_start = tic; algorithm_indicator = 0;  
+%             if ~isempty(avoidanceSet) && avoidanceEnabled
+%                 algorithm_indicator = 1;
+%                 % GET THE UPDATED DESIRED VELOCITY
+%                 [desiredHeadingVector,desiredSpeed] = this.GetAvoidanceCorrection(...
+%                     dt,...
+%                     desiredVelocity,...
+%                     visualiseProblem);
+%                 desiredVelocity = desiredHeadingVector*desiredSpeed;
+%             end
             algorithm_dt = toc(algorithm_start); 
             
             % //////////////////// AGENT CONTROL //////////////////////////     
-            [obj] = obj.controller(dt,desiredVelocity);
+            [this] = this.Controller(ENV.dt,desiredVelocity);
                        
             % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
-            obj = obj.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
-            obj.DATA.inputNames = {'dx (m/s)','dy (m/s)','Yaw Rate (rad/s)'};
-            obj.DATA.inputs(1:length(obj.DATA.inputNames),ENV.currentStep) = obj.localState(4:6);         % Record the control inputs
-            obj.DATA.lypanov(ENV.currentStep) = L;                               % Record the lypanov value
+            this = this.writeAgentData(ENV,algorithm_indicator,algorithm_dt);
+            this.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(4:6);         % Record the control inputs
+            this.DATA.lypanov(ENV.currentStep) = L;                        % Record the lypanov value            
         end
     end
 end

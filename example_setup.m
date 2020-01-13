@@ -3,10 +3,10 @@
 clear all; close all;
 
 % ADD THE PROGRAM PATHS
-% addpath('environment');
+addpath('environment');
 addpath('objects');  
 addpath('toolboxes');
-% addpath('scenarios'); 
+addpath('scenarios'); 
 
 % CODE DEBUG COMMANDS %
 % profile on
@@ -15,8 +15,8 @@ addpath('toolboxes');
 fprintf('[SETUP]\tInitialising example script.\n');
 
 %% INITIALISE ANY TOOLBOXES
-IntLab();   % Load Intlab
-% OMAS_objectDiagnostics()
+% IntLab();   % Load Intlab
+OMAS_objectDiagnostics()
 
 %% SIMULATION PARAMETERS
 [~, userdir]   = system('echo %USERPROFILE%');  % Get desktop path
@@ -55,7 +55,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D();  
 %     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
-    agentIndex{index} = agent_example('radius',sim_agentRadius);
+%     agentIndex{index} = agent_example('radius',sim_agentRadius);
 
 % QUADCOPTER DYNAMICS
 %     agentIndex{index} = quadcopter_legacy();
@@ -85,7 +85,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_formation_VO();
 %     agentIndex{index} = agent_formation_RVO();
 %     agentIndex{index} = agent_formation_HRVO();
-%     agentIndex{index} = agent_2D_formation_VO();
+%     agentIndex{index} = agent_2D_formation_VO('adjacencyMatrix',sim_adjacencyMatrix);
 %     agentIndex{index} = agent_2D_formation_RVO();
 %     agentIndex{index} = agent_2D_formation_HRVO();
 %     agentIndex{index} = agent_2D_formation_RVO2();
@@ -96,7 +96,7 @@ for index = 1:sim_agentNumber
 
 % INTERVAL AVOIDANCE
 %     agentIndex{index} = agent_interval();
-%     agentIndex{index} = agent_IA('radius',sim_agentRadius);
+    agentIndex{index} = agent_IA('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_IA('radius',sim_agentRadius);
 
 % VELOCITY OBSTACLE METHODS

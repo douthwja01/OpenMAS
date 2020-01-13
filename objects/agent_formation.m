@@ -54,7 +54,7 @@ classdef agent_formation < agent
             [vi] = this.conditionControlVector(vi);
         end
         % DISTANCE BASE FORMATION CONTROL [COMPLETE]
-        function [vi,V] = formationControl_distance(this,observedObjects)
+        function [heading,speed,V] = formationControl_distance(this,observedObjects)
             % This function calculates the formation control vector to
             % to bring about the desired object separation, given the
             % agents current knowledge of the surrounding agents.
@@ -100,7 +100,9 @@ classdef agent_formation < agent
                 V = V + (norm(pi-pj)^2-ell_ij^2)^2;
             end
             % CONDITION THE OUTPUT VECTOR
-            [vi] = this.conditionControlVector(vi);
+            %[vi] = this.conditionControlVector(vi);
+            speed   = norm(vi);
+            heading = vi/speed;
         end
         % RELATIVE POSITION BASED FORMATION CONTROLLER [INCOMPLETE]
         function [vi,V] = formationControl_relativePosition(this,observedObjects)
@@ -257,7 +259,7 @@ classdef agent_formation < agent
             % designated goal location.
             
             % Input sanity check
-            assert(isColumn(position_wp),'Expecting a vector of positions [n x dim].');
+            assert(IsColumn(position_wp),'Expecting a vector of positions [n x dim].');
             
             % THE RELATIVE POSITION VECTOR
             v_mig = position_wp;

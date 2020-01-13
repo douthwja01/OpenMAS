@@ -94,14 +94,14 @@ close all;
 
 fprintf('[%s]\tOMAS CONFIGURATION:\n',SIM.phase);
 clear META
-[META,objectIndex] = configureSimulationParameters(SIM);
+[META,objectIndex] = ConfigureSimulationParameters(SIM);
 clearvars SIM;
 fprintf('[%s]\tObjects parameterized.\n',META.phase);
 
 % CONFIGURE THE OUTPUT SETTINGS ///////////////////////////////////////////
 fprintf('[%s]\tOUTPUT CONFIGURATION:\n',META.phase);
 try % Define output path
-    [META.outputPath,META.outputFile] = configureOutputDirectory(META.monteCarloMode,META.outputPath);  % Get current working working directory variables
+    [META.outputPath,META.outputFile] = ConfigureOutputDirectory(META.monteCarloMode,META.outputPath);  % Get current working working directory variables
 catch outputPathError
     warning('[%s]\tUnable to generate output directory; %s',META.phase,META.outputPath);
     rethrow(outputPathError);
@@ -146,7 +146,7 @@ end
 
 %% SIMULATION SETUP FUNCTIONS /////////////////////////////////////////////
 % PREPARE THE META STRUCTURE AND INITIALISE OBJECT INDEX
-function [SIM,objectIndex] = configureSimulationParameters(SIM)
+function [SIM,objectIndex] = ConfigureSimulationParameters(SIM)
 % INPUTS:
 % SIM         - The simulation inputs
 % objectIndex - A vector of object classes
@@ -156,7 +156,7 @@ function [SIM,objectIndex] = configureSimulationParameters(SIM)
 % GENERAL PARAMETER INITIALISATION
 % DETERMINE IF A PARALLEL POOL IS NEEDED
 if SIM.threadPool 
-    [SIM.threadPool] = configureThreadpool();
+    [SIM.threadPool] = ConfigureThreadpool();
 end
 
 % ////////////// SIMULATION PARAMETER INITIALISATION //////////////////////
@@ -192,9 +192,9 @@ for entity = 1:SIM.totalObjects
     % Extract the objects GLOBAL structure for tear-down
     objectGLOBAL = objectIndex{entity}.GetGLOBAL();
     % Confirm the objects global representation
-    assert(isColumn(objectGLOBAL.position,3)  ,'Global position must be given as a vector [3x1].');
-    assert(isColumn(objectGLOBAL.velocity,3)  ,'Global velocity must be given as a vector [3x1].');
-    assert(isColumn(objectGLOBAL.quaternion,4),'Global attitude must be give as a quaternion vector [4x1].');      
+    assert(IsColumn(objectGLOBAL.position,3)  ,'Global position must be given as a vector [3x1].');
+    assert(IsColumn(objectGLOBAL.velocity,3)  ,'Global velocity must be given as a vector [3x1].');
+    assert(IsColumn(objectGLOBAL.quaternion,4),'Global attitude must be give as a quaternion vector [4x1].');      
     
     %% ////////////////////// ROTATION CONVENTION /////////////////////////
     % INPUTS:
@@ -282,7 +282,7 @@ end
 
 %% PRE-SIMULATION TOOLS ///////////////////////////////////////////////////
 % PREPARE THE PATCH FILES FOR VISUALS
-function [SIM,STLimports]  = configureVisuals(SIM)
+function [SIM,STLimports]  = ConfigureVisuals(SIM)
 % This function prepares object STL files for presentation. 
 % ASSUMPTIONS:
 % - The object stl file has the same name as the object being simulated.
@@ -322,7 +322,7 @@ for objectNumber = 1:SIM.totalObjects
 end
 end
 % CONFIGURE THE PARALLEL/MULTITHREADED WORKERS
-function [poolObject] = configureThreadpool()
+function [poolObject] = ConfigureThreadpool()
 % This function is designed to generate a threadpool for the forth comming
 % application if one does not already exist. This is only necessary if the
 % aagent loops are sufficiently complicated (i.e. dt > 1s)
@@ -349,7 +349,7 @@ fprintf('[SETUP]\t... Thread pool ready.\n');
 end
 
 % CONFIGURE THE OUTPUT DIRECTORY
-function [outputPath,fileString] = configureOutputDirectory(MCenableFlag,absolutePath)
+function [outputPath,fileString] = ConfigureOutputDirectory(MCenableFlag,absolutePath)
 % INPUTS:
 % workdir      - The current working directory string
 % relOutputDir - The relative output directory 

@@ -68,7 +68,7 @@ classdef quadcopter < agent
         function [this] = Controller(this,ENV,y_k)
             
             % Input sanity checks
-            assert(isColumn(y_k,3),"Expecting a numeric velocity vector.");
+            assert(IsColumn(y_k,3),"Expecting a numeric velocity vector.");
             assert(1 == size(this.localState,2),"The length of the objects state update must match the its local state.");
             
             % ///////////// UPDATE THE LOCAL STATE VECTOR /////////////////

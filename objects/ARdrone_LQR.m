@@ -90,7 +90,7 @@ classdef ARdrone_LQR < ARdrone_prev
             
             % CALCULATE THE NEW STATE REFERENCE
             if ~this.IsIdle()
-                X_desired = [NEDposition;zeros(2,1);this.localState(6);zeros(6,1)];  
+                X_desired = [NEDposition;zeros(2,1);-this.localState(6);zeros(6,1)];  
             else
                 % Idle reference
                 X_desired = [zeros(5,1);this.localState(6);zeros(6,1)];

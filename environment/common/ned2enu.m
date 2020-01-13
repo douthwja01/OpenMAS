@@ -1,7 +1,7 @@
 % Map vector from ENU to NED
 function [v] = ned2enu(v)
 % Input sanity check
-assert(isColumn(v,3),'Expecting 3D column vector.');
+assert(IsColumn(v,3),'Expecting 3D column vector.');
 
 % Rotate the vector through pi
 R_pi = [ 1       0        0;
