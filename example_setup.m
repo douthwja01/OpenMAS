@@ -16,11 +16,11 @@ fprintf('[SETUP]\tInitialising example script.\n');
 
 %% INITIALISE ANY TOOLBOXES
 % IntLab();   % Load Intlab
-OMAS_objectDiagnostics()
+% OMAS_objectDiagnostics()
 
 %% SIMULATION PARAMETERS
 [~, userdir]   = system('echo %USERPROFILE%');  % Get desktop path
-sim_outputPath = strcat(userdir,'\desktop\OpenMAS_data');
+sim_outputPath = strcat(userdir,'\desktop\openmas-data');
 sim_vebosity   = 1;
 sim_warningDistance = 2;
 sim_maxDuration = 8; 

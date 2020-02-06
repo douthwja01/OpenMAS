@@ -5,22 +5,17 @@
 % Author: James A. Douthwaite 26/03/18
 
 % ADD THE PROGRAM PATHS
-clear all; close all; 
 addpath('environment');
 addpath('objects');  
+addpath('toolboxes');
 addpath('scenarios'); 
-addpath('toolboxes/Intlab_V7.1');   
+
+% CODE DEBUG COMMANDS %
+% profile on
+% profile viewer 
 
 %If intlab needs to be reloaded
-try 
-    wrkDir = pwd;
-    test = infsup(0,1);
-    clearvars test 
-    IntDir = strcat(pwd,'\Intlab_V7.1\startupJD.m');
-catch 
-    run('startup.m'); 
-    cd(wrkDir)
-end
+IntLab();   % Load Intlab
 
 % ///////////////////////// SCENARIO PARAMETERS ///////////////////////////
 fprintf('[SETUP]\tInitialising the comparative example script.\n');
@@ -60,7 +55,7 @@ OMAS.figureSet = {'none'};
 % ///////////////////// MONTE-CARLO CONFIGURATION /////////////////////////
 [~, userdir]  = system('echo %USERPROFILE%'); % Get desktop path
 MC = struct();
-MC.outputPath = strcat(userdir,'\desktop\OpenMAS_data'); 
+MC.outputPath = strcat(userdir,'\desktop\openmas-data'); 
 MC.cycles     = 10;
 MC.threadPool = false;
 
