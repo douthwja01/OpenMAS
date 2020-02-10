@@ -96,14 +96,14 @@ for index = 1:sim_agentNumber
 
 % INTERVAL AVOIDANCE
 %     agentIndex{index} = agent_interval();
-    agentIndex{index} = agent_IA('radius',sim_agentRadius);
+%     agentIndex{index} = agent_IA('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_IA('radius',sim_agentRadius);
 
 % VELOCITY OBSTACLE METHODS
 %     agentIndex{index} = agent_VO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_RVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_HRVO('radius',sim_agentRadius);
-%     agentIndex{index} = agent_2D_VO('radius',sim_agentRadius);
+     agentIndex{index} = agent_2D_VO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_RVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_HRVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_RVO2('radius',sim_agentRadius); 
