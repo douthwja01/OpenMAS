@@ -1,5 +1,4 @@
-# Omitted files
-codegen/
-# Omitted file types
-*.prj
-*.asv
+# Omit all file types
+*
+# With the exception of
+!*.m

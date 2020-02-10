@@ -1,10 +1,9 @@
+*
 # Ommited directories
-legacy/
-codegen/
+!*/assets
+!*/common
+!*/events
+!*/figures
 # Ommitted file types
-*.mat
-*.asv
-*.csv
-*.xlsx
-*.asv
-*.prj
+!*.m
+!*.mexw64

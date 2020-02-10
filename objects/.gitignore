@@ -1,6 +1,6 @@
-# Omitted folders
-stls/
-# Omitted file types
-*.mat
-*.asv
-*.prj
+*
+# Omit all file types
+!*/stls
+# With the exception of
+!*.m
+!*.stl
