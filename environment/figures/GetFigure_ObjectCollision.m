@@ -1,7 +1,33 @@
 % PLOT THE COLLISION EVENT DESCRIPTION FIGURES
-function [currentFigure,figureHandle] = GetFigure_objectCollision(SIM,objectIndex,DATA,currentFigure,collisionEvent)
+function [currentFigure,figureSet] = GetFigure_objectCollision(SIM,objectIndex,DATA,currentFigure)
 % This function is designed to move through the collsion event history and
 % generate figure for each of the collisions.
+
+figureSet = [];
+% CHECK COLLISIONS OCCURED
+if ~isfield(DATA,'uniqueCollisions') || isempty(DATA.uniqueCollisions)
+    fprintf('[%s]\t...No collision data available.\n',SIM.phase);
+    return
+end
+
+for collisionNumber = 1:numel(DATA.uniqueCollisions)
+    [currentFigure,figureSet(collisionNumber)] = BuildObjectCollisionFigure(...
+        SIM,...
+        objectIndex,...
+        DATA,...
+        currentFigure,...
+        DATA.uniqueCollisions(collisionNumber));
+end
+
+% ASSEMBLE TABBED FIGURE
+windowHandle = GetTabbedFigure(figureSet,'OpenMAS Collision Overview');
+set(windowHandle,'Position',DATA.figureProperties.windowSettings);        % Maximise the figure in the tab
+savefig(windowHandle,[SIM.outputPath,'collision-overview']);              % Save the output figure
+end
+
+% Build the collision figure for the event
+function [currentFigure,figureHandle] = BuildObjectCollisionFigure(SIM,objectIndex,DATA,currentFigure,collisionEvent)
+
 
 % Generate the figure
 figureHandle = figure('Name',sprintf('[t=%.0fs] %s & %s',collisionEvent.time,collisionEvent.name_A,collisionEvent.name_B));
@@ -175,7 +201,7 @@ hold off;
 
 % SAVE THE OUTPUT FIGURE
 figurePath = [SIM.outputPath,...
-    sprintf('collision_event_[ID-%d] %s_[ID-%d] %s.fig',...
+    sprintf('collision-event-id-%d-%s-id-%d-%s.fig',...
     collisionEvent.objectID_A,collisionEvent.name_A,...
     collisionEvent.objectID_B,collisionEvent.name_B)];
     

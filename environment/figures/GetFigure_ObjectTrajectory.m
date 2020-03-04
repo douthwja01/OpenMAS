@@ -1,5 +1,18 @@
 % GET THE GLOBAL TRAJECTORY DATA FOR AN INDIVIDUAL OBJECT
-function [currentFigure,figureHandle] = GetFigure_objectTrajectory(SIM,DATA,currentFigure,objectNum)
+function [currentFigure,figureSet] = GetFigure_objectTrajectory(SIM,DATA,currentFigure)
+
+figureSet = [];
+for n = 1:DATA.totalObjects
+    [currentFigure,figureSet(n)] = BuildObjectTrajectoryFigure(SIM,DATA,currentFigure,n);
+end
+% ASSEMBLE TABBED FIGURE
+windowHandle = GetTabbedFigure(figureSet,'OpenMAS Trajectory Overview');
+set(windowHandle,'Position',DATA.figureProperties.windowSettings);          % Maximise the figure in the tab
+savefig(windowHandle,[SIM.outputPath,'global-trajectory-overview']);        % Save the output figure
+end
+
+% Generate the trajectory figure for the object
+function [currentFigure,figureHandle] = BuildObjectTrajectoryFigure(SIM,DATA,currentFigure,objectNum)
 
 % Declare title string for figure  
 titlestr = sprintf('Global trajectory data for %s over a period of %ss',SIM.OBJECTS(objectNum).name,num2str(SIM.TIME.endTime));
@@ -7,13 +20,13 @@ titlestr = sprintf('Global trajectory data for %s over a period of %ss',SIM.OBJE
 objectLabel = sprintf('[ID-%s] %s',num2str(SIM.OBJECTS(objectNum).objectID),SIM.OBJECTS(objectNum).name);
 
 % CONFIGURE THE PLOT ATTRIBUTES
-figurePath  = strcat(SIM.outputPath,sprintf('global_trajectory_%s',objectLabel));
+figurePath  = strcat(SIM.outputPath,sprintf('global-trajectories-%s',sprintf('id-%s-%s',num2str(SIM.OBJECTS(objectNum).objectID),SIM.OBJECTS(objectNum).name)));
 figureHandle = figure('Name',objectLabel);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 set(figureHandle,'Visible','off');
 plotCellWidth = 4; plotCellA = 1;                                          % The width of each figure, the start of the plot
-setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1,0.1,0.85,0.82]);     
+setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.80]);  
 
 % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
 [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(objectNum).objectID,inf);

@@ -367,7 +367,7 @@ absolutePath = OMAS_system.GetOSPathString(absolutePath);                  % Ali
 % we must handle the failed generation of the output directory.
 
 % BUILD DESIRED OUTPUT PATH
-fileString = ['[',datestr(datetime('now'),'yyyy-mm-dd @ HH-MM-SS'),'] session_data']; % Record current time                     % Build filestring
+fileString = [datestr(datetime('now'),'yyyy-mm-dd@HH-MM-SS'),'-session-data']; % Record current time                     % Build filestring
 
 % DETERMINE IF MONTECARLO BEHAVIOUR IS REQUIRED
 if MCenableFlag                             

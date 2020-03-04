@@ -35,7 +35,7 @@ for name = 1:length(eventFields)
 end
 
 % FIGURE META PROPERTIES
-figurePath = strcat(SIM.outputPath,'event_overview');
+figurePath = strcat(SIM.outputPath,'event-overview');
 figureHandle = figure('Name','OpenMAS event overview');
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 

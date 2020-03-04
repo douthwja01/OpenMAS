@@ -21,11 +21,23 @@ GetTrajectoryTempFile(SIM,DATA);
 
 % DETERMINE WHICH FIGURE IS TO BE GENERATED
 switch upper(char(figureLabel))
-    case 'ALL'
+    case 'ALL' %% /////////////////////////////////////////////////////////
         fprintf('[%s]\tAll output figures requested.\n',SIM.phase);
-        % MOVE THROUGH THE COMPLETE FIGURE VECTOR
-        figureVector = {'EVENTS','COLLISIONS','TRAJECTORIES','SEPARATIONS',...
-                        'CLOSEST','INPUTS','PLAN','ISOMETRIC','GIF','AVI','TIMES'};
+        % The complete figure set
+        figureVector = {...
+            'EVENTS',...
+            'COLLISIONS',...
+            'TRAJECTORIES',...
+            'SEPARATIONS',...
+            'CLOSEST',...
+            'AVOIDANCE',...
+            'INPUTS',...
+            'PLAN',...
+            'ISOMETRIC',...
+            'GIF',...
+            'AVI',...
+            'TIMES'};
+        % Move through the figure set
         for fig = 1:length(figureVector)
             [figureNumber] = OMAS_figureGenerator(SIM,objectIndex,DATA,figureNumber,figureVector{fig});
         end
@@ -34,86 +46,58 @@ switch upper(char(figureLabel))
         fprintf('[%s]\n[%s]\tAll figures pushed to output directory: \n[%s]\t%s',...
                 SIM.phase,SIM.phase,SIM.phase,SIM.outputPath);
     
-    case 'EVENTS'
+    case 'EVENTS' %% //////////////////////////////////////////////////////
         fprintf('[%s]\tGenerating the event overview figure.\n',SIM.phase);
         [figureNumber,~] = GetFigure_events(SIM,DATA,figureNumber);  
         
-    case 'COLLISIONS'
-        fprintf('[%s]\tGenerating collision overview.\n',SIM.phase);
-        figureSet = [];
-        % CHECK COLLISIONS OCCURED
-        if ~isfield(DATA,'uniqueCollisions') || isempty(DATA.uniqueCollisions)
-            warning('[%s]\t...No collision data available.\n',SIM.phase);
-            return
-        end
-        for collisionNumber = 1:numel(DATA.uniqueCollisions)
-            [figureNumber,figureSet(collisionNumber)] = GetFigure_objectCollision(SIM,objectIndex,DATA,figureNumber,DATA.uniqueCollisions(collisionNumber));
-        end
-        % ASSEMBLE TABBED FIGURE
-        windowHandle = GetTabbedFigure(figureSet,'OpenMAS Collision Overview');
-        set(windowHandle,'Position',DATA.figureProperties.windowSettings);        % Maximise the figure in the tab
-        savefig(windowHandle,[SIM.outputPath,'collision_overview']);              % Save the output figure
+    case 'COLLISIONS' %% //////////////////////////////////////////////////
+        fprintf('[%s]\tGenerating collision overview figure.\n',SIM.phase);
+        [figureNumber,~] = GetFigure_objectCollision(SIM,objectIndex,DATA,figureNumber);
         
-    case 'TRAJECTORIES'
+    case 'TRAJECTORIES' %% ////////////////////////////////////////////////
         fprintf('[%s]\tGenerating global trajectory figure.\n',SIM.phase);
-        figureSet = [];
-        for objectNum = 1:DATA.totalObjects
-            [figureNumber,figureSet(objectNum)] = GetFigure_objectTrajectory(SIM,DATA,figureNumber,objectNum);
-        end
-        % ASSEMBLE TABBED FIGURE
-        windowHandle = GetTabbedFigure(figureSet,'OpenMAS Trajectory Overview');
-        set(windowHandle,'Position',DATA.figureProperties.windowSettings);        % Maximise the figure in the tab
-        savefig(windowHandle,[SIM.outputPath,'global_trajectory_overview']);       % Save the output figure
-        
-    case 'SEPARATIONS' 
+        [figureNumber,~] = GetFigure_objectTrajectory(SIM,DATA,figureNumber);
+
+    case 'SEPARATIONS' %% /////////////////////////////////////////////////
         fprintf('[%s]\tGenerating object separation figure(s).\n',SIM.phase);
-        figureSet = [];
-        if SIM.totalAgents < 2
-            warning('There must be at least two collidable objects to plot seperation data.\n');
-            return
-        end
-        % Assemble the seperation figures
-        for objectNum = 1:SIM.totalAgents
-            [figureNumber,figureSet(objectNum)] = GetFigure_objectSeparations(SIM,DATA,figureNumber,objectNum);
-        end
+        [figureNumber,~] = GetFigure_objectSeparations(SIM,DATA,figureNumber);
         
-        % ASSEMBLE TABBED FIGURE
-        windowHandle = GetTabbedFigure(figureSet,'OpenMAS Separation Overview');
-        set(windowHandle,'Position', DATA.figureProperties.windowSettings);       % Maximise the figure in the tab
-        savefig(windowHandle,[SIM.outputPath,'separations_overview']);            % Save the output figure
-        
-    case 'CLOSEST'
+    case 'CLOSEST' %% /////////////////////////////////////////////////////
         fprintf('[%s]\tGenerating closest separation figure.\n',SIM.phase);
         [figureNumber,~] = GetFigure_minimumSeparations(SIM,DATA,figureNumber);
         
-    case 'INPUTS'
+    case 'AVOIDANCE' %% ///////////////////////////////////////////////////
+        fprintf('[%s]\tGenerating object avoidance rates figure(s).\n',SIM.phase);
+        [figureNumber,~] = GetFigure_avoidanceRates(SIM,objectIndex,DATA,figureNumber);
+        
+    case 'INPUTS' %% //////////////////////////////////////////////////////
         fprintf('[%s}\tGenerating control input figure.\n',SIM.phase);
         [figureNumber,~] = GetFigure_inputs(SIM,objectIndex,DATA,figureNumber);
         
-    case 'PLAN'
+    case 'PLAN' %% ////////////////////////////////////////////////////////
         fprintf('[%s}\tGenerating top-down 2D(plan) figure.\n',SIM.phase);
         [figureNumber,~] = GetFigure_plan(SIM,objectIndex,DATA,figureNumber);
         
-    case 'ISOMETRIC' 
+    case 'ISOMETRIC' %% ///////////////////////////////////////////////////
         fprintf('[%s]\tGenerating isometric trajectory figure.\n',SIM.phase);
         [figureNumber,~] = GetFigure_isometric(SIM,objectIndex,DATA,figureNumber);
 
-    case 'GIF'
+    case 'GIF' %% /////////////////////////////////////////////////////////
         fprintf('[%s]\tGenerating trajectory gif file.\n',SIM.phase);
         [figureNumber,~] = GetFigure_isometricGif(SIM,objectIndex,DATA,figureNumber);
         
-    case 'AVI'
+    case 'AVI' %% /////////////////////////////////////////////////////////
         fprintf('[%s]\tGenerating trajectory avi file.\n',SIM.phase);
         [figureNumber,~] = GetFigure_isometricAvi(SIM,objectIndex,DATA,figureNumber);
         
-    case 'TIMES'
+    case 'TIMES' %% ///////////////////////////////////////////////////////
         fprintf('[%s]\tGenerating computation timeseries figure.\n',SIM.phase);
         [figureNumber,~] = GetFigure_computationTimes(SIM,objectIndex,DATA,figureNumber);
         
-    case 'NONE'
+    case 'NONE' %% ////////////////////////////////////////////////////////
         fprintf('[%s]\tFigure output supressed.\n',SIM.phase);
         
-    otherwise
+    otherwise %% //////////////////////////////////////////////////////////
         warning('[WARNING] Ignoring figure request "%s": Figure unknown.',char(figureLabel));
 end
 end

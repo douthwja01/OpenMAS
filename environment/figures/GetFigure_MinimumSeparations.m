@@ -51,9 +51,9 @@ end
 conflictStruct = conflictStruct(ind);
 
 %% Define the figure
-figurePath = strcat(SIM.outputPath,'minimum_ separations');   
+figurePath = strcat(SIM.outputPath,'minimum-separations');   
 figureHandle = figure('Name','OpenMAS point of closest approach'); 
-setappdata(figureHandle,'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
+setappdata(figureHandle,'SubplotDefaultAxesLocation', [0.1, 0.1, 0.80, 0.83]);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 ax = axes(figureHandle);                                                   % Begin generating the figure                                   
@@ -66,7 +66,7 @@ for i = 1:numel(conflictStruct)
     META_A = collidableMETA([collidableMETA.objectID] == conflictStruct(i).objectID_A);  
     META_B = collidableMETA([collidableMETA.objectID] == conflictStruct(i).objectID_B);
     % Create the legend entries
-    legendEntries{i} = sprintf('%s[ID-%d] (%s[ID-%d])',META_A.name,META_A.objectID,META_B.name,META_B.objectID);
+    legendEntries{i} = sprintf('%s[ID-%d] w.r.t. %s[ID-%d]',META_A.name,META_A.objectID,META_B.name,META_B.objectID);
     % Generate the plot
     l = plot(ax,DATA.timeVector(:,1:SIM.TIME.endStep),conflictStruct(i).mag(:,1:SIM.TIME.endStep));
     set(l,'Color',META_A.colour);

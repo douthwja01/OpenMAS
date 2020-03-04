@@ -36,7 +36,7 @@ figurePath = strcat(SIM.outputPath,'inputs');
 
 % FIGURE META PROPERTIES
 figureHandle = figure('Name','OpenMAS control inputs');
-setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.88, 0.85]);
+setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.85]);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 
 plotCellA = 1; plotCellWidth = 4;                                          % The width of each figure, the start of the plot
@@ -58,8 +58,8 @@ for ID1 = 1:SIM.totalAgents
     % BUILD THE SUB-PLOT
     plotCellB = double(ID1*plotCellWidth);                                         % The end of the plot
     plotLocation = subplot(double(DATA.totalAgents),plotCellWidth,[plotCellA plotCellB]);
-    set(plotLocation,'Color',DATA.figureProperties.axesColor);
     set(plotLocation,...
+        'Color',DATA.figureProperties.axesColor,...
         'GridLineStyle','--',...
         'GridAlpha',0.25,...
         'GridColor','k');
@@ -144,9 +144,7 @@ for ID1 = 1:SIM.totalAgents
     end
     % Define the x-limits
     xlim([SIM.TIME.startTime,SIM.TIME.endTime]);                           % Ensures plot alignment/sizing
-    
-    % Move to next subplot location       
-    plotCellA = plotCellA + plotCellWidth; 
+    plotCellA = plotCellA + plotCellWidth; % Move to next subplot location  
 end
 hold off;
 

@@ -117,7 +117,7 @@ view([0 90]);
 % set(ax,'outerposition',[0.05 0.15 1 0.68]);                               % Set the axes offset position in the figure window
 hold off;
 
-figurePath = strcat(SIM.outputPath,'2D_trajectories');
+figurePath = strcat(SIM.outputPath,'plan');
 % SAVE THE OUTPUT FIGURE
 savefig(figureHandle,figurePath);   
 

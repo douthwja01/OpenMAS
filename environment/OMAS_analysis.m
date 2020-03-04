@@ -5,10 +5,10 @@
 
 % Author: James A. Douthwaite 19/12/2017
 
-function [DATA] = OMAS_analysis(META,objectIndex,EVENTS,DATA)
+function [DATA] = OMAS_analysis(META,OBJECTS,EVENTS,DATA)
 % INPUT:
 % META              - The meta data structure
-% objectIndex       - The entity vector
+% OBJECTS           - The entity handle vector
 % EVENTS            - The complete event history 
 % DATA              - The complete output data structure
 % .outputpath       - The path to the output location
@@ -20,7 +20,7 @@ function [DATA] = OMAS_analysis(META,objectIndex,EVENTS,DATA)
 
 % Input sanity check #1
 assert(nargin == 4,'Expecting four output structures.');
-assert(iscell(objectIndex),'Expecting a cell array of objects.');
+assert(iscell(OBJECTS),'Expecting a cell array of objects.');
 
 % assert(isstruct(META),'Expecting an OpenMAS META structure');
 % assert(isstruct(EVENTS),'Expecting an OpenMAS EVENTS structure');
@@ -45,7 +45,7 @@ elseif ~isfield(DATA,'timeVector')
 end
 
 % SAVE RAW DATA TO DIRECTORY BEFORE PROCESSING
-sendOutputToFiles(META,EVENTS,DATA,objectIndex)
+sendOutputToFiles(META,EVENTS,DATA,OBJECTS)
 
 %% GET EVENT HISTORY STATISTICS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('[%s]\tMoving to event data parser...\n',META.phase);
@@ -68,7 +68,7 @@ end
 %% GET AGENT-SIDE STATISTICS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('[%s]\tMoving to agent data parser...\n',META.phase);
 try
-    [objectIndex,DATA.MEANS] = OMAS_agentStatistics(META,objectIndex);
+    [OBJECTS,DATA.MEANS] = OMAS_agentStatistics(META,OBJECTS);
 catch agentParseError
     warning('[OMAS-error] A problem occurred parsing the agent data.');
     warning(agentParseError.message);
@@ -88,13 +88,13 @@ if isempty(figureList)
 end
 
 % UPDATE RECORDS OF THE DATA STRUCTURES IN THE OUTPUT FILES
-sendOutputToFiles(META,EVENTS,DATA,objectIndex)
+sendOutputToFiles(META,EVENTS,DATA,OBJECTS)
 
 % ///////////////////// FIGURE GENERATION PROCEDURE ///////////////////////
 for figNum = 1:length(figureList)
     try
         % Generate output figures
-        [plotnum] = OMAS_figureGenerator(META,objectIndex,DATA,plotnum,figureList(figNum)); % Jump to the figure index
+        [plotnum] = OMAS_figureGenerator(META,OBJECTS,DATA,plotnum,figureList(figNum)); % Jump to the figure index
     catch figureGenerationError
         warning('[OMAS-error] A problem occurred generating the output figures.');
         warning(figureGenerationError.message);
@@ -105,7 +105,7 @@ end
 end
 
 % SAVE DATA TO FILES
-function sendOutputToFiles(META,EVENTS,DATA,objectIndex)
+function sendOutputToFiles(META,EVENTS,DATA,OBJECTS)
 % This function is designed to handle the output data from the METAulation
 % and export the variables to background files
 % INPUTS:
@@ -116,14 +116,11 @@ function sendOutputToFiles(META,EVENTS,DATA,objectIndex)
 
 % DISPLAY ALL VARIABLES
 % whos;
-% SAVE META DATA
 save(strcat(META.outputPath,'META.mat'),'META');
-OBJECTS = objectIndex;
 save(strcat(META.outputPath,'OBJECTS.mat'),'OBJECTS');
-% SAVE EVENT HISTORY
 save(strcat(META.outputPath,'EVENTS.mat'),'EVENTS');
-% SAVE OUTPUT DATA
 save(strcat(META.outputPath,'DATA.mat'),'DATA');
+
 % DISPLAY NOTIFICATION
 % fprintf('[%s]\tData objects outputted to file:\n',META.phase);
 % fprintf('[%s]\tDirectory: %s\n',META.phase,META.outputPath);

@@ -28,7 +28,7 @@ load([SIM.outputPath,SIM.systemFile]);
 framesToPlot = size(eval(sprintf('objectID%d',SIM.OBJECTS(1).objectID)),2);   % The variable name in the workspace
 
 % PREPARE THE 'AVI' GENERATOR
-vidFile = VideoWriter([SIM.outputPath,'isometric_figure']);
+vidFile = VideoWriter([SIM.outputPath,'isometric']);
 vidFile.FrameRate = DATA.figureProperties.fps;                           % Set the videos fps to match the sample rate
 vidFile.Quality = 50;
 open(vidFile);

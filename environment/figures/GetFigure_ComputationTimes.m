@@ -38,7 +38,7 @@ if iter == SIM.totalAgents
 end
 
 % CONFIGURE THE PLOT ATTRIBUTES
-figurePath = strcat(SIM.outputPath,'computation_times');
+figurePath = strcat(SIM.outputPath,'computation-times');
 figureHandle = figure('Name','OpenMAS computation timeseries');
 ax = axes(figureHandle);
 set(figureHandle,'Position',DATA.figureProperties.windowSettings);         % [x y width height]

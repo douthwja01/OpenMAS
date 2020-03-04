@@ -256,7 +256,6 @@ classdef OMAS_geometry
             qCon = qConjugate(q);
         end
     end
-    
     %% 3D GEOMETRIC TOOLS
     methods (Static)
         % INTERSECT - SPHERE AND ROTATED CUBOID (OBB)

@@ -1,16 +1,37 @@
 %% GET THE AGENT SEPERATION SEPERATION TIMESERIES FIGURE
-function [currentFigure,figureHandle] = GetFigure_objectSeparations(SIM,DATA,currentFigure,objectNum)
-% Draws the separations between the 'subject object', its associated waypoints 
+function [currentFigure,figureSet] = GetFigure_objectSeparations(SIM,DATA,currentFigure)
+% Draws the separations between the 'subject object', its associated waypoints
 % and obstacles.
 
+figureSet = [];
+if SIM.totalAgents < 2
+    warning('There must be at least two collidable objects to plot seperation data.\n');
+    return
+end
+
+% Assemble the seperation figures
+agentIDs = [SIM.OBJECTS([SIM.OBJECTS.type] == OMAS_objectType.agent).objectID];
+for i = 1:SIM.totalAgents
+    [currentFigure,figureSet(i)] = BuildSeparationFigure(SIM,DATA,currentFigure,agentIDs(i));
+end
+
+% ASSEMBLE TABBED FIGURE
+windowHandle = GetTabbedFigure(figureSet,'OpenMAS Separation Overview');
+set(windowHandle,'Position', DATA.figureProperties.windowSettings);       % Maximise the figure in the tab
+savefig(windowHandle,[SIM.outputPath,'separations-overview']);            % Save the output figure
+end
+
+% Generate the separation figure for the object
+function [currentFigure,figureHandle] = BuildSeparationFigure(SIM,DATA,currentFigure,subjectID)
+
 % Input sanity check
-if sum([SIM.OBJECTS.type] ~= OMAS_objectType.waypoint) < 2
+if sum([SIM.OBJECTS.hitBox] ~= OMAS_hitBoxType.none) < 2
     warning('There must be at least two collidable objects to plot separation data.');
     figureHandle = [];
     return
 end
 % Subject object reference
-subjectMETA = SIM.OBJECTS(objectNum);   % META data associated with the 'subject' object
+subjectMETA = SIM.OBJECTS([SIM.OBJECTS.objectID] == subjectID);   % META data associated with the 'subject' object
 % Second object references
 collidableMETA = SIM.OBJECTS([SIM.OBJECTS.hitBox] ~= OMAS_hitBoxType.none);         % Only collidable objects
 collidableMETA = collidableMETA([collidableMETA.objectID] ~= subjectMETA.objectID); % Not the same object 
@@ -20,7 +41,7 @@ collidableMETA = collidableMETA([collidableMETA.type] ~= OMAS_objectType.waypoin
 agentLabel = sprintf('[ID-%d] %s',subjectMETA.objectID,subjectMETA.name);
 
 % Figure META data
-figurePath = strcat(SIM.outputPath,sprintf('separations_%s ',agentLabel));
+figurePath = strcat(SIM.outputPath,sprintf('separations-%s',sprintf('id-%d-%s',subjectMETA.objectID,subjectMETA.name)));
 figureHandle = figure('Name',agentLabel);                                   % Tab label
 setappdata(figureHandle,'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.83]);
 set(figureHandle,'Position', DATA.figureProperties.windowSettings);        % [x y width height]

@@ -2,7 +2,7 @@
 function [currentFigure,figureHandle] = GetFigure_isometric(SIM,objectIndex,DATA,currentFigure)
 
 % CONFIGURE THE PLOT ATTRIBUTES
-figurePath = strcat(SIM.outputPath,'isometric_figure');
+figurePath = strcat(SIM.outputPath,'isometric');
 figureHandle = figure('Name','OpenMAS isometric view');
 set(figureHandle,'Position',DATA.figureProperties.windowSettings);         % [x y width height]
 set(figureHandle,'Color',DATA.figureProperties.figureColor);               % Background colour 

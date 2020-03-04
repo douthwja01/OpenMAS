@@ -4,7 +4,7 @@ function [currentFigure,figureHandle] = GetFigure_isometricGif(SIM,objectIndex,D
 % trajectories over the complete timeseries.
 
 % CONFIGURE THE PLOT ATTRIBUTES
-figurePath = strcat(SIM.outputPath,'isometric_figure.gif');
+figurePath = strcat(SIM.outputPath,'isometric.gif');
 figureHandle = figure('Name','OpenMAS isometric timelapse (GIF)');
 
 % MAXIMISE GRAPH SIZE IN WINDOW

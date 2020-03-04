@@ -23,27 +23,28 @@ fprintf('[SETUP]\tInitialising example script.\n');
 sim_outputPath = strcat(userdir,'\desktop\openmas-data');
 sim_vebosity   = 1;
 sim_warningDistance = 2;
-sim_maxDuration = 8; 
+sim_maxDuration = 10; 
 sim_timeStep    = 0.1;                        % Nominal (0.25s)
 sim_idleTimeOut = 5*sim_timeStep; 
 
 sim_publishFigures = false;
 % sim_publishFigures = true;
-% sim_figureSet = {'all'};
+sim_figureSet = {'all'};
 % sim_figureSet = {'events','plan','inputs','isometric','gif'}; 
-sim_figureSet = {'plan','inputs','isometric','gif'}; 
+% sim_figureSet = {'plan','inputs','isometric','gif'}; 
+% sim_figureSet = {'gif','avoidance'};
 
-%% SCENARIO PARAMETERS 
-sim_agentNumber     = 4;                   
+%% SCENARIO PARAMETERS
+sim_agentNumber     = 5;                   
 sim_agentRadius     = 0.5;
 sim_agentOrbit      = 5; 
-sim_agentVelocity   = 0;
+sim_agentVelocity   = 2;
 sim_adjacencyMatrix = double(~eye(sim_agentNumber));
-sim_waypointOrbit   = 5;
+sim_waypointOrbit   = 10;
 sim_waypointRadius  = 0.1;
 sim_offsetAngle     = pi/4;
 sim_obstacleNumber  = 3;
-sim_noiseSigma      = 0.1;
+sim_noiseSigma      = 0.2;
 sim_plotScenario    = true;
 
 %% INITIALISE AGENTS
@@ -55,7 +56,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D();  
 %     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
-    agentIndex{index} = agent_example('radius',sim_agentRadius);
+%     agentIndex{index} = agent_example('radius',sim_agentRadius);
 
 % QUADCOPTER DYNAMICS
 %     agentIndex{index} = quadcopter_legacy();
@@ -103,7 +104,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_VO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_RVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_HRVO('radius',sim_agentRadius);
-%     agentIndex{index} = agent_2D_VO('radius',sim_agentRadius);
+    agentIndex{index} = agent_2D_VO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_RVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_HRVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_RVO2('radius',sim_agentRadius); 
