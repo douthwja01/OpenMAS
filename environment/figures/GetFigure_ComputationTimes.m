@@ -33,7 +33,7 @@ end
 
 % SANITY CHECK 2
 if iter == SIM.totalAgents
-    warning('No agents with defined algorithm timeseries in "DATA.dt".');
+    warning('No agents have computational timeseries data stored in (agent)."DATA.dt".');
     return 
 end
 

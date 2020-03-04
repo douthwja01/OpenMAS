@@ -36,29 +36,29 @@ classdef agent_example < agent
     %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
         % Constructor
-        function obj = agent_example(varargin)
+        function [this] = agent_example(varargin)
             % This function is called to create the 'agent_example' class,
             % which then takes on the new parameters specified.
                         
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);             % Create the super class 'agent'            
+            this@agent(varargin);             % Create the super class 'agent'            
             
             % Set some of the parameters
-            obj.radius = 0.5;
-            obj.detectionRadius = 50;        % Update the range attribute to the SIM VIRTUAL property            
+            this.radius = 0.5;
+            this.detectionRadius = 50;        % Update the range attribute to the SIM VIRTUAL property            
             
             % //////////////// Check for user overrides ///////////////////
-            [obj] = obj.ApplyUserOverrides(varargin); % Recursive overrides
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
             % /////////////////////////////////////////////////////////////
         end
         % Setup
-        function [obj] = setup(obj,v,eta)
+        function [this] = setup(this,v,eta)
             % Define the initial state
-            obj.localState = zeros(6,1);
-            obj.localState(4:6,1) = eta;
+            this.localState = zeros(6,1);
+            this.localState(4:6,1) = eta;
         end
         % Main 
-        function [obj] = main(obj,ENV,varargin)
+        function [this] = main(this,ENV,varargin)
             % This function is designed to contain everything your agent does
             % in a given simulation timestep. As an 'agent', a list of
             % detected entities is given if detected.
@@ -71,7 +71,7 @@ classdef agent_example < agent
             % obj      - The updated project
             
             % PARSE THE ENTITY PROPERTIES FROM THE ENVIRONMENT 
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE       
+            [this,obstacleSet,agentSet] = this.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE       
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
             %        INSERT ALGORITHM/DECISION MAKING PROCESS HERE
@@ -86,9 +86,9 @@ classdef agent_example < agent
             % How each agent updates its state can be defined locally, as
             % a dedicated function.
             % CALL THE SEPERATE UPDATE FUNCTION
-            [state_k_plus] = obj.UpdateLocalState(...
+            [state_k_plus] = this.UpdateLocalState(...
                 ENV,...
-                obj.localState,...
+                this.localState,...
                 linearRates,...
                 angularRates);
                                      
@@ -97,13 +97,17 @@ classdef agent_example < agent
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             % How the objects global state is updated is dependant on how
             % the 'state_k_plus' is defined.
-            obj = obj.GlobalUpdate(ENV.dt,state_k_plus);
+            this = this.GlobalUpdate(ENV.dt,state_k_plus);
+            
+            % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
+            this.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(4:6);         % Record the control inputs
         end
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % ASSIGNED STATE UPDATE FUNCTION (USING ODE45)
-        function [dXdt] = UpdateLocalState(obj,TIME,X0,velocity,omega)
+        function [dXdt] = UpdateLocalState(this,TIME,X0,velocity,omega)
             % This function computes the state update for the current agent
             % using the ode45 function.
             
@@ -114,7 +118,7 @@ classdef agent_example < agent
             if TIME.currentTime == TIME.timeVector(end)
                 return
             else
-                [~,Xset] = ode45(@(t,X) obj.SingleIntegratorDynamics(X,U),...
+                [~,Xset] = ode45(@(t,X) this.SingleIntegratorDynamics(X,U),...
                     [0 TIME.dt],X0,...
                     odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
                 dXdt = Xset(end,:)'; % Pass the state at the end of the sample period

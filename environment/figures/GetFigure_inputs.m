@@ -27,7 +27,7 @@ end
 
 % SANITY CHECK 2
 if iter == SIM.totalAgents
-    warning('No agents with defined input timeseries. Use the "DATA.inputNames" and "DATA.inputs" fields if desired.');
+    warning('No agents have input timeseries stored in (agent).DATA.inputs. Use the "DATA.inputNames" and "DATA.inputs" fields if desired.');
     return 
 end
 

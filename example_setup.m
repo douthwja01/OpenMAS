@@ -56,7 +56,8 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_test('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D();  
 %     agentIndex{index} = agent_2D_test('radius',sim_agentRadius);
-%     agentIndex{index} = agent_example('radius',sim_agentRadius);
+
+    agentIndex{index} = agent_example('radius',sim_agentRadius);
 
 % QUADCOPTER DYNAMICS
 %     agentIndex{index} = quadcopter_legacy();
@@ -104,7 +105,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_VO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_RVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_HRVO('radius',sim_agentRadius);
-    agentIndex{index} = agent_2D_VO('radius',sim_agentRadius);
+%     agentIndex{index} = agent_2D_VO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_RVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_HRVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_RVO2('radius',sim_agentRadius); 
