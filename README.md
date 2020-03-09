@@ -10,8 +10,18 @@ University Of Sheffield,
 Department of Automatic Control & Systems Engineering,
 United Kingdom
 
-For queries regarding the project, please email me at: douthwaiteja@gmail.com
+For queries regarding the project, I can be contacted by email at: douthwaiteja@gmail.com
  
+If you decide to use this software, please use the bibtex citation below:
+
+@misc{douthwaite_mihaylova_2020, 
+title={OpenMAS - An open-source multi-agent simulator for systems with complex and arbitrary decision mechanics and dynamic behaviour}, url={https://figshare.shef.ac.uk/articles/OpenMAS_-_An_open-source_multi-agent_simulator_for_systems_with_complex_and_arbitrary_decision_mechanics_and_dynamic_behaviour/11954418/1}, 
+DOI={10.15131/shef.data.11954418.v1}, 
+abstractNote={OpenMAS is an open source multi-agent simulator based in Matlab for the simulation of decentralized intelligent systems defined by arbitrary behaviours and dynamics. This object orientated simulator can be used to create arbitrary scenarios with various agents and objectives. By assembling new agent definitions the user is able experiment with multi-agent systems in 2D or 3D, or simply use an existing agent from the object library. Here, a wide range of popular behaviours, collision avoidance and flocking routines are predefined. Once defined the user is then able to take advantage of a selection of automated analysis tools and generated figures.}, publisher={figshare}, 
+author={Douthwaite, James A. and Mihaylova, Lyudmila S.}, 
+year={2020}, 
+month={March}}
+
 %%% GENERAL README %%%
 
 OpenMAS is an open-source multi-agent simulator for Matlab. This software package provides a number of tools necessary for the simulation of multi-agent systems with complex agent definitions. The software packages environment is based upon Matlab's object orientated functionality; allowing users to build and define their own agent definitions and simulate their interactions in defined scenarios.
