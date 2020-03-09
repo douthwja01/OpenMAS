@@ -4,6 +4,8 @@
 An open-source modelling environment for simulating multi-agent systems with 
 complex agent decision mechanics and dynamic behaviour.
 
+https://doi.org/10.15131/shef.data.11954418.v1
+
 Author:	
 James A. Douthwaite Ph.D MEng,
 University Of Sheffield,
