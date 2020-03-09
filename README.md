@@ -1,6 +1,7 @@
 <p align="center">
 <img src="environment/assets/logo.jpg" width="700" title="The OpenMAS repository">
 </p>
+
 An open-source modelling environment for simulating multi-agent systems with 
 complex agent decision mechanics and dynamic behaviour.
 
