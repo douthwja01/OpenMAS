@@ -13,7 +13,7 @@ United Kingdom
 For queries regarding the project, I can be contacted by email at: douthwaiteja@gmail.com
  
 If you decide to use this software, please use the bibtex citation below:
-
+...
 @misc{douthwaite_mihaylova_2020, 
 title={OpenMAS - An open-source multi-agent simulator for systems with complex and arbitrary decision mechanics and dynamic behaviour}, url={https://figshare.shef.ac.uk/articles/OpenMAS_-_An_open-source_multi-agent_simulator_for_systems_with_complex_and_arbitrary_decision_mechanics_and_dynamic_behaviour/11954418/1}, 
 DOI={10.15131/shef.data.11954418.v1}, 
@@ -21,6 +21,7 @@ abstractNote={OpenMAS is an open source multi-agent simulator based in Matlab fo
 author={Douthwaite, James A. and Mihaylova, Lyudmila S.}, 
 year={2020}, 
 month={March}}
+...
 
 %%% GENERAL README %%%
 
