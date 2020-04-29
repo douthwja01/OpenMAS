@@ -49,46 +49,31 @@ classdef OMAS_system
         function [isSuccessful] = GetFileDependancies()
             % This function ensures that OpenMAS has access to the complete
             % set of file dependancies.
-            
+                        
             % Get the path to the install directory
             repoString = mfilename('fullpath');
             ind = strfind(repoString,'environment');
             repoString = repoString(1:(ind-1));
             
-            % Known file dependancies
-            relativePaths = {...
-                'environment',...
-                'objects',...
-                'scenarios'...
-                'toolboxes',...
-                'environment\assets',...
-                'environment\events',...
-                'environment\assets',...
-                'environment\common',...
-                'environment\figures'};
-            
             % Parse known matlab paths
-            pathCell = regexp(path, pathsep, 'split');                                 % The name of the paths
-            
-            % Move through the relative path list
-            for i = 1:numel(relativePaths)
-                % The dependency paths
-                dependencyPath = OMAS_system.GetOSPathString([repoString,relativePaths{i}]); 
-                % If it the dependancy is not on the system path
-                if any(strcmpi(dependencyPath, pathCell))
-                    continue
-                end
-                % Attempt to add the dependancy
-                try
-                    addpath(dependencyPath);
-                catch depError
-                    warning(depError.message);
-                    isSuccessful = 0;
-                    return
-                end
+            pathCell = regexp(path, pathsep, 'split'); 
+            if any(strcmpi(pathCell,string([repoString,'environment\common'])))
+                isSuccessful = true;
+            	return;
             end
-            % Indicate successful
-            isSuccessful = 1;
+            
+            % Add the common directory for the utilities
+            addpath(OMAS_system.GetOSPathString([repoString,'environment\common']));
+            
+            % Attempt to add all child paths
+            try
+                RecursiveAddPath();
+                isSuccessful = true;
+            catch depError
+                warning(depError.message);
+                isSuccessful = false;
+                return
+            end            
         end
         % Get a string path in the correct OS
         function [pathString] = GetOSPathString(pathString)

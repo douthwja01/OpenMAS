@@ -1,9 +1,5 @@
-*
+
 # Ommited directories
-!assets/
-!common/
-!events/
-!figures/
+/codegen/
+
 # Ommitted file types
-!*.m
-!*.mexw64
