@@ -121,10 +121,15 @@ logicalMatrix = false(1,numRep*DATA.figureProperties.stepsPerFrame);  % Frame se
 outputStructure = struct();
 for objectNo = 1:DATA.totalObjects
     % GET THE COMPLETE STATE SET
-    completeStateSet = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,...
-                                                  SIM.globalIDvector,...
-                                                  SIM.OBJECTS(objectNo).objectID,...
-                                                  inf);                    % All valid states for the object 
+%     completeStateSet = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,...
+%                                                   SIM.globalIDvector,...
+%                                                   SIM.OBJECTS(objectNo).objectID,...
+%                                                   inf);                    % All valid states for the object 
+    completeStateSet = OMAS_getTrajectoryData(DATA.globalTrajectories,...
+                                              SIM.globalIDvector,...
+                                              SIM.OBJECTS(objectNo).objectID,...
+                                              inf);                    % All valid states for the object 
+    
     completeStateSet = completeStateSet(:,1:numRep*DATA.figureProperties.stepsPerFrame);
     
     % GET THE INDICES OF EACH FRAME IN THE STATE SPACE
@@ -140,6 +145,8 @@ end
 frameTimeVector = SIM.TIME.timeVector(1:numRep*DATA.figureProperties.stepsPerFrame);
 outputStructure.frameTimeVector = frameTimeVector(logicalMatrix);
 
+
 % SAVE A TEMPORARY FILE WITH THE STATES OF EACH OBJECT
-save([SIM.outputPath,SIM.systemFile],'-struct','outputStructure','-append');
+filePath = [SIM.outputPath,SIM.systemFile];
+save(filePath,'-struct','outputStructure','-append');
 end
