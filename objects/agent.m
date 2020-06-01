@@ -325,10 +325,6 @@ classdef agent < objectDefinition & agent_tools
             [dX] = this.SimpleDynamics(this.localState(1:6),[speed_actual;0;0],omega_actual);
             this.localState(1:6)  = this.localState(1:6) + dt*dX;
             this.localState(7:12) = dX;
-
-%             [dX] = this.SingleIntegratorDynamics(this.localState(1:6),dX);
-%             this.localState(1:6)  = this.localState(1:6) + dt*dX;
-%             this.localState(7:12) = dX;
             
             % ////// GLOBAL UPDATE FOR STATE WITH RETAINED VELOCITES //////
             [this] = this.GlobalUpdate_3DVelocities(dt,this.localState);
