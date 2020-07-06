@@ -90,7 +90,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_2D_formation_VO('adjacencyMatrix',sim_adjacencyMatrix);
 %     agentIndex{index} = agent_2D_formation_RVO();
 %     agentIndex{index} = agent_2D_formation_HRVO();
-%     agentIndex{index} = agent_2D_formation_RVO2();
+%     agentIndex{index} = agent_2D_formation_ORCA();
 
 % VECTOR SHARING;
 %     agentIndex{index} = agent_vectorSharing('radius',sim_agentRadius,'detectionRadius',25);
@@ -108,7 +108,7 @@ for index = 1:sim_agentNumber
 %     agentIndex{index} = agent_2D_VO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_RVO('radius',sim_agentRadius);
 %     agentIndex{index} = agent_2D_HRVO('radius',sim_agentRadius);
-%     agentIndex{index} = agent_2D_RVO2('radius',sim_agentRadius); 
+%     agentIndex{index} = agent_2D_ORCA('radius',sim_agentRadius); 
 %     agentIndex{index} = agent_2D_VO_withComplex('radius',sim_agentRadius);
     
 % OBSTACLES
