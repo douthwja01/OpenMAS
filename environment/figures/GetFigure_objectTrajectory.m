@@ -29,7 +29,9 @@ plotCellWidth = 4; plotCellA = 1;                                          % The
 setappdata(figureHandle, 'SubplotDefaultAxesLocation', [0.1, 0.1, 0.85, 0.80]);  
 
 % EXTRACT TIME-STATE DATA FROM THE TRAJECTORY MATRIX
-[objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(objectNum).objectID,inf);
+%[objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(objectNum).objectID,inf);
+[objectStates] = OMAS_getTrajectoryData(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(objectNum).objectID,inf);
+
 % STATE NAME VECTOR
 stateTags = {{'$x$','$(m)$'},{'$y$','$(m)$'},{'$z$','$(m)$'},...
              {'$u$','$(m/s)$'},{'$v$','$(m/s)$'},{'$w$','$(m/s)$'},...

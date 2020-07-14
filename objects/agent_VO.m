@@ -173,7 +173,6 @@ classdef agent_VO < agent
                 scatter3(gca,plotAvoidanceVelocities(1),plotAvoidanceVelocities(2),plotAvoidanceVelocities(3),'b','filled'); 
             end
         end
-        
         % GET THE VIABLE ESCAPE VELOCITIES
         function [escapeVelocities] = GetEscapeVelocities(this,velocityMatrix,VOlist)
             % This function takes a matrix of potential velocities and

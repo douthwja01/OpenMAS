@@ -19,8 +19,8 @@ classdef agent_2D_VO < agent_2D & agent_VO
             this.neighbourDist = 10;
             
             % //////////////////// SENSOR PARAMETERS //////////////////////
-%             [obj.SENSORS] = obj.GetDefaultSensorParameters();       % Default sensing
-            [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
+            [this.SENSORS] = this.GetDefaultSensorParameters();       % Default sensing
+%             [this.SENSORS] = this.GetCustomSensorParameters();       % Experimental sensing
             % /////////////////////////////////////////////////////////////
 
             % //////////////// Check for user overrides ///////////////////            

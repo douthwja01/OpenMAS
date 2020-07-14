@@ -602,7 +602,6 @@ classdef agent_2D_ORCA < agent_2D_RVO
             
             
             dotProduct   = dot(lineVector(lineNo).point,lineVector(lineNo).direction);
-            %            discriminant = dotProduct^2 + constraintRadius^2 - obj.absSq(lineVector(lineNo).point);
             discriminant = dotProduct^2 + constraintRadius^2 - dot(lineVector(lineNo).point,lineVector(lineNo).point);
             
             % Check if max speed circle fully invalidates lineObj constraint "lineObjNo"
