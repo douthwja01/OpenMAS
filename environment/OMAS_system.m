@@ -46,28 +46,28 @@ classdef OMAS_system
     % /////////////////////////// UTILITIES ///////////////////////////////
     methods (Static)
         % Get a the program dependancies
-        function [isSuccessful] = GetFileDependancies()
+        function [isSuccessful,repoPath] = GetFileDependancies()
             % This function ensures that OpenMAS has access to the complete
             % set of file dependancies.
                         
             % Get the path to the install directory
-            repoString = mfilename('fullpath');
-            ind = strfind(repoString,'environment');
-            repoString = repoString(1:(ind-1));
+            repoPath = mfilename('fullpath');
+            ind = strfind(repoPath,'environment');
+            repoPath = repoPath(1:(ind-1));
             
             % Parse known matlab paths
             pathCell = regexp(path, pathsep, 'split'); 
-            if any(strcmpi(pathCell,string([repoString,'environment\common'])))
+            if any(strcmpi(pathCell,string([repoPath,'environment\common'])))
                 isSuccessful = true;
             	return;
             end
             
             % Add the common directory for the utilities
-            addpath(OMAS_system.GetOSPathString([repoString,'environment\common']));
+            addpath(OMAS_system.GetOSPathString([repoPath,'environment\common']));
             
             % Attempt to add all child paths
             try
-                RecursiveAddPath();
+                RecursiveAddPath(repoPath);
                 isSuccessful = true;
             catch depError
                 warning(depError.message);

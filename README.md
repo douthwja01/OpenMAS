@@ -98,7 +98,7 @@ By default, OpenMAS will create figures for the scenario upon completion. These 
 
 Below is an example of passing figure requests to OMAS_initialise:
 
-[DATA,META] = simulation_initialise('objects',agentArray,'figures',{'FIG','GIF'});
+[DATA,META] = OMAS_initialise('objects',agentArray,'figures',{'FIG','GIF'});
 
 %%% FINAL COMMENTS %%%
 

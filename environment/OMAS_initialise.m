@@ -17,12 +17,13 @@ function [ DATA,META ] = OMAS_initialise(varargin)
 % DATA       - The simulation output data structure
 
 % ////////// GET OMAS DEPENDENCIES (if not already added to path) /////////
-if ~OMAS_system.GetFileDependancies()
+[flag,repoPath] = OMAS_system.GetFileDependancies();
+if ~flag
     error('Error getting the OpenMAS file dependancies.');
 end
 
 % Show logo
-type('logo.txt');
+type(strcat(repoPath,"environment\assets\logo.txt"));
 
 % ///////////////// ASSIGN DEFAULT SIMULATION PARAMETERS //////////////////
 % The user must be able to run a simulation for an intended amount of time,
