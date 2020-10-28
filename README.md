@@ -26,7 +26,7 @@ If you use this software, please use the provided citation:
         url          = {https://figshare.shef.ac.uk/articles/OpenMAS_-_An_open-source_multi-agent_simulator_for_systems_with_complex_and_arbitrary_decision_mechanics_and_dynamic_behaviour/11954418/1}
         }
 
-%%% GENERAL README %%%
+# Overview
 
 OpenMAS is an open-source multi-agent simulator for Matlab. This software package provides a number of tools necessary for the simulation of multi-agent systems with complex agent definitions. The software packages environment is based upon Matlab's object orientated functionality; allowing users to build and define their own agent definitions and simulate their interactions in defined scenarios.
 
@@ -34,12 +34,12 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 |:---:|:---:|
 | <img src="environment/assets/2D-IA-example.gif" height="320" title="Interval avoidance example"> **Interval Avoidance (IA)** | <img src="environment/assets/orca-example.gif" height="320" title="ORCA collision avoidance example"> **Optimal Reciprocal Avoidance (ORCA)** |
 
-%%% TO RUN %%%
+## Getting Started
 
 - To test run the simulator with an example agent, run 'example_setup.m'.
 - Alter the "setup" file to define different scenarios and unique agent combinations.
 
-%%% DIRECTORY OVERVIEW %%%
+## Whats in the directory
 
 This file is intended to provide an brief introduction to this opensource multi-agent
 simulation (OpenMAS) tool. This directory contains a number of folders that 
