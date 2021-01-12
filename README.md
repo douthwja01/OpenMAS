@@ -11,7 +11,7 @@ University Of Sheffield,
 Department of Automatic Control & Systems Engineering,
 United Kingdom
 
-For queries regarding the project, I can be contacted by email at: douthwaiteja@gmail.com
+If you have any queries, suggested/implemented improvements to this open source software, I can be contacted by email at: douthwaiteja@gmail.com
 
 If you use this software, please use the provided citation:
 
