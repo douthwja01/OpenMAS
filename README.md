@@ -3,7 +3,7 @@
 </p>
 
 An open-source modelling environment for simulating multi-agent systems with 
-complex agent decision mechanics and dynamic behaviour.
+complex agent decision mechanics and dynamic behaviour. 
 
 # Overview
 
@@ -15,14 +15,13 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 
 # Project Information
 
-Author:	
-James A. Douthwaite Ph.D MEng,
-University Of Sheffield,
-Department of Automatic Control & Systems Engineering,
-United Kingdom
+## Important links
+Additional sources of information for OpenMAS can be found at:
+- The project wiki (https://github.com/douthwja01/OpenMAS/wiki).
+- My website: https://douthwja01.github.io/. 
 
-If you'd like to be a contributor to this open source project, or if you have any queries, suggested/implemented improvements, I can be contacted by email at: douthwaiteja@gmail.com. For more information about myself or work(s) relating to OpenMAS, you can find them on my website: https://douthwja01.github.io/. 
-
+## Contributing
+If you'd like to be a contributor to this open source project, or if you have any queries, suggested/implemented improvements, I can be contacted by email at: douthwaiteja@gmail.com. For more information about myself or linkds to work(s) relating to OpenMAS, you can find them on my website: https://douthwja01.github.io/. 
 
 If you'd like to use this software as part of your own work, please use the provided citation:
 
