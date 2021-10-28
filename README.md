@@ -37,3 +37,11 @@ If you'd like to use this software as part of your own work, please use the prov
         url          = {https://figshare.shef.ac.uk/articles/OpenMAS_-_An_open-source_multi-agent_simulator_for_systems_with_complex_and_arbitrary_decision_mechanics_and_dynamic_behaviour/11954418/1}
         }
 
+## Where to go from here
+
+To get started with OpenMAS:
+- Visit the project wiki: https://github.com/douthwja01/OpenMAS/wiki. 
+- Follow the quick-start guide.
+- Download the software.
+- Run the example.
+- Begin designing your own agents.
