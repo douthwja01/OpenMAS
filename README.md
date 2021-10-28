@@ -40,7 +40,7 @@ If you'd like to use this software as part of your own work, please use the prov
 ## Where to go from here
 
 To get started with OpenMAS:
-- Visit the project wiki: https://github.com/douthwja01/OpenMAS/wiki. 
+- Visit the [project wiki](https://github.com/douthwja01/OpenMAS/wiki). 
 - Follow the quick-start guide.
 - Download the software.
 - Run the example.
