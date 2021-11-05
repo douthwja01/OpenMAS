@@ -18,11 +18,11 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 ## Important links
 Additional sources of information for OpenMAS can be found at:
 - The project wiki: https://github.com/douthwja01/OpenMAS/wiki
-- My website: https://douthwja01.github.io/ 
+- My website: http://www.jamesdouthwaite.co.uk/ 
 
 ## Contact
 
-If you have any queries, suggested/implemented improvements, or would like to contribute to OpenMAS, I can be contacted by email at: douthwaiteja@gmail.com. For more information about myself or links to work(s) relating to OpenMAS, you can find them on my website: https://douthwja01.github.io/. 
+If you have any queries, suggested/implemented improvements, or would like to contribute to OpenMAS, I can be contacted by email at: douthwaiteja@gmail.com. For more information about myself or links to work(s) relating to OpenMAS, you can find them on my website. 
 
 If you'd like to use this software as part of your own work, please use the provided citation:
 
