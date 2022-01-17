@@ -2,10 +2,9 @@
 <img src="environment/assets/logo.jpg" width="700" title="The OpenMAS repository">
 </p>
 
-An open-source modelling environment for simulating multi-agent systems with 
-complex agent decision mechanics and dynamic behaviour. 
+An open-source modelling environment for simulating multi-agent systems with complex agent decision mechanics and dynamic behaviour. 
 
-# Overview
+## Overview
 
 OpenMAS is an open-source multi-agent simulator for Matlab. This software package provides a number of tools necessary for the simulation of multi-agent systems with complex agent definitions. The software packages environment is based upon Matlab's object orientated functionality; allowing users to build and define their own agent definitions and simulate their interactions in defined scenarios.
 
@@ -13,16 +12,9 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 |:---:|:---:|
 | <img src="environment/assets/2D-IA-example.gif" height="320" title="Interval avoidance example"><br> **Interval Avoidance (IA)** | <img src="environment/assets/orca-example.gif" height="320" title="ORCA collision avoidance example"><br> **Optimal Reciprocal Avoidance (ORCA)** |
 
-# Project Information
+## Project Information
 
-## Important links
-Additional sources of information for OpenMAS can be found at:
-- The project wiki: https://github.com/douthwja01/OpenMAS/wiki
-- My website: http://www.jamesdouthwaite.co.uk/ 
-
-## Contact
-
-If you have any queries, suggested/implemented improvements, or would like to contribute to OpenMAS, I can be contacted by email at: douthwaiteja@gmail.com. For more information about myself or links to work(s) relating to OpenMAS, you can find them on my website. 
+If you have any queries, suggested/implemented improvements, I can be contacted by email at: douthwaiteja@gmail.com. For more information about myself or links to work(s) relating to OpenMAS, you can find them on my [website](http://www.jamesdouthwaite.co.uk/). 
 
 If you'd like to use this software as part of your own work, please use the provided citation:
 
@@ -37,6 +29,9 @@ If you'd like to use this software as part of your own work, please use the prov
         url          = {https://figshare.shef.ac.uk/articles/OpenMAS_-_An_open-source_multi-agent_simulator_for_systems_with_complex_and_arbitrary_decision_mechanics_and_dynamic_behaviour/11954418/1}
         }
 
+## Want to become a contributor to OpenMAS?
+If you would like to become a contributor to this open-source project and help others persue research in multi-agent systems, feel free to contact me. 
+
 ## Where to go from here
 
 To get started with OpenMAS:
@@ -45,3 +40,8 @@ To get started with OpenMAS:
 - Download the software.
 - Run the example.
 - Begin designing your own agents.
+
+## Important links
+Additional sources of information for OpenMAS can be found at:
+- The project wiki: https://github.com/douthwja01/OpenMAS/wiki
+- My website: http://www.jamesdouthwaite.co.uk/ 
