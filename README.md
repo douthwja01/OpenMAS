@@ -12,6 +12,15 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 |:---:|:---:|
 | <img src="environment/assets/2D-IA-example.gif" height="320" title="Interval avoidance example"><br> **Interval Avoidance (IA)** | <img src="environment/assets/orca-example.gif" height="320" title="ORCA collision avoidance example"><br> **Optimal Reciprocal Avoidance (ORCA)** |
 
+## Where to go from here
+
+To get started with OpenMAS:
+- Visit the project [Help Wiki](https://github.com/douthwja01/OpenMAS/wiki). 
+- Follow the [Quickstart Guide](https://github.com/douthwja01/OpenMAS/wiki/Getting-Started#getting-started).
+- Download the software.
+- Run the example.
+- Begin designing your own agents.
+
 ## Project Information
 
 If you have any queries, suggested/implemented improvements, I can be contacted by email at: douthwaiteja@gmail.com. For more information about myself or links to work(s) relating to OpenMAS, you can find them on my [website](http://www.jamesdouthwaite.co.uk/). 
@@ -31,15 +40,6 @@ If you'd like to use this software as part of your own work, please use the prov
 
 ## Want to become a contributor to OpenMAS?
 If you would like to become a contributor to this open-source project and help others persue research in multi-agent systems, feel free to contact me. 
-
-## Where to go from here
-
-To get started with OpenMAS:
-- Visit the [project wiki](https://github.com/douthwja01/OpenMAS/wiki). 
-- Follow the [Quickstart Guide](https://github.com/douthwja01/OpenMAS/wiki/Getting-Started#getting-started).
-- Download the software.
-- Run the example.
-- Begin designing your own agents.
 
 ## Important links
 Additional sources of information for OpenMAS can be found at:
