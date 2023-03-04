@@ -15,9 +15,10 @@ OpenMAS is an open-source multi-agent simulator for Matlab. This software packag
 ## Where to go from here
 
 To get started with OpenMAS:
+- Check you have a compatible matlab version.
+- Download the respository to your PC.
 - Visit the project [Help Wiki](https://github.com/douthwja01/OpenMAS/wiki). 
 - Follow the [Quickstart Guide](https://github.com/douthwja01/OpenMAS/wiki/Getting-Started#getting-started).
-- Download the software.
 - Run the example.
 - Begin designing your own agents.
 
