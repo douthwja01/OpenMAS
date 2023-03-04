@@ -36,7 +36,7 @@ If you would like to become a contributor to this open-source project and help o
 
 To get started with OpenMAS:
 - Visit the [project wiki](https://github.com/douthwja01/OpenMAS/wiki). 
-- Follow the quick-start guide.
+- Follow the [Quickstart Guide](https://github.com/douthwja01/OpenMAS/wiki/Getting-Started#getting-started).
 - Download the software.
 - Run the example.
 - Begin designing your own agents.
