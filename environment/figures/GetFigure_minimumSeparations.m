@@ -77,13 +77,17 @@ end
 % [TO-DO]
 % - Handle legend entries for multiple collision constraints
 
-% Generate the reference line for the last conflict
-c = refline(ax,0,conflictStruct(i).constraint);                            % Adds a reference line with slope m and intercept b to the current axes.
-set(c,'Color','k');
-set(c,'LineStyle','--');
-set(c,'LineWidth',DATA.figureProperties.lineWidth/2);
-% Add legend entries
-legendEntries{i+1} = 'Collision Boundary';
+try
+    % Generate the reference line for the last conflict
+    c = refline(ax,0,conflictStruct(i).constraint);                            % Adds a reference line with slope m and intercept b to the current axes.
+    set(c,'Color','k');
+    set(c,'LineStyle','--');
+    set(c,'LineWidth',DATA.figureProperties.lineWidth/2);
+    % Add legend entries
+    legendEntries{i+1} = 'Collision Boundary';
+catch ex
+    warning("Failed to plot collision condition ref-line reason:\n %s",ex.message);
+end
 
 %% Add additional figure refinements 
 % Title

@@ -114,11 +114,16 @@ end
 
 %% Additional plot refinements
 % The collision condition
-refHandle = refline(ax,0,collisionCondition);                                % Adds a reference line with slope m and intercept b to the current axes.
-set(refHandle,'Color','k');
-set(refHandle,'LineStyle','--');
-set(refHandle,'LineWidth',DATA.figureProperties.lineWidth/2);
-legendEntries = vertcat(legendEntries,'Collision Boundary');
+try
+    refHandle = refline(ax,0,collisionCondition);                                % Adds a reference line with slope m and intercept b to the current axes.
+    set(refHandle,'Color','k');
+    set(refHandle,'LineStyle','--');
+    set(refHandle,'LineWidth',DATA.figureProperties.lineWidth/2);
+    legendEntries = vertcat(legendEntries,'Collision Boundary');
+catch ex
+    warning("Failed to plot collision condition ref-line reason:\n %s",ex.message);
+end
+
 % Title 
 title(ax,sprintf('Object separations for agent %s',agentLabel),...
     'Interpreter',DATA.figureProperties.interpreter,...
