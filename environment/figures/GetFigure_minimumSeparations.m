@@ -21,11 +21,15 @@ end
 ind = 1; conflictStruct = struct();
 for i = 1:numel(collidableMETA)
     % Retrieve the states of object A
-    states_A = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,collidableMETA(i).objectID,inf);
+%     states_A = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,collidableMETA(i).objectID,inf);
+    states_A = OMAS_getTrajectoryData(DATA.globalTrajectories,SIM.globalIDvector,collidableMETA(i).objectID,inf);
+        
     states_A = states_A(:,1:SIM.TIME.endStep);
     for j = (i+1):numel(collidableMETA)       
         % Get the state trace for object B
-        states_B = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,collidableMETA(j).objectID,inf);
+%         states_B = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,collidableMETA(j).objectID,inf);
+        states_B = OMAS_getTrajectoryData(DATA.globalTrajectories,SIM.globalIDvector,collidableMETA(j).objectID,inf);
+                
         states_B = states_B(:,1:SIM.TIME.endStep);
         % Calculate the separation across the time period
         centroidSeparations = states_B(1:3,:) - states_A(1:3,:);

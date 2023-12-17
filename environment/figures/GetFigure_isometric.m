@@ -18,7 +18,8 @@ for ID1 = 1:DATA.totalObjects
     % THE ASSOCIATED LOGIC
     objectID1 = objectIndex{SIM.globalIDvector == SIM.OBJECTS(ID1).objectID};
     % EXTRACT FINAL POSITION DATA FROM THE TRAJECTORY MATRIX
-    [finalStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,SIM.TIME.endStep);
+%     [finalStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,SIM.TIME.endStep);
+    [finalStates] = OMAS_getTrajectoryData(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,SIM.TIME.endStep);
     finalPosition = finalStates(1:3,:);
     
     % LOCAL FIXED TO GLOBAL ROTATED
@@ -52,7 +53,8 @@ hold on;
 for ID1 = 1:DATA.totalObjects 
     % EXTRACT STATE TIME-SERIES DATA UPTO THE IDLE POINT
     idleFlag = NaN('double');
-    [objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,idleFlag);
+    %[objectStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,idleFlag);
+    [objectStates] = OMAS_getTrajectoryData(DATA.globalTrajectories,SIM.globalIDvector,SIM.OBJECTS(ID1).objectID,idleFlag);
     positions = objectStates(1:3,:);
     plot3(positions(1,:),positions(2,:),positions(3,:),...
           'LineStyle',DATA.figureProperties.lineStyle,...

@@ -47,8 +47,10 @@ object_A = objectIndex{SIM.globalIDvector == collisionEvent.objectID_A};
 object_B = objectIndex{SIM.globalIDvector == collisionEvent.objectID_B};   % The associated object structures
 geometry_A = object_A.GEOMETRY;
 geometry_B = object_B.GEOMETRY;
-[objectAStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_A.objectID,inf);
-[objectBStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_B.objectID,inf);
+% [objectAStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_A.objectID,inf);
+[objectAStates] = OMAS_getTrajectoryData(DATA.globalTrajectories,SIM.globalIDvector,META_A.objectID,inf);
+% [objectBStates] = OMAS_getTrajectoryData_mex(DATA.globalTrajectories,SIM.globalIDvector,META_B.objectID,inf);
+[objectBStates] = OMAS_getTrajectoryData(DATA.globalTrajectories,SIM.globalIDvector,META_B.objectID,inf);
 
 % We need to plot:
 % - The object geometries
