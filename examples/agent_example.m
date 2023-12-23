@@ -48,7 +48,7 @@ classdef agent_example < agent
             obj@agent(varargin);                                           % Create the super class 'agent'            
             % Set some of the parameters
             obj.radius = 0.5;
-            obj = obj.SetDetectionRadius(50);                              % Update the range attribute to the SIM VIRTUAL property            
+            obj.detectionRadius = 50;                              % Update the range attribute to the SIM VIRTUAL property            
             % Parse any overrides
             [obj] = obj.configurationParser(obj,varargin);
         end
