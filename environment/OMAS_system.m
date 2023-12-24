@@ -50,20 +50,22 @@ classdef OMAS_system
             % This function ensures that OpenMAS has access to the complete
             % set of file dependancies.
                         
+            systemFolderName = 'Environment';
+
             % Get the path to the install directory
             repoPath = mfilename('fullpath');
-            ind = strfind(repoPath,'environment');
+            ind = strfind(repoPath,systemFolderName);
             repoPath = repoPath(1:(ind-1));
             
             % Parse known matlab paths
             pathCell = regexp(path, pathsep, 'split'); 
-            if any(strcmpi(pathCell,string([repoPath,'environment\common'])))
+            if any(strcmpi(pathCell,string([repoPath,systemFolderName,'\Common'])))
                 isSuccessful = true;
             	return;
             end
             
             % Add the common directory for the utilities
-            addpath(OMAS_system.GetOSPathString([repoPath,'environment\common']));
+            addpath(OMAS_system.GetOSPathString([repoPath,systemFolderName,'\Common']));
             
             % Attempt to add all child paths
             try

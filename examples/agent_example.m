@@ -32,28 +32,33 @@ classdef agent_example < agent
         % EXAMPLE PROPERTIES (Unique to this agent)
         % noOfWings = 2;
     end
-    %% //////////////////// MAIN (required) METHODS ///////////////////////
+    
+    %% ///////////////////////// MAIN METHODS /////////////////////////////
     methods 
-        % CONSTRUCTOR
-        function obj = agent_example(varargin)
+        % Constructor
+        function [this] = agent_example(varargin)
             % This function is called to create the 'agent_example' class,
             % which then takes on the new parameters specified.
-            
-            % INPUT HANDLING
-            if length(varargin) == 1 && iscell(varargin)                   % Catch nested cell array inputs
-                varargin = varargin{:};
-            end 
-            
+                        
             % CALL THE SUPERCLASS CONSTRUCTOR
-            obj@agent(varargin);                                           % Create the super class 'agent'            
+            this@agent(varargin);             % Create the super class 'agent'            
+            
             % Set some of the parameters
-            obj.radius = 0.5;
-            obj.detectionRadius = 50;                              % Update the range attribute to the SIM VIRTUAL property            
-            % Parse any overrides
-            [obj] = obj.configurationParser(obj,varargin);
+            this.radius = 0.5;
+            this.detectionRadius = 50;        % Update the range attribute to the SIM VIRTUAL property            
+            
+            % //////////////// Check for user overrides ///////////////////
+            [this] = this.ApplyUserOverrides(varargin); % Recursive overrides
+            % /////////////////////////////////////////////////////////////
         end
-        % AGENT MAIN CYCLE 
-        function [obj] = main(obj,ENV,varargin)
+        % Setup
+        function [this] = setup(this,v,eta)
+            % Define the initial state
+            this.localState = zeros(6,1);
+            this.localState(4:6,1) = eta;
+        end
+        % Main 
+        function [this] = main(this,ENV,varargin)
             % This function is designed to contain everything your agent does
             % in a given simulation timestep. As an 'agent', a list of
             % detected entities is given if detected.
@@ -65,16 +70,8 @@ classdef agent_example < agent
             % OUTPUTS:
             % obj      - The updated project
             
-            
-            % GET THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('OpenMAS environment structure is invalid.');
-            end
-
             % PARSE THE ENTITY PROPERTIES FROM THE ENVIRONMENT 
-            [obj,obstacleSet,agentSet] = obj.GetAgentUpdate(dt,varargin{1});       % IDEAL INFORMATION UPDATE       
+            [this,obstacleSet,agentSet] = this.GetAgentUpdate(ENV,varargin{1});       % IDEAL INFORMATION UPDATE       
             
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
             %        INSERT ALGORITHM/DECISION MAKING PROCESS HERE
@@ -89,34 +86,42 @@ classdef agent_example < agent
             % How each agent updates its state can be defined locally, as
             % a dedicated function.
             % CALL THE SEPERATE UPDATE FUNCTION
-            [state_k_plus] = obj.updateLocalState(ENV,...
-                                       obj.localState,...
-                                          linearRates,...
-                                         angularRates);
+            [state_k_plus] = this.UpdateLocalState(...
+                ENV,...
+                this.localState,...
+                linearRates,...
+                angularRates);
                                      
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             %  USE THE UPDATED LOCAL STATE TO UPDATE THE GLOBAL PROPERTIES
             % \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
             % How the objects global state is updated is dependant on how
             % the 'state_k_plus' is defined.
-            obj = obj.updateGlobalProperties(dt,state_k_plus);
+            this = this.GlobalUpdate(ENV.dt,state_k_plus);
+            
+            % ////////////// RECORD THE AGENT-SIDE DATA ///////////////////
+            this.DATA.inputNames = {'$v_x$ (m/s)','$v_y$ (m/s)','$\dot{\psi}$ (rad/s)'};
+            this.DATA.inputs(1:length(this.DATA.inputNames),ENV.currentStep) = this.localState(4:6);         % Record the control inputs
         end
     end
     %% /////////////////////// AUXILLARY METHODS //////////////////////////
     methods
         % ASSIGNED STATE UPDATE FUNCTION (USING ODE45)
-        function [X] = updateLocalState(obj,TIME,X,velocity,omega)
+        function [dXdt] = UpdateLocalState(this,TIME,X0,velocity,omega)
             % This function computes the state update for the current agent
             % using the ode45 function.
+            
+            U = [velocity;omega];
+            dXdt = X0; % The default returned state
             
             % DETERMINE THE INTEGRATION PERIOD
             if TIME.currentTime == TIME.timeVector(end)
                 return
             else
-                tspan = [TIME.currentTime TIME.timeVector(TIME.currentStep + 1)];
-                opts = odeset('RelTol',1e-2,'AbsTol',1e-4);
-                [~,Xset] = ode45(@(t,X) obj.dynamics_simple(X,velocity,omega), tspan, X, opts);
-                X = Xset(end,:)';
+                [~,Xset] = ode45(@(t,X) this.SingleIntegratorDynamics(X,U),...
+                    [0 TIME.dt],X0,...
+                    odeset('RelTol',1e-2,'AbsTol',TIME.dt*1E-2));
+                dXdt = Xset(end,:)'; % Pass the state at the end of the sample period
             end
         end
     end
