@@ -1,6 +1,0 @@
-*
-# Omit all file types
-#!*/stls/
-# With the exception of
-!*.m
-!*.stl
