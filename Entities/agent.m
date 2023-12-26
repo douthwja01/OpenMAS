@@ -9,7 +9,7 @@
 
 % Author: James A. Douthwaite
 
-classdef agent < objectDefinition & agent_tools
+classdef (Abstract) agent < objectDefinition & agent_tools
     %% AGENT BASE CLASS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % This class contains the basic properties of a generic agent, neither
     % aerial or ground based.
@@ -122,6 +122,9 @@ classdef agent < objectDefinition & agent_tools
             
             % PASS THE DESIRED VELOCITY TO THE DEFAULT CONTROLLER
             [this] = this.Controller(ENV.dt,desiredVelocity);
+        end
+        function [this] = destroy(this)
+            % This is the default destroy method for all agents.
         end
     end
     

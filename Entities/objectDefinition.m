@@ -29,6 +29,11 @@ classdef objectDefinition < handle
         GLOBAL; 
     end
     %% ///////////////////////// MAIN METHODS /////////////////////////////
+    methods (Abstract, Access = public)
+        [this] = setup(this,localXYZvelocity,localXYZrotation);
+        [this] = main(this,ENV,varargin);
+        [this] = destroy(this);
+    end
     methods (Access = public)
         % Constructor
         function [this] = objectDefinition(varargin)
@@ -69,50 +74,6 @@ classdef objectDefinition < handle
                 fprintf('objectcount: %d\tname: %s\ttype: %s\n',this.objectID,this.name,class(this));
             end            
         end 
-        % Setup (default 6-dof state)
-        function [this] = setup(this,localXYZvelocity,localXYZrotations)   % [x y z phi theta psi]
-            % This function is called in order to build the initial state
-            % vector for the generic agent class 'objectDefinition'.
-            % INPUTS:
-            
-            % ASSUMPTIONS:
-            % - The designed state is described in the ENU axes.
-            % - The state is of the form:
-            % - [x y z phi theta psi]
-
-            % Standard state vector is the 6DOF: x_k = [x y z phi theta psi]
-            this.localState = [zeros(3,1);localXYZrotations];
-        end
-        % Main  (default 6-dof state)
-        function [this] = main(this,ENV,varargin)
-            % This is a generic process cycle of an object that accepts no
-            % input commands/feedback and simply updates its states based
-            % on its current attributes
-            % INPUT:
-            % varargin - Generic variable input container, containing the simulation timestep
-            % OUTPUT:
-            % this - The updated object
-            
-            % DETERMINE THE TIMESTEP
-            if isstruct(ENV)
-                dt = ENV.dt;
-            else
-                error('object TIME packet is invalid.');
-            end
-            
-            
-            % The state differential
-            x_dot = [0;0;0;0;0;0];
-            
-            % MAINTAIN LOCAL INPUT CONDITIONS
-            % Default behaviour of a system is to move with constant input
-            % conditions.
-            [dXdt]   = this.SingleIntegratorDynamics(this.localState,x_dot);
-            newState = this.localState + dt*dXdt;
-            
-            % UPDATE THE CLASS GLOBAL PROPERTIES
-            this = this.GlobalUpdate(dt,newState);
-        end
     end
     
     %% /////////////////////// CHECK FUNCTIONS ////////////////////////////
