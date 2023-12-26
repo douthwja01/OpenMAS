@@ -15,7 +15,7 @@ repoPath = mfilename('fullpath');           % Get the system paths
 ind = strfind(repoPath,'env');
 repoPath = repoPath(1:(ind-1)); 
 
-objectsDir = [repoPath,'objects'];
+objectsDir = [repoPath,'Entities'];
 outputFile = [repoPath,outputFileName];
 tempDir = OMAS_system.GetOSPathString([repoPath,'temp']);
 
