@@ -40,7 +40,7 @@ If you'd like to use this software as part of your own work, please use the prov
         }
 
 ## Want to become a contributor to OpenMAS?
-If you would like to become a contributor to this open-source project and help others persue research in multi-agent systems, feel free to contact me. 
+If you would like to become a contributor to this open-source project and help others persue research in multi-agent systems, feel free to contact me, or simply submit a pull request! 
 
 ## Important links
 Additional sources of information for OpenMAS can be found at:
