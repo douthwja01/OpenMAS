@@ -8,25 +8,25 @@ The runnable walk-through is [`setup_example.m`](setup_example.m). How to write 
 
 | Path | Role |
 | --- | --- |
-| `environment/` | Simulator, analysis, figures, utils, and events. Treat this as the framework. |
-| `environment/utils/` | Shared MATLAB utilities used by the framework. |
+| `core/` | Simulator, analysis, figures, utils, and events. Treat this as the framework. |
+| `core/utils/` | Shared MATLAB utilities used by the framework. |
 | `objects/` | Nested object definitions (see below). |
-| `objects/core/` | Base classes: `objectDefinition`, `agent`, `agent_2D`, `agent_3D`, `waypoint`. |
+| `objects/base/` | Base classes: `objectDefinition`, `agent`, `agent_2D`, `agent_3D`, `waypoint`. |
 | `objects/agents/` | Concrete agent algorithms. |
 | `objects/obstacles/` | Passive bodies (`obstacle`, planetoids, etc.). |
 | `objects/vehicles/` | Vehicle models (`quadcopter`, `ARdrone`, …); legacy under `vehicles/legacy/`. |
 | `objects/models/` | STL meshes named after their class. |
 | `objects/tools/` | Shared helpers used by agent algorithms. |
-| `scenarios/` | Functions that place an object set in the global frame, plus `scenarioBuilder`. |
+| `scenarios/` | Functions that place an object set in the global frame, plus `scenario_builder`. |
 | `examples/` | Setup scripts and these notes. |
 | `studies/` | Longer study scripts. |
 | `data/` | Default session output, one folder per run. |
 | `toolboxes/` | Optional third-party libraries, including INTLAB. |
 
-`environment/OMAS_system.GetFileDependancies` adds the framework paths when a simulation starts. A setup script still needs `objects` (recursively) and `scenarios` on the path before it constructs classes:
+`core/OMAS_system.GetFileDependancies` adds the framework paths when a simulation starts. A setup script still needs `objects` (recursively) and `scenarios` on the path before it constructs classes:
 
 ```matlab
-addpath('environment');
+addpath('core');
 addpath(genpath('objects'));
 addpath('scenarios');
 ```
@@ -34,7 +34,7 @@ addpath('scenarios');
 ## Running a simulation
 
 1. Construct each participant as a class handle (`agent_example`, `obstacle`, `waypoint`, and so on). Property overrides are name-value pairs, for example `agent_example('radius', 0.5, 'name', 'alpha')`.
-2. Place those handles with a scenario function such as `GetScenario_concentricRing`, or assign global pose yourself through `SetGLOBAL`.
+2. Place those handles with a scenario function such as `scenario_concentric_ring`, or assign global pose yourself through `SetGLOBAL`.
 3. Call `OMAS_initialise` with the object cell array and any timing or figure options.
 4. Read the returned `DATA` and `META` structures. The same session is also written under the output path.
 
@@ -44,7 +44,7 @@ for k = 1:3
     agentIndex{k} = agent_example('radius', 0.5);
 end
 
-objectIndex = GetScenario_concentricRing( ...
+objectIndex = scenario_concentric_ring( ...
     'agents', agentIndex, ...
     'agentOrbit', 5, ...
     'agentVelocity', 2, ...
@@ -197,9 +197,9 @@ Pass labels to the `figures` argument. The match is case-insensitive. `'all'` ex
 
 ## Scenarios
 
-A scenario function accepts the agent cell array, writes each object's global position, velocity, and quaternion, and usually appends waypoints. `GetScenario_concentricRing` is the pattern used by `setup_example.m`: agents on a ring, opposing waypoints, optional planar position noise.
+A scenario function accepts the agent cell array, writes each object's global position, velocity, and quaternion, and usually appends waypoints. `scenario_concentric_ring` is the pattern used by `setup_example.m`: agents on a ring, opposing waypoints, optional planar position noise.
 
-`scenarioBuilder` generates the underlying point sets in the same East-North-Up frame. Construct it with the object count, then call a generator:
+`scenario_builder` generates the underlying point sets in the same East-North-Up frame. Construct it with the object count, then call a generator:
 
 | Method | Layout |
 | --- | --- |
@@ -211,9 +211,9 @@ A scenario function accepts the agent cell array, writes each object's global po
 | `line` | Evenly spaced along a line. |
 | `random`, `randomNormal`, `randomUniform`, `randomSphere` | Random placements. |
 
-Each generator fills `.positions` (`3 x n`), `.velocities` (`3 x n`), and `.quaternions` (`4 x n`). Copy those columns onto the objects with `SetGLOBAL`, then return one cell array of every participant. `scenarioBuilder.plotObjectIndex(objectIndex)` draws the initial scene.
+Each generator fills `.positions` (`3 x n`), `.velocities` (`3 x n`), and `.quaternions` (`4 x n`). Copy those columns onto the objects with `SetGLOBAL`, then return one cell array of every participant. `scenario_builder.plotObjectIndex(objectIndex)` draws the initial scene.
 
-Ready-made wrappers live in `scenarios/GetScenario_*.m` (concentric ring and sphere, two lines, corridor, waypoint curve, obstacle track, formation splits, random fields, and the Earth-orbit study).
+Ready-made wrappers live in `scenarios/scenario_*.m` (concentric ring and sphere, two lines, corridor, waypoint curve, obstacle track, formation splits, random fields, and the Earth-orbit study).
 
 ## Monte-Carlo studies
 
@@ -228,7 +228,7 @@ mc = OMAS_monteCarlo( ...
 mc.EvaluateAllCycles();
 ```
 
-The object matrix is `sessions x objects`. Each cycle perturbs global positions before calling the same simulator. `examples/monteCarlo_example.m` builds that matrix for several avoidance algorithms and population sizes.
+The object matrix is `sessions x objects`. Each cycle perturbs global positions before calling the same simulator. `examples/setup_monte_carlo.m` builds that matrix for several avoidance algorithms and population sizes.
 
 ## Object types
 
@@ -251,10 +251,10 @@ Classes that can be placed in a scenario. `Inherits` is the parent list from the
 
 | Class | Inherits | File | Description |
 | --- | --- | --- | --- |
-| `agent_tools` | `objectDefinition` | `core/agent_tools.m` | Shared memory, waypoint selection, and global-pose updates. Mixed into `agent`. |
-| `agent` | `objectDefinition`, `agent_tools` | `core/agent.m` | Active agent base. Sensing, a detection radius, kinematic limits, and `main(ENV, observations)`. |
-| `agent_2D` | `agent` | `core/agent_2D.m` | Planar agent. Six-state local vector `[x; y; psi; dx; dy; dpsi]` and 2D observations. |
-| `agent_3D` | `agent` | `core/agent_3D.m` | Spatial kinematic agent. Twelve-state local vector and the simple and PID velocity trackers. |
+| `agent_tools` | `objectDefinition` | `base/agent_tools.m` | Shared memory, waypoint selection, and global-pose updates. Mixed into `agent`. |
+| `agent` | `objectDefinition`, `agent_tools` | `base/agent.m` | Active agent base. Sensing, a detection radius, kinematic limits, and `main(ENV, observations)`. |
+| `agent_2D` | `agent` | `base/agent_2D.m` | Planar agent. Six-state local vector `[x; y; psi; dx; dy; dpsi]` and 2D observations. |
+| `agent_3D` | `agent` | `base/agent_3D.m` | Spatial kinematic agent. Twelve-state local vector and the simple and PID velocity trackers. |
 
 ### Templates
 
@@ -340,4 +340,4 @@ Passive bodies. The simulator steps them with `main(ENV)` and no observation pac
 
 | Class | Inherits | File | Description |
 | --- | --- | --- | --- |
-| `waypoint` | `objectDefinition` | `core/waypoint.m` | Spherical goal. An ownership list ties it to one or more agents with a priority. Unowned waypoints are open to every agent at priority 0. Reaching one logs a waypoint event for an associated agent. |
+| `waypoint` | `objectDefinition` | `base/waypoint.m` | Spherical goal. An ownership list ties it to one or more agents with a priority. Unowned waypoints are open to every agent at priority 0. Reaching one logs a waypoint event for an associated agent. |

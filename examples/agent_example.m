@@ -6,7 +6,7 @@
 
 % GENERAL NOTICE FOR AGENT DEFINITIONS
 % - All objects(including agents) must be in '/objects' for dependancies.
-% - The 'example_setup' demonstrates how the dependancies are setup.
+% - The 'setup_example' demonstrates how the dependancies are setup.
 % - All objects must have:
 %   + A 'constructor' method (to create it).
 %   + A 'main' method (to evaluate updates).

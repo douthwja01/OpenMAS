@@ -14,7 +14,7 @@ with, or rely on those of its superclasses, in order for the progress of the obj
 be evaluated at the next timestep.
 
 Layout (add with addpath(genpath('objects'))):
-- core/       objectDefinition, agent, agent_2D, agent_3D, agent_tools, waypoint
+- base/       objectDefinition, agent, agent_2D, agent_3D, agent_tools, waypoint
 - agents/     concrete agent algorithms
 - obstacles/  passive obstacle and planetoid classes
 - vehicles/   vehicle models (legacy/ for older variants)

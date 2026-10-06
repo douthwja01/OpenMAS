@@ -85,7 +85,7 @@ At this moment the object is still at the origin with zero velocity and an ident
 
 ### 2. Scenario placement
 
-`GetScenario_*` or your own script writes the initial world state:
+`scenario_*` helpers or your own script writes the initial world state:
 
 ```matlab
 agent.SetGLOBAL('position',   [x; y; z]);
@@ -251,7 +251,7 @@ classdef agent_constant < agent
 end
 ```
 
-`objects/agents/agent_example.m` is the in-tree sketch of the same idea: a constructor, a `main` that reads `ENV` and the packet, a local integrator, and a global publish. The methods that exist on the base classes today are `GetAgentUpdate`, `GlobalUpdate`, `GlobalUpdate_3DVelocities`, and `GlobalUpdate_direct`. `examples/setup_example.m` shows the surrounding script: build a cell array of `agent_example`, place it with `GetScenario_concentricRing`, and pass the cell array to `OMAS_initialise`.
+`objects/agents/agent_example.m` is the in-tree sketch of the same idea: a constructor, a `main` that reads `ENV` and the packet, a local integrator, and a global publish. The methods that exist on the base classes today are `GetAgentUpdate`, `GlobalUpdate`, `GlobalUpdate_3DVelocities`, and `GlobalUpdate_direct`. `examples/setup_example.m` shows the surrounding script: build a cell array of `agent_example`, place it with `scenario_concentric_ring`, and pass the cell array to `OMAS_initialise`.
 
 ## Checklist for a new agent
 
