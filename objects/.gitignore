@@ -1,6 +1,11 @@
+# Ignore everything under objects/ by default
 *
-# Omit all file types
-#!*/stls/
-# With the exception of
-!*.m
-!*.stl
+# Keep directories so nested content can be un-ignored
+!*/
+# Track MATLAB sources, mesh assets, and docs at any depth
+!**/*.m
+!**/*.stl
+!**/*.md
+!**/*.txt
+# Keep this ignore file
+!.gitignore
