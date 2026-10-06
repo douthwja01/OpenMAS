@@ -2,19 +2,19 @@
 % This script is designed as an example of how to simulate a multiple agent
 % collision scenario using the Open Multi-Agent Simulation (OpenMAS) suite.
 
-% For descriptions of how to create objects see:
-% /objects/readme-objects.txt
+% For the agent and object interface see:
+% examples/agents.md
 
-% For a general overview see:
-% /readme.txt
+% For the simulation interface see:
+% examples/README.md
 
 % Author: James A. Douthwaite 23/11/2018
 
 clear all; close all;
 
 %% ADD ADDITIONAL THE PROGRAM PATHS
-addpath('environment');
-addpath('objects');  
+addpath('core');
+addpath(genpath('objects'));  
 addpath('scenarios');   
 
 %% DEFINE SIMULATION PARAMETERS
@@ -65,27 +65,27 @@ end
 
 %% PLACE AGENT OBJECTS IN PRE-DEFINED SCENARIO
 % OBSTACLE TESTS
-% [ objectIndex ] = GetScenario_fourCuboidObstacles('agents',agentIndex,'plot',sim_plotScenario);
-% [ objectIndex ] = GetScenario_obstacleTrack('agents',agentIndex,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_four_cuboid_obstacles('agents',agentIndex,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_obstacle_track('agents',agentIndex,'plot',sim_plotScenario);
 
 % % AGENT TESTS
-% [ objectIndex ] = GetScenario_twoLines('agents',agentIndex,'agentVelocity',sim_agentVelocity,'padding',2,'plot',sim_plotScenario);
-[ objectIndex ] = GetScenario_concentricRing('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',sim_offsetAngle,'plot',sim_plotScenario,'noiseFactor',sim_noiseSigma);
-% [ objectIndex ] = GetScenario_concentricRing('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',pi/2,'plot',sim_plotScenario,'noiseFactor',sim_noiseSigma);
-% [ objectIndex ] = GetScenario_concentricSphere('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'plot',sim_plotScenario);
-% [ objectIndex ] = GetScenario_concentricAngle('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'angle',pi/4,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_two_lines('agents',agentIndex,'agentVelocity',sim_agentVelocity,'padding',2,'plot',sim_plotScenario);
+[ objectIndex ] = scenario_concentric_ring('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',sim_offsetAngle,'plot',sim_plotScenario,'noiseFactor',sim_noiseSigma);
+% [ objectIndex ] = scenario_concentric_ring('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'offsetAngle',pi/2,'plot',sim_plotScenario,'noiseFactor',sim_noiseSigma);
+% [ objectIndex ] = scenario_concentric_sphere('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_concentric_angle('agents',agentIndex,'agentOrbit',sim_agentOrbit,'agentVelocity',sim_agentVelocity,'waypointOrbit',sim_waypointOrbit,'angle',pi/4,'plot',sim_plotScenario);
 
 % RANDOM TESTS
-% [ objectIndex ] = GetScenario_random('objects',agentIndex,'plot',sim_plotScenario);
-% [ objectIndex ] = GetScenario_randomNormal('objects',agentIndex,'plot',sim_plotScenario);
-% [ objectIndex ] = GetScenario_randomUniform('objects',agentIndex,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_random('objects',agentIndex,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_random_normal('objects',agentIndex,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_random_uniform('objects',agentIndex,'plot',sim_plotScenario);
 
 % WAYPOINT TESTS                            
-% [ objectIndex ] = GetScenario_waypointCurve('agents',agentIndex,'agentVelocity',sim_agentVelocity,'plot',sim_plotScenario);
-% [ objectIndex ] = GetScenario_waypoint_90Degrees('agents',agentIndex,'agentVelocity',sim_agentVelocity,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_waypoint_curve('agents',agentIndex,'agentVelocity',sim_agentVelocity,'plot',sim_plotScenario);
+% [ objectIndex ] = scenario_waypoint_90_degrees('agents',agentIndex,'agentVelocity',sim_agentVelocity,'plot',sim_plotScenario);
 
 % RL TESTS
-% [ objectIndex ] = GetScenario_earthOrbit('plot',sim_plotScenario);
+% [ objectIndex ] = scenario_earth_orbit('plot',sim_plotScenario);
 
 %% %%%%%% INITIALISE THE SIMULATION WITH THE OBJECT INDEX %%%%%%%%%%%%%%%%%
 [DATA,META] = OMAS_initialise('objects',objectIndex,...

@@ -11,10 +11,10 @@ classdef ToolBox
         function [obj] = ToolBox(varargin)
             % Get the critical paths
             obj.repositoryDir = obj.GetRepoPath();            
-            % Add the 'environment/OMAS' functions
-            addpath([obj.repositoryDir,'environment']); 
-            % Add the path to the 'common' tools
-            addpath(OMAS_system.GetOSPathString([obj.repositoryDir,'environment\common']));   
+            % Add the 'core/OMAS' functions
+            addpath([obj.repositoryDir,'core']); 
+            % Add the path to the utility tools
+            addpath(OMAS_system.GetOSPathString([obj.repositoryDir,'core\utils']));   
             % Parse inputs against the object now the paths are added
             obj = obj.GetConfiguration(obj,varargin);
         end

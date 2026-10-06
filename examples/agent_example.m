@@ -6,7 +6,7 @@
 
 % GENERAL NOTICE FOR AGENT DEFINITIONS
 % - All objects(including agents) must be in '/objects' for dependancies.
-% - The 'example_setup' demonstrates how the dependancies are setup.
+% - The 'setup_example' demonstrates how the dependancies are setup.
 % - All objects must have:
 %   + A 'constructor' method (to create it).
 %   + A 'main' method (to evaluate updates).
@@ -14,7 +14,7 @@
 %   updating the objects local state, and global properties. 
 
 % To call the agent class, your work directory must be within '/objects',
-% otherwise it must be added using 'addpath('objects')' to include the
+% otherwise it must be added using 'addpath(genpath('objects'))' to include the
 % complete inheritance tree. 
 
 % The class is called using the line:
