@@ -29,7 +29,7 @@ classdef scenarioBuilder
             % class must be created first to ensure the 
             
             % Access the OMAS-common properties
-            addpath('environment/common');  % Access to common tools
+            addpath('environment/utils');  % Access to utility tools
             
             % Parse inputs against the builder
             [obj] = obj.configurationParser(obj,varargin);

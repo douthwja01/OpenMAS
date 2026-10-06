@@ -2,11 +2,11 @@
 % This script is designed as an example of how to simulate a multiple agent
 % collision scenario using the Open Multi-Agent Simulation (OpenMAS) suite.
 
-% For descriptions of how to create objects see:
-% /objects/readme-objects.txt
+% For the agent and object interface see:
+% examples/agents.md
 
-% For a general overview see:
-% /readme.txt
+% For the simulation interface see:
+% examples/README.md
 
 % Author: James A. Douthwaite 23/11/2018
 
@@ -14,7 +14,7 @@ clear all; close all;
 
 %% ADD ADDITIONAL THE PROGRAM PATHS
 addpath('environment');
-addpath('objects');  
+addpath(genpath('objects'));  
 addpath('scenarios');   
 
 %% DEFINE SIMULATION PARAMETERS

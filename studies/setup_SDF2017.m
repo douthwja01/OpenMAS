@@ -13,7 +13,7 @@ parentDir = 'studies';
 cd ..
 % ADD SIMULATION PATHS
 addpath('environment');        
-addpath('objects');  
+addpath(genpath('objects'));  
 addpath('scenarios'); 
 addpath('Intlab_V7.1');   
 

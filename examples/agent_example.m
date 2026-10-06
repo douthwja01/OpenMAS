@@ -14,7 +14,7 @@
 %   updating the objects local state, and global properties. 
 
 % To call the agent class, your work directory must be within '/objects',
-% otherwise it must be added using 'addpath('objects')' to include the
+% otherwise it must be added using 'addpath(genpath('objects'))' to include the
 % complete inheritance tree. 
 
 % The class is called using the line:

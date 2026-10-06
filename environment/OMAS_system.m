@@ -57,13 +57,13 @@ classdef OMAS_system
             
             % Parse known matlab paths
             pathCell = regexp(path, pathsep, 'split'); 
-            if any(strcmpi(pathCell,string([repoPath,'environment\common'])))
+            if any(strcmpi(pathCell,string([repoPath,'environment\utils'])))
                 isSuccessful = true;
             	return;
             end
             
-            % Add the common directory for the utilities
-            addpath(OMAS_system.GetOSPathString([repoPath,'environment\common']));
+            % Add the utils directory for the utilities
+            addpath(OMAS_system.GetOSPathString([repoPath,'environment\utils']));
             
             % Attempt to add all child paths
             try

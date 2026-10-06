@@ -7,7 +7,7 @@
 % ADD THE PROGRAM PATHS
 clear all; close all; 
 addpath('environment');
-addpath('objects');  
+addpath(genpath('objects'));  
 addpath('scenarios'); 
 addpath('toolboxes/Intlab_V7.1');   
 

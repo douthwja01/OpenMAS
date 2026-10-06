@@ -17,7 +17,7 @@
 % ADD THE PROGRAM PATHS
 clear all; close all;
 addpath('environment');
-addpath('objects');
+addpath(genpath('objects'));
 addpath('scenarios');                                                      % Required system/toolbox paths
 
 fprintf('[SETUP]\tInitialising Monte-Carlo example.\n');

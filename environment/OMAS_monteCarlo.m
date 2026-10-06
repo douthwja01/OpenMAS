@@ -37,7 +37,7 @@ classdef OMAS_monteCarlo
             % Get the system paths
             pathString = mfilename('fullpath');
             pathString = pathString(1:(strfind(pathString,'environment')-1));
-            addpath(OMAS_system.GetOSPathString([pathString,'environment\common'])); % Add system paths
+            addpath(OMAS_system.GetOSPathString([pathString,'environment\utils'])); % Add system paths
             % Get the default output path
             [~, userdir] = system('echo %USERPROFILE%');                    % Get desktop path
             obj.directory = OMAS_system.GetOSPathString([userdir,'\desktop\US18_data']);

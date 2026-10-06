@@ -6,7 +6,7 @@
 
 % ADD THE PROGRAM PATHS
 addpath('environment');
-addpath('objects');  
+addpath(genpath('objects'));  
 addpath('toolboxes');
 addpath('scenarios'); 
 

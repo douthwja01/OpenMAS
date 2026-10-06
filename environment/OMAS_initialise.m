@@ -291,7 +291,7 @@ function [SIM,STLimports]  = ConfigureVisuals(SIM)
 %   local frame.
 
 % ABSOLUTE PATH TO THE OBJECT STL LOCATION
-absPath = strcat(pwd,'\objects\');
+absPath = strcat(pwd,'\objects\models\');
 
 % GENERATE FOR ALL OBJECTS
 STLimports = 0;

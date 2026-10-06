@@ -5,7 +5,7 @@
 % ADD THE PROGRAM PATHS
 clear all; close all; 
 addpath('environment');
-addpath('objects');  
+addpath(genpath('objects'));  
 addpath('scenarios'); 
 
 fprintf('[SETUP]\tAssembling the solar system example.\n');
